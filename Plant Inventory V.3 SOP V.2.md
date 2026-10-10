@@ -273,10 +273,14 @@ away) · `Loss` (died or damaged, not contamination; reason required) ·
 
 **SOP-10 · Fix a mistake** (anyone, for their own entries; reviewers for others)
 - Just saved it wrong (within 10 minutes): use **Undo**.
-- Event should never have existed: **Void** it, with a reason.
+- Event should never have existed: **Void** it, with a reason. If it was one
+  action that made several records (a Subculture with child batches, a Split,
+  a Transfer), the whole action is voided together. If a batch it created
+  already has later events, the app lists them; void those first.
 - Forgot to log something more than 7 days ago: log it today and write the real
   date in the note. A reviewer corrects the date during review.
 - Event happened but a number or code is wrong: add a **Correction**, with a reason.
+  Correcting a Split or Transfer quantity changes both batches together.
 - Plant or batch created by mistake: set it to `Voided` (Admin).
 - Batch closed by mistake: **Undo** within 10 minutes, or ask a reviewer to
   **Void** the Close. The batch reopens.
@@ -371,6 +375,7 @@ its stage's default interval (D-11).
 |---|---|---|
 | V.1 | — | First consolidated SOP |
 | V.2 | 2026-10-10 | Standalone **Cucumber** app (D-01); four roles (D-03); Void / Correction / Undo, no hard deletes (D-07); locations Lab / Nursery (D-14); new stage `A1`, potted = `P4`, stage sort order (D-06, D-15); Protocol plan shelved (D-08); quarantine-by-split (D-02); Zoho vendor copy (D-04); `Candidate` status (T-1); global + per-SKU `min_saleable_qty` (T-2); monthly counts (T-3); Zoho reference text (T-4); clean start (T-5); per-stage subculture intervals (D-11); optional media lot (D-12); online only (D-17); translation-ready (D-16). All §9 TBDs closed. |
+| V.2 (amended) | 2026-10-11 | One action is voided as a whole; refused while a batch it created has later events; Split / Transfer quantity corrections change both batches (U0.2 Q8). SOP-10. |
 | V.2 (amended) | 2026-10-10 | Closing a batch is a `Close` event; a wrong close is voided to reopen; one-standing-batch rule removed (any number of batches per plant per location); new `Split` action; transfers go to a new batch by default; availability sums a plant's batches; pre-orders parked as D-20 (U0.2 Q7). §4, SOP-5, SOP-10, SOP-12, SOP-13, §8. |
 | V.2 (amended) | 2026-10-10 | Duplicate plant names blocked by any non-voided plant, Retired included; case, spaces and quotes ignored; no `???` names; naming standard parked as D-19 (U0.2 Q6). §5 rules 12–13, SOP-1. |
 | V.2 (amended) | 2026-10-10 | Event date can be moved back up to 7 days; older dates fixed by a reviewer's Correction; late entries flagged; counts compared as of their own date (U0.2 Q5). Principle 7, SOP-6, SOP-7, SOP-10. |
