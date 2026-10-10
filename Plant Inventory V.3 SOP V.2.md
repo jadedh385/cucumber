@@ -129,7 +129,7 @@ erDiagram
 |---|---|---|
 | `plants` | one per cultivar | `plt_id`, `genus`, `full_name`, `sku` (nullable, unique), `status`, `source`, `source_note` (nullable), `vendor_id` (nullable), `zoho_ref` (nullable), `min_saleable_qty` (nullable override), `promoted_by`, `promoted_at`, `notes` |
 | `batches` | one per group of plants tracked together (a lab batch, a Nursery arrival, or a split-off group); a plant can have any number at any location | `bat_id`, `plt_id`, `parent_batch_id` (nullable), `location`, `stage` (nullable at Nursery only), `quarantined`, `status` (`Open` / `Closed` / `Voided`), `live_count`*, `created_at`, `closed_at` |
-| `events` | one per action, append-only | `evt_id`, `bat_id`, `action`, `qty_in`, `qty_out`, `media_code`, `media_lot` (nullable, after U3.5), `stage_to`, `staff`, `occurred_at`, `week`*, `reason` (for Void / Correction / Loss), `voids_evt_id` (nullable), `note` |
+| `events` | one per action, append-only | `evt_id`, `bat_id`, `action`, `qty_in`, `qty_out`, `media_code`, `media_lot` (nullable, after U3.5), `stage_to`, `staff`, `occurred_at`, `week`*, `reason` (for Void / Correction / Loss), `voids_evt_id` (nullable), `note`, `entered_via` (`form` / `assistant`, D-21) |
 | `event_reviews` | one per reviewed event, append-only | `evt_id`, `reviewed_by`, `reviewed_at`, `note` |
 | `vendors` | read-only copy of Zoho Books vendors | `zoho_contact_id`, `name`, `active`, `synced_at` |
 
