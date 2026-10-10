@@ -128,7 +128,7 @@ erDiagram
 | Table | Grain | Fields |
 |---|---|---|
 | `plants` | one per cultivar | `plt_id`, `genus`, `full_name`, `sku` (nullable, unique), `status`, `source`, `source_note` (nullable), `vendor_id` (nullable), `zoho_ref` (nullable), `min_saleable_qty` (nullable override), `promoted_by`, `promoted_at`, `notes` |
-| `batches` | one per lab batch, or one standing batch per plant per non-lab location | `bat_id`, `plt_id`, `parent_batch_id` (nullable), `location`, `stage` (nullable at Nursery only), `quarantined`, `status` (`Open` / `Closed` / `Voided`), `live_count`*, `created_at`, `closed_at` |
+| `batches` | one per group of plants tracked together (a lab batch, a Nursery arrival, or a split-off group); a plant can have any number at any location | `bat_id`, `plt_id`, `parent_batch_id` (nullable), `location`, `stage` (nullable at Nursery only), `quarantined`, `status` (`Open` / `Closed` / `Voided`), `live_count`*, `created_at`, `closed_at` |
 | `events` | one per action, append-only | `evt_id`, `bat_id`, `action`, `qty_in`, `qty_out`, `media_code`, `media_lot` (nullable, after U3.5), `stage_to`, `staff`, `occurred_at`, `week`*, `reason` (for Void / Correction / Loss), `voids_evt_id` (nullable), `note` |
 | `event_reviews` | one per reviewed event, append-only | `evt_id`, `reviewed_by`, `reviewed_at`, `note` |
 | `vendors` | read-only copy of Zoho Books vendors | `zoho_contact_id`, `name`, `active`, `synced_at` |
@@ -137,7 +137,7 @@ erDiagram
 from `occurred_at`.
 
 **Event actions:** `Intake` · `Subculture` · `StageChange` · `Count` ·
-`Contamination` · `Quarantine` · `Release` · `Transfer` · `Out` (sold or given
+`Contamination` · `Quarantine` · `Release` · `Transfer` · `Split` · `Close` · `Out` (sold or given
 away) · `Loss` (died or damaged, not contamination; reason required) ·
 `Correction` · `Void`
 
@@ -231,8 +231,10 @@ away) · `Loss` (died or damaged, not contamination; reason required) ·
 
 **SOP-5 · Stage change / transfer** (Tech or above)
 - Use `StageChange` (for example P1 → P2, P2 → A1, A1 → P4) or `Transfer`
-  (Lab → Nursery). A transfer closes the units out of one batch and creates or
-  adds to the batch at the destination.
+  (Lab → Nursery). A transfer moves the units out of one batch into the
+  destination: by default a **new batch**, so plants of different ages stay
+  apart, or an existing open batch of the same plant there if they are
+  physically kept together.
 
 **SOP-6 · Collection count** (Tech or above, **monthly**, T-3)
 - For each Collection batch at the Nursery and in Lab, log a `Count` with the
@@ -276,12 +278,27 @@ away) · `Loss` (died or damaged, not contamination; reason required) ·
   date in the note. A reviewer corrects the date during review.
 - Event happened but a number or code is wrong: add a **Correction**, with a reason.
 - Plant or batch created by mistake: set it to `Voided` (Admin).
+- Batch closed by mistake: **Undo** within 10 minutes, or ask a reviewer to
+  **Void** the Close. The batch reopens.
 
 **SOP-11 · Record a loss** (Tech or above)
 - Units that died or were damaged for a reason **other than contamination**
   (failed hardening off, pests, rot, breakage): log `Loss` with the number of
   units and a reason. Don't use `Contamination` for these, so the contamination
   rate stays accurate.
+
+**SOP-12 · Split a batch** (Tech or above)
+- To treat part of a batch differently (a customer pre-order, a different
+  protocol, multiplication vs growing on), log `Split` with the number of
+  units and a note saying why. The app moves them into a new child batch at
+  the same location and stage; the rest stays in the original.
+
+**SOP-13 · Close a batch** (Tech or above)
+- A batch can only be closed when its count is 0. When an event brings a
+  batch to 0, the app asks "Close this batch?"; confirm if the group is
+  finished. Batches left open at 0 appear on the Supervisor's "empty but
+  open" list. A closed batch never takes new stock; to fix a wrong close,
+  see SOP-10.
 
 ## 7. Roles (D-03)
 
@@ -306,10 +323,10 @@ away) · `Loss` (died or damaged, not contamination; reason required) ·
 
 **Availability**
 ```
-available_to_sell = status = Portfolio
-                AND batch not quarantined
-                AND stage sort order >= P4
-                AND live_count >= min_saleable_qty
+available_to_sell (per plant) = status = Portfolio
+                AND units >= min_saleable_qty
+units             = sum of live_count over the plant's open batches that are
+                    not quarantined AND at stage sort order >= P4     -- Q7
 min_saleable_qty  = plant's own value if set, else the global default   -- T-2
 ```
 
@@ -354,6 +371,7 @@ its stage's default interval (D-11).
 |---|---|---|
 | V.1 | — | First consolidated SOP |
 | V.2 | 2026-10-10 | Standalone **Cucumber** app (D-01); four roles (D-03); Void / Correction / Undo, no hard deletes (D-07); locations Lab / Nursery (D-14); new stage `A1`, potted = `P4`, stage sort order (D-06, D-15); Protocol plan shelved (D-08); quarantine-by-split (D-02); Zoho vendor copy (D-04); `Candidate` status (T-1); global + per-SKU `min_saleable_qty` (T-2); monthly counts (T-3); Zoho reference text (T-4); clean start (T-5); per-stage subculture intervals (D-11); optional media lot (D-12); online only (D-17); translation-ready (D-16). All §9 TBDs closed. |
+| V.2 (amended) | 2026-10-10 | Closing a batch is a `Close` event; a wrong close is voided to reopen; one-standing-batch rule removed (any number of batches per plant per location); new `Split` action; transfers go to a new batch by default; availability sums a plant's batches; pre-orders parked as D-20 (U0.2 Q7). §4, SOP-5, SOP-10, SOP-12, SOP-13, §8. |
 | V.2 (amended) | 2026-10-10 | Duplicate plant names blocked by any non-voided plant, Retired included; case, spaces and quotes ignored; no `???` names; naming standard parked as D-19 (U0.2 Q6). §5 rules 12–13, SOP-1. |
 | V.2 (amended) | 2026-10-10 | Event date can be moved back up to 7 days; older dates fixed by a reviewer's Correction; late entries flagged; counts compared as of their own date (U0.2 Q5). Principle 7, SOP-6, SOP-7, SOP-10. |
 | V.2 (amended) | 2026-10-10 | `qty_contaminated` dropped (contamination recorded once, as events); new `Loss` action and SOP-11; contamination-rate counting rules (U0.2 Q4). §4, SOP-4, SOP-11, §8. |

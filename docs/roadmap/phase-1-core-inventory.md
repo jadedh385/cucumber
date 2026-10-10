@@ -31,13 +31,16 @@ subculture) — depth features follow in Phase 2.
 ### U1.3 · Batches
 - **Size:** M · **Deps:** U1.1 · **Decisions:** D-02, D-14, D-15
 - **Source:** SOP §4 `batches`, SOP-3
-- **Scope:** `Culture` batches (tissue culture, stage required) and `Holding`
-  batches (potted / standing stock, one per plant per location, stage optional),
-  in `Lab` or `Nursery`. Optional `parent_batch_id`. Batch closes when count hits 0
-  or by Owner with reason. Display `<SKU or PLT> · Bnnn`.
-- **Acceptance:** Culture batch requires a stage; Holding batch may omit it;
-  only one open Holding batch per plant per location.
-- **Gate focus:** G1 display-ID rule documented · G2 uniqueness tests.
+- **Scope:** batches in `Lab` (stage required) or `Nursery` (stage optional);
+  any number of open batches per plant per location (U0.2 Q7). Optional
+  `parent_batch_id`. `Split` moves units into a new child batch with a note
+  (SOP-12). Closing is a `Close` event at count 0: the app asks when a batch
+  reaches 0, and voiding the Close reopens it (SOP-13). Display
+  `<SKU or PLT> · Bnnn`.
+- **Acceptance:** Lab batch requires a stage; Nursery batch may omit it; split
+  conserves units; a batch closes only at 0; voiding the Close reopens it;
+  "empty but open" list for the Supervisor.
+- **Gate focus:** G1 display-ID rule documented · G2 split, close and reopen tests.
 
 ### U1.4 · Event logging & live counts
 - **Size:** L · **Deps:** U1.3, U0.7
@@ -66,8 +69,8 @@ subculture) — depth features follow in Phase 2.
 - **Size:** M · **Deps:** U1.4
 - **Source:** SOP-5
 - **Scope:** `StageChange` (e.g. P1 → P2) and `Transfer` between locations;
-  transfer moves units out of one batch and into the destination batch
-  (create or add) atomically.
+  transfer moves units out of one batch and into the destination atomically:
+  a new batch by default, or an existing open batch of the same plant (U0.2 Q7).
 - **Acceptance:** reserved stages are hidden until enabled; transfer conserves
   units (out = in).
 - **Gate focus:** G2 conservation test.
@@ -75,7 +78,7 @@ subculture) — depth features follow in Phase 2.
 ### U1.7 · Collection counts
 - **Size:** S · **Deps:** U1.4 · **Decisions:** T-3, D-15, D-17
 - **Source:** SOP-6
-- **Scope:** count sheet listing Collection plants in Holding batches, grouped by
+- **Scope:** count sheet listing Collection plants' open batches, grouped by
   location (Lab, Nursery); enter physical quantity; app stores the difference
   from the last count.
 - **Acceptance:** difference shown before save; overdue counts listed per the T-3 cadence.
