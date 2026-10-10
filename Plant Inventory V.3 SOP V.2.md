@@ -73,6 +73,8 @@ registered straight into `Collection`.
 
 **Plant source:** `Purchase` | `Gift` | `Propagated` | `Unknown`. Only
 `Purchase` needs a Zoho link and a vendor (picked from the Zoho vendor list).
+Both can be completed after registration, but must be set before the plant is
+promoted to Portfolio.
 Gifts go straight into inventory with no cost record; who gave it goes in a
 free-text source note.
 
@@ -141,13 +143,20 @@ away) · `Correction` · `Void`
 
 ## 5. Business Rules
 
-1. `sku` is set only when `status = Portfolio`, and it must be unique. The genus
-   code must match `genus`.
+1. An `sku` is assigned the first time a plant is promoted to `Portfolio`, and
+   then never changes, is never cleared and is never reused. A `Portfolio` plant
+   must have an SKU; a `Collection` or `Retired` plant keeps the one it has. The
+   genus code must match `genus`. **Only exception:** if the Admin reclassifies
+   the genus, the plant gets a new SKU for the new genus; the old one is kept as
+   a former SKU (still searchable, never reused).
 2. Only the Admin can promote, demote or retire a plant. Each change stamps
    `promoted_by` and `promoted_at`. Moving a `Candidate` to `Collection` happens
    when its first `Intake` is logged (SOP-1).
 3. A `Candidate` plant can't have batches or events.
-4. `source = Purchase` → `zoho_ref` and `vendor_id` are required. Vendors come
+4. `source = Purchase` → `zoho_ref` and `vendor_id` are required **before the
+   plant can be promoted to Portfolio**. They may be missing at registration; the
+   plant then shows on the "Zoho link missing" list until the Admin completes
+   both. Other sources can't have either. Vendors come
    only from the Zoho copy; they can't be created or edited in Cucumber (D-04).
 5. A lab batch created from a subculture must have a `parent_batch_id`.
 6. Every `Lab` batch has a stage (D-15).
@@ -177,13 +186,16 @@ away) · `Correction` · `Void`
 2. If the plant is wanted but not held yet, create it as `Candidate` and stop here.
 3. Otherwise create the `PLT` record (or open the Candidate): genus, full name,
    `source`. Status becomes `Collection`.
-4. If `source = Purchase`, pick the vendor from the Zoho list and record the
-   Zoho expense reference (SOP-8). If `Gift`, note who gave it.
+4. If `source = Purchase`, pick the vendor from the Zoho list. If the seller
+   isn't listed yet, type their name in the source note. The Admin adds the Zoho
+   expense reference later (SOP-8). If `Gift`, note who gave it.
 5. Create its first batch at the location where it is held, and log an `Intake`
    event with the quantity.
 
 **SOP-2 · Promote to Portfolio** (Admin only, at the Admin's judgement)
-1. Open the plant and choose *Promote*. The app proposes the next SKU for that genus.
+1. Open the plant and choose *Promote*. If the plant already has an SKU from an
+   earlier promotion, it is reused; otherwise the app proposes the next SKU for
+   that genus.
 2. Confirm. The app saves the SKU, `promoted_by` and `promoted_at`.
 
 **SOP-3 · Start a lab batch (P0)** (Tech or above)
@@ -219,6 +231,8 @@ away) · `Correction` · `Void`
 - When recording the expense in Zoho Books, type the plant's `PLT-` ID in the
   expense's **reference** field (T-4). Store the Zoho expense reference on the
   plant. Cost per plant is looked up in Zoho, by the Admin only.
+- Weekly, clear the **"Zoho link missing"** list: for each purchased plant, set
+  the vendor (create it in Zoho first if needed) and the expense reference.
 - Receipts sent through **Anemone** follow the same rule: Anemone writes the
   `PLT-` ID into the reference field (D-13).
 
@@ -305,3 +319,5 @@ its stage's default interval (D-11).
 |---|---|---|
 | V.1 | — | First consolidated SOP |
 | V.2 | 2026-10-10 | Standalone **Cucumber** app (D-01); four roles (D-03); Void / Correction / Undo, no hard deletes (D-07); locations Lab / Nursery (D-14); new stage `A1`, potted = `P4`, stage sort order (D-06, D-15); Protocol plan shelved (D-08); quarantine-by-split (D-02); Zoho vendor copy (D-04); `Candidate` status (T-1); global + per-SKU `min_saleable_qty` (T-2); monthly counts (T-3); Zoho reference text (T-4); clean start (T-5); per-stage subculture intervals (D-11); optional media lot (D-12); online only (D-17); translation-ready (D-16). All §9 TBDs closed. |
+| V.2 (amended) | 2026-10-10 | Zoho link for purchases can be completed after registration; required before Portfolio; "Zoho link missing" list (U0.2 Q2). §3, §5 rule 4, SOP-1, SOP-8. |
+| V.2 (amended) | 2026-10-10 | Static SKU: assigned on first promotion, never changed or reused; new SKU only on genus reclassification, old one kept as former SKU (U0.2 Q1). §5 rule 1, SOP-2. |

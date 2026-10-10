@@ -95,8 +95,11 @@ subculture) — depth features follow in Phase 2.
 - **Source:** SOP-8, rule 3, principle 2
 - **Scope:** store `zoho_ref` on plants with `source = Purchase`; Owner-only visibility.
   **No amounts stored.**
-- **Acceptance:** Purchase without `zoho_ref` is rejected (or flagged, per T-4);
-  non-Owner never sees the field in UI or API.
+- **Acceptance:** Purchase without vendor or `zoho_ref` is accepted and listed on
+  "Zoho link missing"; promotion to Portfolio is refused until both are set
+  (U0.2 Q2); non-Owner never sees `zoho_ref` in UI or API.
+- **G0 to settle:** convention when one Zoho expense covers several plants
+  (several `PLT-` IDs in the reference field, or one per line item).
 - **Gate focus:** G4 security review on field-level permission.
 
 ### U1.10 · V.2 data migration
