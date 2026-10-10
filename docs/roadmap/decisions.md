@@ -33,6 +33,7 @@ before the units it blocks can exit **G0**.
 | D-15 | Stage rule inside Lab. SOP says Lab batches need a stage, but old Nursery plants (now Lab) are potted plants, not cultures. | ~~Culture / Holding kind~~ dropped: cultures grow into potted plants, so **potted is a stage** (P4 Growth maturity), not a separate batch kind. Lab batches always have a stage; purchased potted plants enter directly at P4. Collection batches at Nursery may leave stage blank (SOP §3). | U0.2, U1.3, U1.7 | Resolved |
 | D-16 | UI language. | English now. Every screen's text goes through the translation function from day one so Thai can be added later without touching each screen. | U0.10 | Resolved |
 | D-17 | Mobile signal / Wi-Fi at the Nursery (old Land). If unreliable, data entry must work offline and sync later. | **a) Online only.** The Nursery has 24/7 Wi-Fi; each team member's phone hotspot is the backup, for phones and laptops. No offline entry is built. | U0.1, U0.10, U1.7 | Resolved |
+| D-18 | Label printing: when labels arrive and how the app reaches the printer. Today labels are typed and printed one by one. | Open. **Needed before the hosting decision (U0.1):** printer make / model and how it connects (a VPS needs a small print agent in the lab; a lab mini PC can print directly). **Needed at U4.8 G0:** what's on a label today, labels per week, where printing happens (bench PC or phone). Also decide whether U4.8 moves into Phase 1. | U4.5, U4.8; input to U0.1 hosting | Open |
 
 ## Open items carried from SOP §9
 

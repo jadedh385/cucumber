@@ -72,6 +72,7 @@ Mark each cell with the sign-off date (e.g. `10-14`) when the gate passes.
 | U4.5 | QR label printing | M | | · | · | · | · | · | · | · |
 | U4.6 | QR scanning & lookup | M | | · | · | · | · | · | · | · |
 | U4.7 | Document management | M | | · | · | · | · | · | · | · |
+| U4.8 | Culture label workflow | M | D-18 | · | · | · | · | · | · | · |
 | **R4** | **Workflow** | | | | | | | | | · |
 
 ## Phase 5 — Analytics & monitoring

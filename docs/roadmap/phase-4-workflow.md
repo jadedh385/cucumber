@@ -49,6 +49,7 @@
 - **Acceptance:** QR encodes a record ID, not personal or secret data; prints
   correctly on the lab's label printer.
 - **Gate focus:** G5 print test on the actual printer.
+- **Note:** printer integration is shared with [U4.8](#u48--culture-label-workflow) (D-18).
 
 ### U4.6 · QR scanning & lookup
 - **Size:** M · **Deps:** U4.5
@@ -66,3 +67,19 @@
   inline preview; link a doc to a material or plant.
 - **Acceptance:** file type / size validated; preview works for PDF and images.
 - **Gate focus:** G4 security review (uploads).
+
+### U4.8 · Culture label workflow
+- **Size:** M · **Deps:** U0.8, U1.3, U1.5 · **Decisions:** D-18
+- **Source:** Owner request 2026-10-10 (labels were printed one by one, typed by hand)
+- **Scope:** events create the print list: an intake, subculture, quarantine or
+  transfer queues one label per jar for the batch. Print a whole set in one
+  action; reprint with a reason; "unprinted labels" list; label usage and waste
+  per week (quantities only, no cost, SOP §2 principle 2). A label identifies its
+  batch by `BAT-nnnnn` (and QR); other text is printed as it was at print time.
+  Printer integration is shared with U4.5.
+- **Acceptance:** saving a subculture that makes 30 jars queues 30 labels
+  without retyping; a quarantine split queues labels for the moved jars; a
+  reprint without a reason is refused.
+- **Gate focus:** G5 print test on the actual printer, at lab volume.
+- **Placement:** candidate to move into Phase 1 (MVP) so go-live doesn't keep
+  hand-typed labels; decided with D-18.
