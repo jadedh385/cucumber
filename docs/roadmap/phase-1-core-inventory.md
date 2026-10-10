@@ -14,8 +14,9 @@ subculture) — depth features follow in Phase 2.
 - **Scope:** create / view / search plants: genus, full name, source, notes,
   acquisition date. Duplicate check (genus + name) before create. New plants
   start as `Collection`.
-- **Acceptance:** search shows likely duplicates before save; `PLT-` ID assigned;
-  unidentified plants (e.g. `PHL005` "Philodendron ???") are valid.
+- **Acceptance:** search shows likely duplicates before save, Retired plants
+  included; `PLT-` ID assigned; unidentified plants are valid but need a
+  human-readable name, no `???` (U0.2 Q6). Naming rules come from D-19.
 - **Gate focus:** G2 fuzzy duplicate tests · G5 Owner registers 5 real plants.
 
 ### U1.2 · Plant status & SKU promotion
@@ -109,7 +110,8 @@ subculture) — depth features follow in Phase 2.
 - **Scope:** import Product Acquisition, Product Plants, Plant Inventory V.2;
   map statuses; rebuild batches; generate opening `Intake` events; old land and
   nursery stock (≈ 47 Hoya) included. Map V.2 locations per D-14:
-  `Nursery` → `Lab`, `Land` → `Nursery`.
+  `Nursery` → `Lab`, `Land` → `Nursery`. Plants named with `???` (e.g.
+  `PHL005`) are renamed under the D-19 standard before import (U0.2 Q6).
 - **Acceptance:** reconciliation report: every V.2 row is imported, merged, or
   rejected with a reason; counts per SKU match V.2 totals.
 - **Gate focus:** G2 dry-run on a copy, idempotent re-run · G5 Owner signs the

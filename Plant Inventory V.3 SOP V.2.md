@@ -183,12 +183,20 @@ away) · `Loss` (died or damaged, not contamination; reason required) ·
     covers both.
 11. A quarantined batch keeps its count and lineage, but it is excluded from
     availability (§8).
-12. `PHL005` ("Philodendron ???") stays as a valid record until it is identified.
+12. An unidentified plant stays a valid record until it is identified, but
+    it still gets a human-readable name; `???` names are not allowed. The
+    naming standard is still being decided (D-19). `PHL005` ("Philodendron
+    ???") is renamed when V.2 data is migrated.
+13. Two plants can't share the same genus + name. Every plant except a
+    `Voided` one holds its name, Retired included. Case, extra spaces and
+    quote marks are ignored when names are compared.
 
 ## 6. Procedures
 
 **SOP-1 · Register a plant** (Tech or above)
-1. Search existing plants first (genus + name) to avoid duplicates.
+1. Search existing plants first (genus + name) to avoid duplicates. If the
+   plant exists, use that record, even if it is `Retired` (ask the Admin to
+   bring it back). The app refuses a second plant with the same name.
 2. If the plant is wanted but not held yet, create it as `Candidate` and stop here.
 3. Otherwise create the `PLT` record (or open the Candidate): genus, full name,
    `source`. Status becomes `Collection`.
@@ -346,6 +354,7 @@ its stage's default interval (D-11).
 |---|---|---|
 | V.1 | — | First consolidated SOP |
 | V.2 | 2026-10-10 | Standalone **Cucumber** app (D-01); four roles (D-03); Void / Correction / Undo, no hard deletes (D-07); locations Lab / Nursery (D-14); new stage `A1`, potted = `P4`, stage sort order (D-06, D-15); Protocol plan shelved (D-08); quarantine-by-split (D-02); Zoho vendor copy (D-04); `Candidate` status (T-1); global + per-SKU `min_saleable_qty` (T-2); monthly counts (T-3); Zoho reference text (T-4); clean start (T-5); per-stage subculture intervals (D-11); optional media lot (D-12); online only (D-17); translation-ready (D-16). All §9 TBDs closed. |
+| V.2 (amended) | 2026-10-10 | Duplicate plant names blocked by any non-voided plant, Retired included; case, spaces and quotes ignored; no `???` names; naming standard parked as D-19 (U0.2 Q6). §5 rules 12–13, SOP-1. |
 | V.2 (amended) | 2026-10-10 | Event date can be moved back up to 7 days; older dates fixed by a reviewer's Correction; late entries flagged; counts compared as of their own date (U0.2 Q5). Principle 7, SOP-6, SOP-7, SOP-10. |
 | V.2 (amended) | 2026-10-10 | `qty_contaminated` dropped (contamination recorded once, as events); new `Loss` action and SOP-11; contamination-rate counting rules (U0.2 Q4). §4, SOP-4, SOP-11, §8. |
 | V.2 (amended) | 2026-10-10 | Reviews stored in their own append-only table; Admin's own events auto-reviewed; voided events leave the queue (U0.2 Q3). §4, §5 rule 10, SOP-7. |
