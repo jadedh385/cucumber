@@ -128,7 +128,8 @@ erDiagram
 |---|---|---|
 | `plants` | one per cultivar | `plt_id`, `genus`, `full_name`, `sku` (nullable, unique), `status`, `source`, `source_note` (nullable), `vendor_id` (nullable), `zoho_ref` (nullable), `min_saleable_qty` (nullable override), `promoted_by`, `promoted_at`, `notes` |
 | `batches` | one per lab batch, or one standing batch per plant per non-lab location | `bat_id`, `plt_id`, `parent_batch_id` (nullable), `location`, `stage` (nullable at Nursery only), `quarantined`, `status` (`Open` / `Closed` / `Voided`), `live_count`*, `created_at`, `closed_at` |
-| `events` | one per action, append-only | `evt_id`, `bat_id`, `action`, `qty_in`, `qty_out`, `qty_contaminated`, `media_code`, `media_lot` (nullable, after U3.5), `stage_to`, `staff`, `occurred_at`, `week`*, `reason` (for Void / Correction), `voids_evt_id` (nullable), `reviewed_by`, `reviewed_at`, `note` |
+| `events` | one per action, append-only | `evt_id`, `bat_id`, `action`, `qty_in`, `qty_out`, `qty_contaminated`, `media_code`, `media_lot` (nullable, after U3.5), `stage_to`, `staff`, `occurred_at`, `week`*, `reason` (for Void / Correction), `voids_evt_id` (nullable), `note` |
+| `event_reviews` | one per reviewed event, append-only | `evt_id`, `reviewed_by`, `reviewed_at`, `note` |
 | `vendors` | read-only copy of Zoho Books vendors | `zoho_contact_id`, `name`, `active`, `synced_at` |
 
 \* Calculated, never typed: `live_count` is the sum of events. `week` comes
@@ -173,8 +174,11 @@ away) · `Correction` · `Void`
    The only exceptions are anonymising staff personal data on request (PDPA)
    and wiping sandbox data (D-07).
 10. Unreviewed events still count toward totals, but they are flagged until
-    reviewed. **Nobody reviews their own events, except the Admin** (D-03).
-    Voids always go to the review queue.
+    reviewed. **Nobody reviews their own events, except the Admin** (D-03); the
+    Admin's own events are marked reviewed automatically. Reviews are stored
+    separately, so events are never edited. Voids always go to the Admin's
+    review queue; a voided event leaves the queue, and reviewing the Void
+    covers both.
 11. A quarantined batch keeps its count and lineage, but it is excluded from
     availability (§8).
 12. `PHL005` ("Philodendron ???") stays as a valid record until it is identified.
@@ -225,7 +229,10 @@ away) · `Correction` · `Void`
 - **Supervisor** reviews Tech events and corrections.
 - **Admin** reviews Supervisor events and corrections, and any voids.
 - Open the unreviewed-events queue, check entries against reality, then mark
-  them reviewed, or add a `Correction` or `Void` with a reason.
+  them reviewed, or add a `Correction` or `Void` with a reason. Adding a fix
+  marks the original reviewed; the fix itself goes to the Admin's queue.
+- A review can't be undone. If an event was marked reviewed by mistake and is
+  wrong, fix it with a `Correction` or `Void`.
 
 **SOP-8 · Link a purchase to Zoho Books** (Admin)
 - When recording the expense in Zoho Books, type the plant's `PLT-` ID in the
@@ -319,5 +326,6 @@ its stage's default interval (D-11).
 |---|---|---|
 | V.1 | — | First consolidated SOP |
 | V.2 | 2026-10-10 | Standalone **Cucumber** app (D-01); four roles (D-03); Void / Correction / Undo, no hard deletes (D-07); locations Lab / Nursery (D-14); new stage `A1`, potted = `P4`, stage sort order (D-06, D-15); Protocol plan shelved (D-08); quarantine-by-split (D-02); Zoho vendor copy (D-04); `Candidate` status (T-1); global + per-SKU `min_saleable_qty` (T-2); monthly counts (T-3); Zoho reference text (T-4); clean start (T-5); per-stage subculture intervals (D-11); optional media lot (D-12); online only (D-17); translation-ready (D-16). All §9 TBDs closed. |
+| V.2 (amended) | 2026-10-10 | Reviews stored in their own append-only table; Admin's own events auto-reviewed; voided events leave the queue (U0.2 Q3). §4, §5 rule 10, SOP-7. |
 | V.2 (amended) | 2026-10-10 | Zoho link for purchases can be completed after registration; required before Portfolio; "Zoho link missing" list (U0.2 Q2). §3, §5 rule 4, SOP-1, SOP-8. |
 | V.2 (amended) | 2026-10-10 | Static SKU: assigned on first promotion, never changed or reused; new SKU only on genus reclassification, old one kept as former SKU (U0.2 Q1). §5 rule 1, SOP-2. |

@@ -128,5 +128,9 @@ exits · *Gate focus* = unit-specific checks on top of [the standard gates](gate
 - **Scope:** scheduled DB + file backup to a second location; documented restore.
   (Encryption comes in U6.2.)
 - **Acceptance:** restore of last night's backup into a clean staging host succeeds
-  and passes the smoke test.
+  and passes the smoke test **and a post-restore check**: every table in the
+  source exists in the restore, row counts per table match, and
+  `check_projections` passes (U0.2). The same check is run after any host move;
+  the database always moves as one piece (`pg_dump` / `pg_restore`), never
+  table by table.
 - **Gate focus:** G5 timed restore drill; result logged.
