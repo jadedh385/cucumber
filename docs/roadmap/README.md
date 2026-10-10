@@ -120,5 +120,6 @@ A phase passes its release gate when **all its units are at G6** *and*:
 | SOP-6 Collection count | U1.7 |
 | SOP-7 Review | U1.8 |
 | SOP-8 Zoho link | U1.9 |
+| SOP-11 Record a loss | U1.4 |
 | §8 Availability & metrics | U5.1, U5.2 |
 | Migration from V.2 | U1.10 |

@@ -41,7 +41,7 @@ subculture) — depth features follow in Phase 2.
 ### U1.4 · Event logging & live counts
 - **Size:** L · **Deps:** U1.3, U0.7
 - **Source:** SOP §4 `events`, §5 rules 5–7, principle 5
-- **Scope:** log `Intake`, `Count`, `Contamination`, `Out`, `Correction`.
+- **Scope:** log `Intake`, `Count`, `Contamination`, `Out`, `Loss` (SOP-11), `Correction`.
   `live_count` and `week` always calculated. Unreviewed events flagged.
 - **Acceptance:** event that would make `live_count < 0` is rejected with a clear
   message; events can't be edited; `Correction` adjusts totals; week derived
@@ -53,8 +53,9 @@ subculture) — depth features follow in Phase 2.
 - **Size:** M · **Deps:** U1.4
 - **Source:** SOP-4, rule 4; deck 01 "Subculture & Branching"
 - **Scope:** one form: pick parent, units used, number of child batches, media
-  code, stage, contamination found. Creates children with `parent_batch_id` and
-  `Intake` on each, in **one transaction**.
+  code, stage, contaminated thrown away, contaminated kept. Creates children with
+  `parent_batch_id` and `Intake` on each, in **one transaction**; contamination
+  and quarantine are written as separate operations (U0.2 Q4).
 - **Acceptance:** all-or-nothing (a failure creates no partial children);
   contaminated units leave the parent; parent can't go negative.
 - **Gate focus:** G2 transaction-rollback test · G5 Staff runs a real

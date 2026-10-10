@@ -128,7 +128,7 @@ erDiagram
 |---|---|---|
 | `plants` | one per cultivar | `plt_id`, `genus`, `full_name`, `sku` (nullable, unique), `status`, `source`, `source_note` (nullable), `vendor_id` (nullable), `zoho_ref` (nullable), `min_saleable_qty` (nullable override), `promoted_by`, `promoted_at`, `notes` |
 | `batches` | one per lab batch, or one standing batch per plant per non-lab location | `bat_id`, `plt_id`, `parent_batch_id` (nullable), `location`, `stage` (nullable at Nursery only), `quarantined`, `status` (`Open` / `Closed` / `Voided`), `live_count`*, `created_at`, `closed_at` |
-| `events` | one per action, append-only | `evt_id`, `bat_id`, `action`, `qty_in`, `qty_out`, `qty_contaminated`, `media_code`, `media_lot` (nullable, after U3.5), `stage_to`, `staff`, `occurred_at`, `week`*, `reason` (for Void / Correction), `voids_evt_id` (nullable), `note` |
+| `events` | one per action, append-only | `evt_id`, `bat_id`, `action`, `qty_in`, `qty_out`, `media_code`, `media_lot` (nullable, after U3.5), `stage_to`, `staff`, `occurred_at`, `week`*, `reason` (for Void / Correction / Loss), `voids_evt_id` (nullable), `note` |
 | `event_reviews` | one per reviewed event, append-only | `evt_id`, `reviewed_by`, `reviewed_at`, `note` |
 | `vendors` | read-only copy of Zoho Books vendors | `zoho_contact_id`, `name`, `active`, `synced_at` |
 
@@ -137,7 +137,8 @@ from `occurred_at`.
 
 **Event actions:** `Intake` · `Subculture` · `StageChange` · `Count` ·
 `Contamination` · `Quarantine` · `Release` · `Transfer` · `Out` (sold or given
-away) · `Correction` · `Void`
+away) · `Loss` (died or damaged, not contamination; reason required) ·
+`Correction` · `Void`
 
 > Field names, types and the exact shape of `Void` and `Quarantine` events are
 > finalised in U0.2 (D-05). The table above is the agreed shape, not the final schema.
@@ -215,6 +216,9 @@ away) · `Correction` · `Void`
 3. Contaminated units that are **thrown away**: log a `Contamination` event (the
    units are removed from the batch).
 4. Contaminated units that are **kept**: quarantine them (SOP-9).
+5. Steps 1, 3 and 4 are one form in the app ("contaminated, thrown away" and
+   "contaminated, kept" fields). Contaminated units are entered only there,
+   never as a separate number on the subculture.
 
 **SOP-5 · Stage change / transfer** (Tech or above)
 - Use `StageChange` (for example P1 → P2, P2 → A1, A1 → P4) or `Transfer`
@@ -258,6 +262,12 @@ away) · `Correction` · `Void`
 - Event happened but a number or code is wrong: add a **Correction**, with a reason.
 - Plant or batch created by mistake: set it to `Voided` (Admin).
 
+**SOP-11 · Record a loss** (Tech or above)
+- Units that died or were damaged for a reason **other than contamination**
+  (failed hardening off, pests, rot, breakage): log `Loss` with the number of
+  units and a reason. Don't use `Contamination` for these, so the contamination
+  rate stays accurate.
+
 ## 7. Roles (D-03)
 
 | Role | Who | Summary |
@@ -293,9 +303,12 @@ its stage's default interval (D-11).
 
 **Metrics** (all come from events + lineage, so no extra data entry):
 - Multiplication factor per SKU per cycle
-- Contamination rate by SKU / media / staff / week (including quarantined units)
+- Contamination rate by SKU / media / staff / week (including quarantined units).
+  Counts `Quarantine` events plus `Contamination` on batches not under
+  quarantine, so no unit is counted twice. Media, staff and week come from the
+  batch's own `Intake`. `Loss` is not contamination.
 - Media effectiveness by media code
-- Acclimatization survival rate (A1 → P4)
+- Acclimatization survival rate (A1 → P4), with losses by reason
 - Days in stage, stage conversion, weeks-to-saleable
 - Weekly lab output
 
@@ -326,6 +339,7 @@ its stage's default interval (D-11).
 |---|---|---|
 | V.1 | — | First consolidated SOP |
 | V.2 | 2026-10-10 | Standalone **Cucumber** app (D-01); four roles (D-03); Void / Correction / Undo, no hard deletes (D-07); locations Lab / Nursery (D-14); new stage `A1`, potted = `P4`, stage sort order (D-06, D-15); Protocol plan shelved (D-08); quarantine-by-split (D-02); Zoho vendor copy (D-04); `Candidate` status (T-1); global + per-SKU `min_saleable_qty` (T-2); monthly counts (T-3); Zoho reference text (T-4); clean start (T-5); per-stage subculture intervals (D-11); optional media lot (D-12); online only (D-17); translation-ready (D-16). All §9 TBDs closed. |
+| V.2 (amended) | 2026-10-10 | `qty_contaminated` dropped (contamination recorded once, as events); new `Loss` action and SOP-11; contamination-rate counting rules (U0.2 Q4). §4, SOP-4, SOP-11, §8. |
 | V.2 (amended) | 2026-10-10 | Reviews stored in their own append-only table; Admin's own events auto-reviewed; voided events leave the queue (U0.2 Q3). §4, §5 rule 10, SOP-7. |
 | V.2 (amended) | 2026-10-10 | Zoho link for purchases can be completed after registration; required before Portfolio; "Zoho link missing" list (U0.2 Q2). §3, §5 rule 4, SOP-1, SOP-8. |
 | V.2 (amended) | 2026-10-10 | Static SKU: assigned on first promotion, never changed or reused; new SKU only on genus reclassification, old one kept as former SKU (U0.2 Q1). §5 rule 1, SOP-2. |
