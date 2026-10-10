@@ -20,9 +20,13 @@ suppliers, storage locations. Prices stay in Zoho Books (SOP principle 2).
 ### U3.2 · Supplier & contact directory
 - **Size:** S · **Deps:** U0.6 · **Decisions:** D-04
 - **Source:** deck 02 "Supplier Contacts"; SOP §1 (no CRM)
-- **Scope:** vendors (and customers only if D-04 = b): name, type, contact, notes.
-- **Acceptance:** no price or payment fields exist.
-- **Gate focus:** G4 personal data stored only as decided.
+- **Scope:** read-only, one-way copy of the **Zoho Books vendor list** (D-04),
+  keyed by Zoho contact ID. Staff pick vendors; nobody creates or edits them in
+  Cucumber. No customers.
+- **Acceptance:** no price or payment fields exist; no create/edit screens for
+  vendors; a vendor renamed in Zoho shows the new name after the next sync.
+- **Gate focus:** G4 personal data stored only as decided; Zoho API token kept
+  out of the code.
 
 ### U3.3 · Materials & chemical lots
 - **Size:** L · **Deps:** U3.1, U3.2

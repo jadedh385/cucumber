@@ -47,7 +47,7 @@ Mark each cell with the sign-off date (e.g. `10-14`) when the gate passes.
 | U2.3 | Lineage tree viewer | M | | · | · | · | · | · | · | · |
 | U2.4 | Photos & attachments | M | | · | · | · | · | · | · | · |
 | U2.5 | Acclimatization | M | D-06 | · | · | · | · | · | · | · |
-| U2.6 | Vessel tracking *(conditional)* | L | D-02 | · | · | · | · | · | · | · |
+| U2.6 | ~~Vessel tracking~~ **Won't Do** (D-02) | L | | — | — | — | — | — | — | — |
 | **R2** | **Lab depth** | | | | | | | | | · |
 
 ## Phase 3 — Media, materials & locations
@@ -55,7 +55,7 @@ Mark each cell with the sign-off date (e.g. `10-14`) when the gate passes.
 | Unit | Name | Size | Blocked by | G0 | G1 | G2 | G3 | G4 | G5 | G6 |
 |---|---|:-:|---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
 | U3.1 | Storage location hierarchy | M | | · | · | · | · | · | · | · |
-| U3.2 | Supplier & contacts | S | D-04 | · | · | · | · | · | · | · |
+| U3.2 | Zoho vendor copy (read-only) | S | | · | · | · | · | · | · | · |
 | U3.3 | Materials & chemical lots | L | | · | · | · | · | · | · | · |
 | U3.4 | Media formulation templates | M | | · | · | · | · | · | · | · |
 | U3.5 | Media batch preparation | L | D-12 | · | · | · | · | · | · | · |
@@ -67,7 +67,7 @@ Mark each cell with the sign-off date (e.g. `10-14`) when the gate passes.
 |---|---|:-:|---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
 | U4.1 | Tasks & calendar | M | | · | · | · | · | · | · | · |
 | U4.2 | Auto subculture tasks | S | D-11 | · | · | · | · | · | · | · |
-| U4.3 | Protocol definitions | M | D-08 | · | · | · | · | · | · | · |
+| U4.3 | Protocol definitions | M | | · | · | · | · | · | · | · |
 | U4.4 | Protocol execution runner | L | | · | · | · | · | · | · | · |
 | U4.5 | QR label printing | M | | · | · | · | · | · | · | · |
 | U4.6 | QR scanning & lookup | M | | · | · | · | · | · | · | · |

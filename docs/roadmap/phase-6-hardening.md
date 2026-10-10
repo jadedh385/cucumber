@@ -2,7 +2,9 @@
 
 **Goal:** deck section *05*: 2FA, encrypted backups, exports, customization,
 sandbox, operational hardening.
-If D-10 says the app is on the public internet, **U6.1 and U6.6 move into R1**.
+D-10 (Resolved 2026-10-09): the app is reachable over the internet behind a
+Cloudflare Tunnel + Access gate, so U6.1 and U6.6 stay in this phase. If the app
+is ever exposed **without** an access gate, **U6.1 and U6.6 move into R1**.
 
 **Release gate:** [R6](README.md#phase-release-gates)
 

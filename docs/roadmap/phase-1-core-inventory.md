@@ -82,10 +82,12 @@ subculture) — depth features follow in Phase 2.
 ### U1.8 · Review queue & corrections
 - **Size:** M · **Deps:** U1.4, U0.6
 - **Source:** SOP-7, rule 7
-- **Scope:** queue of unreviewed events, filters by week / staff / batch; mark
-  reviewed (single + bulk); add `Correction` from the queue.
-- **Acceptance:** reviewed events stamp `reviewed_by` / `reviewed_at`; only roles
-  per D-03 can review; unreviewed events still count toward totals.
+- **Scope:** queue of unreviewed events **and voids** (D-07), filters by week /
+  staff / batch; mark reviewed (single + bulk); add `Correction` from the queue.
+- **Acceptance:** reviewed events stamp `reviewed_by` / `reviewed_at`; only Admin
+  and Supervisor can review (D-03); a Supervisor's own events and corrections
+  appear only in the Owner's queue and can't be reviewed by that Supervisor;
+  unreviewed events still count toward totals.
 - **Gate focus:** G5 Owner does a weekly review on a week of real data.
 
 ### U1.9 · Zoho Books reference link

@@ -21,6 +21,10 @@ exits · *Gate focus* = unit-specific checks on top of [the standard gates](gate
   self-hosting, mobile-responsive web, transactional DB with constraints.
 - **Gate focus:** G1 compare ≥ 2 options with a short spike each · G5 spike app
   deployed on the target host.
+- **ADR:** [ADR-0001 Stack selection](adr/0001-stack-selection.md). Stack decided
+  2026-10-09; D-10 Resolved (Cloudflare Access gate); D-17 Resolved (online only);
+  hosting and file storage still open. Spikes compare
+  hosting (VPS vs lab mini PC).
 
 ### U0.2 · Domain model v1
 - **Size:** L · **Deps:** U0.1 · **Decisions:** D-02, D-05, D-07, D-15
@@ -41,7 +45,8 @@ exits · *Gate focus* = unit-specific checks on top of [the standard gates](gate
 
 ### U0.4 · Environments & self-hosted deployment
 - **Size:** M · **Deps:** U0.3 · **Decisions:** D-10
-- **Scope:** dev / staging / production; containerized deploy; secrets via
+- **Scope:** dev / staging / production; containerized deploy; remote access via
+  Cloudflare Tunnel + Access (D-10), no open inbound ports; secrets via
   environment variables; startup check that required secrets are present;
   feature flags.
 - **Acceptance:** one command deploys to staging; app refuses to start with a
@@ -66,22 +71,25 @@ exits · *Gate focus* = unit-specific checks on top of [the standard gates](gate
 |---|:-:|:-:|:-:|:-:|
 | Register plant, create batch, log events | ✅ | ✅ | ✅ | — |
 | Promote / demote / retire plant, assign SKU | ✅ | — | — | — |
-| Review events, add corrections | ✅ | per D-03 | — | — |
+| Review events, add corrections | ✅ | ✅ except own events (D-03) | — | — |
 | Edit reference lists | ✅ | — | — | — |
 | See Zoho references | ✅ | — | — | — |
 | View dashboards | ✅ | ✅ | ✅ | ✅ |
 | Manage users | ✅ | — | — | — |
 
-- **Acceptance:** every endpoint has a permission test for each role (allowed and denied).
+- **Acceptance:** every endpoint has a permission test for each role (allowed and denied);
+  a Supervisor can't review or correct an event they logged (D-03).
 - **Gate focus:** G2 role × endpoint test matrix generated, not hand-written · G4 security review.
 
 ### U0.7 · Audit trail & append-only event store
 - **Size:** M · **Deps:** U0.2, U0.5 · **Decisions:** D-07
 - **Source:** SOP §2.5, §5.6; deck 03 "Audit Trail"
 - **Scope:** every write records user, timestamp, before/after. Event table is
-  insert-only at the DB level. Archive / retire / deactivate actions require a reason.
-- **Acceptance:** an UPDATE or DELETE on events fails at the DB; an archive
-  without a reason is rejected; audit rows can't be edited by any role.
+  insert-only at the DB level. Archive / retire / deactivate / **void** actions
+  require a reason. Void and 10-minute Undo per D-07; staff anonymisation on request.
+- **Acceptance:** an UPDATE or DELETE on events fails at the DB; an archive or
+  void without a reason is rejected; Undo is refused after 10 minutes or for
+  another user's event; audit rows can't be edited by any role.
 - **Gate focus:** G2 tests that try to mutate events through the API **and** raw SQL · G4 security review.
 
 ### U0.8 · ID sequence service
@@ -99,8 +107,9 @@ exits · *Gate focus* = unit-specific checks on top of [the standard gates](gate
 - **Scope:** Owner-editable lists: stages (codes locked, labels editable),
   media codes, locations (`Lab`, `Nursery` per D-14), genus codes, event actions
   (fixed). Items deactivate, never delete.
-- **Acceptance:** stage codes `P0–P4, T1, C0` can't be renamed (shared with
-  Protocol Tracking plan); deactivated item hidden from dropdowns, still shown on history.
+- **Acceptance:** stage codes `P0–P4, A1, T1, C0` can't be renamed (events
+  reference them); each stage has a sort order, with A1 between P2 and P4 (D-06);
+  deactivated item hidden from dropdowns, still shown on history.
 - **Gate focus:** G5 Owner edits a media list on a phone.
 
 ### U0.10 · App shell & UI kit

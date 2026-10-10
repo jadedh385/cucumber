@@ -41,6 +41,7 @@ flowchart LR
 | Audit events listed: what gets written to the audit trail | Design note |
 | Validation rules and error messages listed | Design note |
 | No conflict with the fixed principles (SOP §2) | Reviewer checklist |
+| Business rules and permission checks live in services; views are thin; templates only decide what is shown ([ADR-0001](adr/0001-stack-selection.md#architecture-rule-thin-views-rules-in-services)) | Design note |
 
 **Sign-off:** Owner + architect review.
 

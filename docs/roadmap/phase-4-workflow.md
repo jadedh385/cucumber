@@ -24,11 +24,12 @@
 
 ### U4.3 · Protocol definitions
 - **Size:** M · **Deps:** U0.9, U3.4 · **Decisions:** D-08
-- **Source:** *Protocol Tracking System Plan V.1*
+- **Source:** deck 03; Cucumber's own design (the *Protocol Tracking System
+  Plan V.1* is shelved, D-08)
 - **Scope:** versioned protocols: ordered steps, data fields per step, wait
   timers, which steps need verification.
-- **Acceptance:** uses the shared stage and media vocabulary; editing creates a new version.
-- **Gate focus:** G0 read and align with the Protocol Tracking plan first.
+- **Acceptance:** uses Cucumber's stage and media lists (U0.9); editing creates a new version.
+- **Gate focus:** G0 short design note for the protocol model, reviewed by the Owner.
 
 ### U4.4 · Protocol execution runner
 - **Size:** L · **Deps:** U4.3, U1.4

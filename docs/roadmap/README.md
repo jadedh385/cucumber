@@ -2,7 +2,7 @@
 
 **Status:** Draft v1.1 · 2026-10-09 · Owner: Jade
 **Inputs:** *Plant Inventory Features Overview* (Google Slides, the feature scope)
-and [Plant Inventory V.3 SOP V.1](../../Plant%20Inventory%20V.3%20SOP%20V.1.md)
+and [Plant Inventory V.3 SOP V.2](../../Plant%20Inventory%20V.3%20SOP%20V.2.md)
 (the domain rules). Where they disagree, see [decisions.md](decisions.md).
 
 **Names:** *Cucumber* is this app. *Anemone* is the separate TypeScript app that
@@ -60,7 +60,7 @@ flowchart LR
     P2 --> P4[Phase 4<br/>Workflow]
     P3 --> P4
     R0 --> P6[Phase 6<br/>Hardening]
-    P6 -. "if D-10 = public:<br/>U6.1, U6.6 before R1" .-> R1
+    P6 -. "if public without<br/>access gate (D-10):<br/>U6.1, U6.6 before R1" .-> R1
 ```
 
 - **Critical path to MVP:** U0.1 → U0.2 → U0.7 → U1.1 → U1.3 → U1.4 → U1.5 / U1.6 → U1.10 → R1.
@@ -75,7 +75,7 @@ A phase passes its release gate when **all its units are at G6** *and*:
 | Gate | Extra criteria |
 |---|---|
 | **R0 · Platform ready** | Phase-0 decisions Resolved · CI blocks merges below 80 % coverage · staging + production deployed · restore drill passed · permission matrix tested for all 4 roles |
-| **R1 · MVP go-live** | V.2 migration reconciliation signed by Owner · **1-week parallel run** (V.2 and V.3 totals match) · staff trained on staging · V.2 sheets set read-only · D-10 Resolved, and if public, U6.1 + U6.6 released · full E2E suite green |
+| **R1 · MVP go-live** | V.2 migration reconciliation signed by Owner · **1-week parallel run** (V.2 and V.3 totals match) · staff trained on staging · V.2 sheets set read-only · Cloudflare Access gate in place (D-10); if public **without** an access gate, U6.1 + U6.6 released · full E2E suite green |
 | **R2 · Lab depth** | Lineage tree verified on migrated data · subculture alerts match lab reality for 2 weeks |
 | **R3 · Media & materials** | Every active media code has a template · traceability demo: plant batch → media lot → chemical lot |
 | **R4 · Workflow** | One full protocol run end to end, started from a QR scan · labels printed for all active batches |

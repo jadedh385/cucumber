@@ -48,8 +48,7 @@ lineage trees, photos, acclimatization.
 - **Acceptance:** survival rate calculated from events; transfer conserves units.
 - **Gate focus:** G5 a real tray tracked for one full cycle.
 
-### U2.6 · Vessel tracking *(conditional)*
+### U2.6 · Vessel tracking — **Won't Do**
 - **Size:** L · **Deps:** U1.3 · **Decisions:** D-02
-- **Scope:** only if D-02 = (b). Individual vessels inside batches, per-vessel
-  status. Otherwise this unit is **closed as Won't Do** at G0.
-- **Gate focus:** G0 confirms D-02 before any work.
+- **Status:** closed. D-02 chose batch-only tracking; contamination is handled by
+  splitting contaminated vessels into a quarantined child batch (U1.5 / U2.1).
