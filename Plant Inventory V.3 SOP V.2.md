@@ -41,7 +41,8 @@ to a LINE photo to manual retyping, which introduced errors.
    or a **Correction**, always with a reason (D-07).
 6. **Portfolio = intent, availability = calculated.** Nobody types "available".
 7. **Enter once, in the app.** Coded fields use dropdowns, and the date and
-   week are filled in automatically.
+   week are filled in automatically. The date can be moved back up to 7 days
+   for work logged late, never forward.
 8. **Online only.** Every site has Wi-Fi; staff phone hotspots are the backup.
    There is no offline entry (D-17).
 9. **English first, Thai-ready.** All screen text is translatable so Thai can be
@@ -227,11 +228,15 @@ away) · `Loss` (died or damaged, not contamination; reason required) ·
 
 **SOP-6 · Collection count** (Tech or above, **monthly**, T-3)
 - For each Collection batch at the Nursery and in Lab, log a `Count` with the
-  physical quantity. The app records the difference from the last count.
+  physical quantity. The app records the difference from the batch's total on
+  the count date (so a count entered a day or two late is still right).
 
 **SOP-7 · Review** (weekly)
 - **Supervisor** reviews Tech events and corrections.
 - **Admin** reviews Supervisor events and corrections, and any voids.
+- Entries logged more than a day after the work are flagged "entered late";
+  check the date. If a note gives an older real date, fix it with a
+  `Correction` (reason "wrong date").
 - Open the unreviewed-events queue, check entries against reality, then mark
   them reviewed, or add a `Correction` or `Void` with a reason. Adding a fix
   marks the original reviewed; the fix itself goes to the Admin's queue.
@@ -259,6 +264,8 @@ away) · `Loss` (died or damaged, not contamination; reason required) ·
 **SOP-10 · Fix a mistake** (anyone, for their own entries; reviewers for others)
 - Just saved it wrong (within 10 minutes): use **Undo**.
 - Event should never have existed: **Void** it, with a reason.
+- Forgot to log something more than 7 days ago: log it today and write the real
+  date in the note. A reviewer corrects the date during review.
 - Event happened but a number or code is wrong: add a **Correction**, with a reason.
 - Plant or batch created by mistake: set it to `Voided` (Admin).
 
@@ -339,6 +346,7 @@ its stage's default interval (D-11).
 |---|---|---|
 | V.1 | — | First consolidated SOP |
 | V.2 | 2026-10-10 | Standalone **Cucumber** app (D-01); four roles (D-03); Void / Correction / Undo, no hard deletes (D-07); locations Lab / Nursery (D-14); new stage `A1`, potted = `P4`, stage sort order (D-06, D-15); Protocol plan shelved (D-08); quarantine-by-split (D-02); Zoho vendor copy (D-04); `Candidate` status (T-1); global + per-SKU `min_saleable_qty` (T-2); monthly counts (T-3); Zoho reference text (T-4); clean start (T-5); per-stage subculture intervals (D-11); optional media lot (D-12); online only (D-17); translation-ready (D-16). All §9 TBDs closed. |
+| V.2 (amended) | 2026-10-10 | Event date can be moved back up to 7 days; older dates fixed by a reviewer's Correction; late entries flagged; counts compared as of their own date (U0.2 Q5). Principle 7, SOP-6, SOP-7, SOP-10. |
 | V.2 (amended) | 2026-10-10 | `qty_contaminated` dropped (contamination recorded once, as events); new `Loss` action and SOP-11; contamination-rate counting rules (U0.2 Q4). §4, SOP-4, SOP-11, §8. |
 | V.2 (amended) | 2026-10-10 | Reviews stored in their own append-only table; Admin's own events auto-reviewed; voided events leave the queue (U0.2 Q3). §4, §5 rule 10, SOP-7. |
 | V.2 (amended) | 2026-10-10 | Zoho link for purchases can be completed after registration; required before Portfolio; "Zoho link missing" list (U0.2 Q2). §3, §5 rule 4, SOP-1, SOP-8. |

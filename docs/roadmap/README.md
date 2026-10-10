@@ -35,7 +35,7 @@ Every unit's G1 design is checked against these:
 4. Batch is the tracking unit — lineage via `parent_batch_id`.
 5. Events are append-only — fix mistakes with `Correction` events.
 6. Availability is calculated, never typed.
-7. Enter once — dropdowns for coded fields; date and week automatic.
+7. Enter once — dropdowns for coded fields; date and week automatic (date may be moved back up to 7 days).
 
 ## Phases
 
