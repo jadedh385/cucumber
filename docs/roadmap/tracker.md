@@ -10,7 +10,7 @@ Mark each cell with the sign-off date (e.g. `10-14`) when the gate passes.
 | Unit | Name | Size | Blocked by | G0 | G1 | G2 | G3 | G4 | G5 | G6 |
 |---|---|:-:|---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
 | U0.1 | Decisions & stack | M | D-01, D-10, D-17 | · | · | · | · | · | · | · |
-| U0.2 | Domain model v1 | L | D-02, D-05, D-07, D-15 | ▶ | · | · | · | · | · | · |
+| U0.2 | Domain model v1 | L | D-02, D-05, D-07, D-15 | 10-11 | ▶ | · | · | · | · | · |
 | U0.3 | Repo, CI, test harness | M | | · | · | · | · | · | · | · |
 | U0.4 | Environments & deploy | M | D-10 | · | · | · | · | · | · | · |
 | U0.5 | Authentication | M | | · | · | · | · | · | · | · |
@@ -105,4 +105,5 @@ Record every failed gate and every sign-off with notes.
 
 | Date | Unit / Gate | Result | Notes / sent back to | Signed by |
 |---|---|---|---|---|
-| | | | | |
+| 2026-10-11 | U0.2 / G0 | Passed | Spec signed off; Q1–Q8 answered; D-05 Resolved. Size L confirmed, not split | Jade |
+| 2026-10-11 | U0.2 / G1 | Owner approved | Design note approved; G1 passes after the architect review | Jade |
