@@ -22,9 +22,10 @@ exits · *Gate focus* = unit-specific checks on top of [the standard gates](gate
 - **Gate focus:** G1 compare ≥ 2 options with a short spike each · G5 spike app
   deployed on the target host.
 - **ADR:** [ADR-0001 Stack selection](adr/0001-stack-selection.md). Stack decided
-  2026-10-09; D-10 Resolved (Cloudflare Access gate); D-17 Resolved (online only);
-  hosting and file storage still open. Spikes compare
-  hosting (VPS vs lab mini PC).
+  2026-10-09; D-10 Resolved (Cloudflare Access gate); D-17 Resolved (online only).
+  Hosting (Singapore VPS) and file storage (local disk, R2 later) decided
+  2026-10-11. Spikes compare UI kits (daisyUI vs Basecoat); the winner is
+  deployed on the VPS for G5.
 
 ### U0.2 · Domain model v1
 - **Size:** L · **Deps:** U0.1 · **Decisions:** D-02, D-05, D-07, D-15

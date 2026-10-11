@@ -9,7 +9,7 @@ Mark each cell with the sign-off date (e.g. `10-14`) when the gate passes.
 
 | Unit | Name | Size | Blocked by | G0 | G1 | G2 | G3 | G4 | G5 | G6 |
 |---|---|:-:|---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
-| U0.1 | Decisions & stack | M | D-01, D-10, D-17 | · | · | · | · | · | · | · |
+| U0.1 | Decisions & stack | M | D-01, D-10, D-17 | ▶ | · | · | · | · | · | · |
 | U0.2 | Domain model v1 | L | D-02, D-05, D-07, D-15 | 10-11 | ▶ | · | · | · | · | · |
 | U0.3 | Repo, CI, test harness | M | | · | · | · | · | · | · | · |
 | U0.4 | Environments & deploy | M | D-10 | · | · | · | · | · | · | · |

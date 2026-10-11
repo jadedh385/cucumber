@@ -1,9 +1,8 @@
 # ADR-0001 · Stack selection
 
 **Unit:** [U0.1](../phase-0-foundations.md#u01--decision-register--stack-selection)
-**Status:** Accepted for language, framework, front end and database ·
-hosting and file storage still **Open** (see [Open items](#open-items))
-**Date:** 2026-10-09 · **Decided by:** Jade (Owner)
+**Status:** Accepted · UI kit chosen by the G1 spike (see [Open items](#open-items))
+**Date:** 2026-10-09, hosting and file storage 2026-10-11 · **Decided by:** Jade (Owner)
 **Resolves:** [D-01](../decisions.md#conflicts-between-sop-and-deck),
 [D-10](../decisions.md#conflicts-between-sop-and-deck),
 [D-17](../decisions.md#added-2026-10-09)
@@ -23,6 +22,9 @@ hosting and file storage still **Open** (see [Open items](#open-items))
 | Deploy | Docker Compose, same setup on any host |
 | Network access | Internet-reachable through **Cloudflare Tunnel + Access** (D-10); no open inbound ports |
 | Connectivity | **Online only** (D-17): Nursery 24/7 Wi-Fi, staff phone hotspots as backup; no offline mode |
+| Hosting | **Cloud VPS in Singapore** (about US$5–15/month); provider picked at G1. Can move to a lab machine later (see [Hosting](#hosting)) |
+| File storage | **Local disk on the VPS behind django-storages**; move to Cloudflare R2 by a settings change when photo volume grows |
+| Label printing | **No app-to-printer link for now** (D-18): Cucumber lists what to print; staff print from the phone app |
 
 ## Context
 
@@ -172,34 +174,71 @@ Graphene-Django is not recommended (older, less maintained).
 - ⚠️ The Django admin bypasses services, so append-only and other critical
   rules must also be enforced in the database.
 
+## Hosting
+
+Decided 2026-10-11.
+
+| | **A) Cloud VPS, Singapore** (chosen) | B) Lab mini PC via Cloudflare Tunnel | C) Hosted platform |
+|---|---|---|---|
+| Owner effort | Lowest: no hardware, provider handles power and network | UPS, disk health, physical access | Low, but less control |
+| Lab power or internet outage | Remote users unaffected | Everyone cut off | Unaffected |
+| Label printing | Not affected (no printer link, D-18) | Not affected | Not affected |
+| Cost | About US$5–15/month | Hardware once + electricity | Usually higher at this size |
+| Fit with Docker Compose | ✅ | ✅ | Weaker |
+
+Chosen because the Owner wants to spend as little time as possible on
+maintenance. Lab outages stop mattering for remote staff. D-18 no longer
+affects this choice, because the app won't drive the printer.
+
+**Moving to a lab machine later**, if that would cut costs: the same Docker
+Compose file runs there. Restore the latest backup (U0.11), point the
+Cloudflare Tunnel at the new machine, and switch off the VPS. Staff URLs stay
+the same and no router ports need opening. Before moving, the lab machine needs
+a UPS and off-site backups.
+
+**Provider** is picked at G1 by these checks: Singapore region, automatic
+snapshots, Docker support, monthly price, and a plain-language control panel.
+
+## File storage
+
+Decided 2026-10-11. Photo volume is unknown, so files start on the VPS disk
+behind **django-storages**. Moving to Cloudflare R2 later needs a settings
+change plus a one-off copy of existing files, with no code changes. Uploaded
+files go into the backup with the database (U0.11). Revisit when photos pass
+about 10 GB or the disk is 70% full.
+
+## Personal data
+
+Personal data is limited to staff accounts (name, email, role), so Thai PDPA
+impact is small. No customer data (D-04).
+
 ## Open items
 
-U0.1 can't exit G0 until these are closed.
-
-| Item | Options | Depends on |
+| Item | Options | Decided by |
 |---|---|---|
-| Hosting | A) Cloud VPS in Singapore, about US$5–15/month · B) Mini PC in the lab via Cloudflare Tunnel (needs a UPS and off-site backups; a lab power or internet outage cuts remote users off) · C) Hosted platform (weaker fit for self-hosting) | Who maintains the server; tolerance for lab outages |
-| File storage | Local disk via django-storages to start, or Cloudflare R2 / Backblaze B2 from day one | Expected photo volume |
-| UI kit | daisyUI, Basecoat, or another Tailwind kit | Spike on the lab phone |
-
-Also record in this ADR: personal data is limited to staff accounts, so Thai
-PDPA impact is small.
+| UI kit | daisyUI, Basecoat, or another Tailwind kit | G1 spike on the lab phone |
+| VPS provider | Any that passes the checks under [Hosting](#hosting) | G1 |
 
 ## Spikes (U0.1 / G1)
 
 The language spike was skipped: Django was chosen on readability and built-in
-features. The required two spikes compare **hosting** instead:
+features. Hosting was decided on maintenance effort, so the two spikes now
+compare **UI kits**:
 
-1. Same tiny Django app deployed on a **VPS** and on a **lab mini PC**.
-2. Each spike includes: log in, record one event that can't be edited
-   afterwards (blocked at the database), and one screen styled with Tailwind
-   + the chosen kit, checked on the actual lab phone.
+1. The same tiny Django app styled with **daisyUI** and with **Basecoat**.
+2. Each version includes: log in, record one event that can't be edited
+   afterwards (blocked at the database), and one data-entry screen, checked
+   one-handed on the actual lab phone.
+
+The winner is deployed on the VPS behind Cloudflare Tunnel + Access for **G5**.
 
 ## Rejected or deferred
 
 | Option | Status | Revisit when |
 |---|---|---|
 | Build inside Anemone | Rejected | D-13 at R1 |
+| Lab mini PC hosting | Deferred | VPS cost is worth cutting; see [Hosting](#hosting) |
+| Direct printing from the app | Deferred | U4.8 shows retyping or CSV import is too slow (D-18) |
 | TypeScript back end / Next.js only | Rejected | — |
 | Django API + React or Next.js front end | Deferred | A richer or offline-first front end is needed |
 | GraphQL | Deferred | Several front ends, or deeply nested screens multiply REST endpoints |
