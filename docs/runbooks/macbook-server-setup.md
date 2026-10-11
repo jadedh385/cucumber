@@ -10,8 +10,10 @@ and its [set-up checklist](../roadmap/adr/0001-stack-selection.md#set-up-checkli
 
 - **Explain each step in plain words before doing it.** The Owner is newer to
   development and wants to understand what changes on the Mac.
-- **Anything needing `sudo`:** show the command and ask the Owner to run it
-  with the `!` prefix, typing their own password. Never ask for the password.
+- **Anything needing `sudo`** (including `brew install --cask`): show the
+  command and ask the Owner to run it in the **Terminal app**, typing their
+  own password. The `!` prefix has no terminal for `sudo` to ask in, so it
+  fails. Never ask for the password.
 - **Never** erase the Mac, turn FileVault off, change the admin password or
   install anything not listed here **without the Owner saying yes first**.
 - **Never** put passwords, tokens or webhook addresses in files, commits or
@@ -55,7 +57,7 @@ Record the results in the Setup log. Expected: MacBook Air, Apple M2, 8 GB.
 | 14 | **Lid stays open.** A closed MacBook sleeps whatever the settings say | — | — |
 
 The terminal equivalent of step 6, if the GUI option is missing (the Owner
-runs it with `!`):
+runs it in the Terminal app):
 
 ```bash
 sudo pmset -c sleep 0 disksleep 0 displaysleep 10 womp 1
@@ -109,27 +111,27 @@ Fill this in as you go, then commit and push it (last step).
 
 | Item | Result |
 |---|---|
-| Date | |
-| macOS version | |
-| Chip / memory / free disk | |
-| Battery condition / max capacity / cycles | |
-| Erased first? | |
-| Admin account name | |
-| Charge limit 80 % | |
-| Sleep on power off (`pmset -g`) | |
-| macOS auto-install off | |
-| FileVault (on / off, Owner's choice) | |
-| Automatic login (only if FileVault off) | |
-| Hostname | |
-| Firewall | |
-| SSH / Screen Sharing | |
-| Network (Ethernet / Wi-Fi), IP address | |
-| Docker Desktop version, starts at login | |
-| Spike tests (expect 18 passed) | |
-| iPhone 13 test | |
-| Android test (model) | |
-| Restart test | |
-| Problems or open questions | |
+| Date | 2026-10-11 |
+| macOS version | 15.7.7 (24G720) at start; updated to 27.0.1 (26A434) |
+| Chip / memory / free disk | Apple M2 / 8 GB / 25 GB free of 228 GB |
+| Battery condition / max capacity / cycles | Normal / 87 % / 205 |
+| Erased first? | No |
+| Admin account name | `sawat` (existing admin, Owner chose not to add `cucumber-admin`) |
+| Charge limit 80 % | Set to 90 % (Owner's choice) |
+| Sleep on power off (`pmset -g`) | Yes, `sleep 0` on AC; display sleeps after 10 min |
+| macOS auto-install off | Yes; downloads and security responses still on |
+| FileVault (on / off, Owner's choice) | On. After a restart, type `sawat`'s password at the startup screen |
+| Automatic login (only if FileVault off) | Not applicable |
+| Hostname | `cucumber-server` |
+| Firewall | On |
+| SSH / Screen Sharing | Both on, Administrators only (`sawat`) |
+| Network (Ethernet / Wi-Fi), IP address | Wi-Fi 5 GHz (ch 36, -61 dBm), 192.168.101.12; no Ethernet adapter yet |
+| Docker Desktop version, starts at login | Desktop 4.94.0, Engine 29.8.2, 4 GB memory; start at login on (Owner set; confirm in restart test) |
+| Spike tests (expect 18 passed) | 18 passed |
+| iPhone 13 test | Worked: login, saved an entry, quantity 0 rejected (daisyUI) |
+| Android test (model) | vivo Y3s (V2044), Funtouch OS 12, 3 GB RAM, Chrome: login first showed **403 CSRF** (see Problems); works after the double-tap fix |
+| Restart test | Pending: next session runs `docker info` after the restart and fills this in |
+| Problems or open questions | Android login sent 4 POSTs in the same second (repeat taps on a slow phone). The 1st logged in and rotated the CSRF token, so the later ones got 403 "CSRF token from POST incorrect". The spike has no double-submit guard on login or on entry Save; on append-only entries a double tap would save a duplicate that can't be removed. Spike now has the button guard; real-app work tracked in #4 |
 
 **Last step:** commit the filled-in log on the spike branch and push it, so
 the main session can read it:
