@@ -54,14 +54,17 @@ flowchart LR
   F --> G[Hook posts staff note<br/>to Discord]
 ```
 
-1. **Draft.** Run the *Draft release* GitHub workflow. It works out the next
-   version number, runs git-cliff for the technical part, gathers the Staff
-   notes from pull requests merged since the last release, and creates a
-   **draft** GitHub Release. Drafts are visible only to the repo owner.
+1. **Draft.** Run the *Draft release* GitHub workflow. It notes the current
+   `main` commit, works out the next version number, runs git-cliff for the
+   technical part, gathers the Staff notes from exactly the pull requests in
+   that range, **creates the version tag at that commit**, and creates a
+   **draft** GitHub Release for it. Drafts are visible only to the repo owner.
+   To abandon a draft, delete it together with its tag
+   (`gh release delete <version> --cleanup-tag`).
 2. **Edit.** The Owner reads the draft and fixes the staff wording. Keep it
    short; the template is below.
-3. **Ship.** Take the verified backup, deploy the tag to the server, run the
-   smoke test (G6). If anything fails, the draft stays a draft and nothing is
+3. **Ship.** Take the verified backup, deploy **that tag** to the server (so
+   what runs is exactly what the notes describe), run the smoke test (G6). If anything fails, the draft stays a draft and nothing is
    announced.
 4. **Publish.** Pressing *Publish* on GitHub means "it's live". The
    `release: published` hook sends the **For staff** part to the staff
@@ -97,7 +100,8 @@ prices or costs (SOP §2 principle 2).
   (`DISCORD_RELEASE_WEBHOOK`), never in the repo or in chat. If it ever leaks,
   delete the webhook in Discord and make a new one.
 - **No third-party action:** the workflow posts to Discord directly with one
-  `curl` request.
+  `curl` request, with `allowed_mentions: {"parse": []}` so a note containing
+  `@everyone` or a name can't ping people.
 - **Length:** a Discord message holds up to 2,000 characters. A staff note
   should be far shorter; if it isn't, the hook posts the first part with a link
   to the full GitHub Release.
