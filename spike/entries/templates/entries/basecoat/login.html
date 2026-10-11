@@ -1,0 +1,20 @@
+{% extends "entries/basecoat/base.html" %}
+{% load i18n %}
+{% block body %}
+<main class="mx-auto max-w-sm p-4 pt-16">
+  <form method="post" class="card">
+    {% csrf_token %}
+    <header><h2 class="text-2xl">Cucumber</h2></header>
+    <section class="form grid gap-4">
+      {% if form.non_field_errors %}<div class="alert" data-variant="destructive"><h2>{{ form.non_field_errors.0 }}</h2></div>{% endif %}
+      {% for field in form %}
+      <div class="grid gap-2">
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
+      </div>
+      {% endfor %}
+    </section>
+    <footer><button class="btn w-full" data-size="lg">{% translate "Log in" %}</button></footer>
+  </form>
+</main>
+{% endblock %}

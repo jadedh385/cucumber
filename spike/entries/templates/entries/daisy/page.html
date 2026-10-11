@@ -1,0 +1,14 @@
+{% extends "entries/daisy/base.html" %}
+{% load i18n %}
+{% block body %}
+<div class="navbar bg-base-100 shadow-sm px-4">
+  <div class="flex-1 font-semibold">Cucumber <span class="badge badge-ghost ml-2">daisyUI</span></div>
+  <form method="post" action="{% url 'entries:logout' kit %}">
+    {% csrf_token %}
+    <button class="btn btn-ghost btn-sm">{% translate "Log out" %}</button>
+  </form>
+</div>
+<main class="mx-auto max-w-md p-4">
+  {% include "entries/daisy/_panel.html" %}
+</main>
+{% endblock %}

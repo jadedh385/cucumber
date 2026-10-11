@@ -1,0 +1,42 @@
+{% load i18n %}
+<div id="panel" class="space-y-4">
+  <div id="net-error" class="alert alert-error" role="alert" hidden>
+    {% translate "Not saved. Check your connection and press Save again. What you typed is still here." %}
+  </div>
+  {% if saved %}
+  <div class="alert alert-success" role="status">{% translate "Saved." %}</div>
+  {% endif %}
+  <form class="card bg-base-100 shadow-sm" method="post" action="{% url 'entries:create' kit %}"
+        hx-post="{% url 'entries:create' kit %}" hx-target="#panel" hx-swap="outerHTML"
+        hx-on::before-request="document.getElementById('net-error').hidden = true"
+        hx-on::send-error="document.getElementById('net-error').hidden = false"
+        hx-on::response-error="document.getElementById('net-error').hidden = false">
+    {% csrf_token %}
+    <div class="card-body gap-2">
+      <h2 class="card-title">{% translate "Log work" %}</h2>
+      {% for field in form %}
+      <fieldset class="fieldset">
+        <legend class="fieldset-legend">{{ field.label }}</legend>
+        {{ field }}
+        {% for error in field.errors %}<p class="label text-error whitespace-normal">{{ error }}</p>{% endfor %}
+      </fieldset>
+      {% endfor %}
+      <button class="btn btn-primary btn-lg w-full mt-2">{% translate "Save" %}</button>
+    </div>
+  </form>
+  <div class="card bg-base-100 shadow-sm">
+    <div class="card-body">
+      <h2 class="card-title">{% translate "Recent" %}</h2>
+      <ul class="divide-y divide-base-200">
+        {% for entry in entries %}
+        <li class="py-2 flex justify-between gap-2">
+          <span><strong>{{ entry.batch_code }}</strong> · {{ entry.get_action_display }} · {{ entry.quantity }}</span>
+          <span class="text-sm opacity-60 shrink-0">{{ entry.occurred_on|date:"j M" }} · {{ entry.recorded_by.username }}</span>
+        </li>
+        {% empty %}
+        <li class="py-2 opacity-60">{% translate "Nothing logged yet." %}</li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,20 @@
+{% extends "entries/daisy/base.html" %}
+{% load i18n %}
+{% block body %}
+<main class="mx-auto max-w-sm p-4 pt-16">
+  <form method="post" class="card bg-base-100 shadow-sm">
+    {% csrf_token %}
+    <div class="card-body gap-2">
+      <h1 class="card-title text-2xl">Cucumber</h1>
+      {% if form.non_field_errors %}<div class="alert alert-error">{{ form.non_field_errors.0 }}</div>{% endif %}
+      {% for field in form %}
+      <fieldset class="fieldset">
+        <legend class="fieldset-legend">{{ field.label }}</legend>
+        {{ field }}
+      </fieldset>
+      {% endfor %}
+      <button class="btn btn-primary btn-lg w-full mt-2">{% translate "Log in" %}</button>
+    </div>
+  </form>
+</main>
+{% endblock %}

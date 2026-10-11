@@ -1,0 +1,14 @@
+{% extends "entries/basecoat/base.html" %}
+{% load i18n %}
+{% block body %}
+<header class="flex items-center justify-between border-b border-border bg-background px-4 py-3">
+  <div class="font-semibold">Cucumber <span class="badge ml-2" data-variant="outline">Basecoat</span></div>
+  <form method="post" action="{% url 'entries:logout' kit %}">
+    {% csrf_token %}
+    <button class="btn" data-variant="ghost" data-size="sm">{% translate "Log out" %}</button>
+  </form>
+</header>
+<main class="mx-auto max-w-md p-4">
+  {% include "entries/basecoat/_panel.html" %}
+</main>
+{% endblock %}
