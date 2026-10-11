@@ -46,7 +46,7 @@ exits · *Gate focus* = unit-specific checks on top of [the standard gates](gate
   guard, or a documented reason it can't be enforced in the DB.
 - **Gate focus:** G1 rule-to-enforcement table · G2 schema tests for uniqueness,
   FK, non-negative counts · G4 database review.
-- **Unit files:** [spec (G0)](units/u0.2-spec.md) · [design note (G1)](units/u0.2-design.md)
+- **Unit files:** [spec (G0)](units/u0.2-spec.md) · [design note (G1 passed)](units/u0.2-design.md)
 
 ### U0.3 · Repository, CI & test harness
 - **Size:** M · **Deps:** U0.1
