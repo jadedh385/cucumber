@@ -1,7 +1,7 @@
 # ADR-0001 · Stack selection
 
 **Unit:** [U0.1](../phase-0-foundations.md#u01--decision-register--stack-selection)
-**Status:** Accepted · UI kit chosen by the G1 spike (see [Open items](#open-items))
+**Status:** Accepted · UI kit **daisyUI**, chosen by the Owner from the G1 spike (2026-10-11)
 **Date:** 2026-10-09, hosting and file storage 2026-10-11 · **Decided by:** Jade (Owner)
 **Resolves:** [D-01](../decisions.md#conflicts-between-sop-and-deck),
 [D-10](../decisions.md#conflicts-between-sop-and-deck),
@@ -15,7 +15,7 @@
 | Language | **Python** |
 | Framework | **Django 5.2 LTS** (security fixes until April 2028) |
 | Front end | Django templates + **HTMX**, with **Alpine.js** for small interactions |
-| UI styling | **Tailwind CSS** + a component kit (daisyUI first choice), checked in the spike |
+| UI styling | **Tailwind CSS + daisyUI 5**, chosen over Basecoat in the U0.1 spike (2026-10-11) |
 | Rich widgets | Small TypeScript "islands" only where a screen needs them (QR scanner U4.6, lineage tree U2.3, charts U5.1, map U5.5) |
 | Database | **PostgreSQL** |
 | API | None for now. Added later on top of the services layer if a new front end is planned (see [Future front ends](#future-front-ends)) |
@@ -296,11 +296,23 @@ about 10 GB or the disk is 70% full.
 Personal data is limited to staff accounts (name, email, role), so Thai PDPA
 impact is small. No customer data (D-04).
 
+## UI kit
+
+Decided 2026-10-11 by the Owner after trying the spike (`spike/` on branch
+`spike/u0.1-ui-kit`) on an iPhone 13: **daisyUI 5** over Basecoat 1.0.
+
+- The spike loads daisyUI from a CDN. The real app builds its CSS with the
+  **Tailwind standalone CLI** and daisyUI's bundled plugin file, so there is no
+  Node toolchain and no runtime CDN (U0.10).
+- The look (theme colours, rounding) is tuned in U0.10. daisyUI themes make a
+  later restyle a settings change, not a rewrite.
+- Still to check on an **Android** staff phone: at G5, when the spike app runs
+  on the self-hosted machine.
+
 ## Open items
 
 | Item | Options | Decided by |
 |---|---|---|
-| UI kit | daisyUI, Basecoat, or another Tailwind kit | G1 spike on the lab phone |
 | FileVault on the MacBook | On (someone types the password after a restart) or off (encrypted backups only) | U0.4 |
 | Fallback cloud provider | DigitalOcean recommended (see [Fallback](#fallback-cloud-vps)) | Only when a move is triggered |
 

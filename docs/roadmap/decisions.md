@@ -79,3 +79,4 @@ before the units it blocks can exit **G0**.
 | 2026-10-11 | D-18 | Concept only: no app-to-printer link; Cucumber lists labels and exact text, staff print from the phone app. Details at U4.8 G0. | Jade |
 | 2026-10-11 | — | Hosting (first choice, replaced below): cloud VPS in Singapore, with room to move to a lab machine later. File storage: local disk behind django-storages, R2 later. [ADR-0001](adr/0001-stack-selection.md#hosting). | Jade |
 | 2026-10-11 | — | Hosting changed: **go live self-hosted**, starting on the Owner's spare MacBook Air M2 (Linux mini PC if it stays); move to the Singapore cloud VPS if any hassle trigger is hit. [ADR-0001](adr/0001-stack-selection.md#hosting). | Jade |
+| 2026-10-11 | — | UI kit: **daisyUI 5** (over Basecoat), chosen from the U0.1 spike. [ADR-0001](adr/0001-stack-selection.md#ui-kit). | Jade |

@@ -25,8 +25,9 @@ exits · *Gate focus* = unit-specific checks on top of [the standard gates](gate
   2026-10-09; D-10 Resolved (Cloudflare Access gate); D-17 Resolved (online only).
   Hosting decided 2026-10-11: self-hosted, starting on the Owner's spare
   MacBook Air, with a Singapore cloud VPS as the fallback if it proves a
-  hassle. File storage: local disk, R2 later. Spikes compare UI kits (daisyUI
-  vs Basecoat); the winner is deployed on the self-hosted machine for G5.
+  hassle. File storage: local disk, R2 later. UI kit: **daisyUI**, chosen
+  from the spike 2026-10-11; the spike is deployed on the self-hosted machine
+  for G5 and checked on an Android phone.
 
 ### U0.2 · Domain model v1
 - **Split 2026-10-11** (architect review H5) into two units that share one spec
@@ -139,7 +140,8 @@ exits · *Gate focus* = unit-specific checks on top of [the standard gates](gate
 - **Size:** M · **Deps:** U0.5 · **Decisions:** D-16, D-17
 - **Scope:** navigation, global search box, form components (dropdowns for all
   coded fields, auto date / week), list + detail layouts, error and empty states,
-  mobile-first. English UI, translation-ready (D-16).
+  mobile-first. English UI, translation-ready (D-16). Built on **Tailwind +
+  daisyUI 5** (ADR-0001), CSS compiled by the Tailwind standalone CLI.
 - **Acceptance:** all components usable one-handed at 375 px width; date and week
   never typed; no UI text hard-coded outside the translation function (checked by
   a lint rule or test).
