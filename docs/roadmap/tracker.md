@@ -9,7 +9,7 @@ Mark each cell with the sign-off date (e.g. `10-14`) when the gate passes.
 
 | Unit | Name | Size | Blocked by | G0 | G1 | G2 | G3 | G4 | G5 | G6 |
 |---|---|:-:|---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
-| U0.1 | Decisions & stack | M | D-01, D-10, D-17 | 10-11 | ▶ | · | · | · | · | · |
+| U0.1 | Decisions & stack | M | D-01, D-10, D-17 | 10-11 | 10-11 | · | · | · | · | · |
 | U0.2a | Domain model: schema | M | D-02, D-05, D-07, D-15 | 10-11 | 10-11 | · | · | · | · | · |
 | U0.2b | Domain model: event core services | M | U0.2a | 10-11 | 10-11 | · | · | · | · | · |
 | U0.3 | Repo, CI, test harness | M | | · | · | · | · | · | · | · |
@@ -109,5 +109,6 @@ Record every failed gate and every sign-off with notes.
 | 2026-10-11 | U0.2 / G0 | Passed | Spec signed off; Q1–Q8 answered; D-05 Resolved. Size L confirmed, not split | Jade |
 | 2026-10-11 | U0.2 / G1 | Owner approved | Design note approved; G1 passes after the architect review | Jade |
 | 2026-10-11 | U0.2 / G1 | Fixes required | Architect review: pass with fixes (H1–H5, M1–M6). Split into U0.2a / U0.2b; the count wins; record both who did and who saved an event | Jade |
-| 2026-10-11 | U0.2a, U0.2b / G1 | Passed | Architect re-check: all required fixes done (H1–H5, M1–M7, N1–N6, N8). Open before G2: N7, whether Supervisors / Techs may enter another person's work (U0.6 matrix vs AC19d) | Jade |
+| 2026-10-11 | U0.2a, U0.2b / G1 | Passed | Architect re-check: all required fixes done (H1–H5, M1–M7, N1–N6, N8). N7 settled the same day: Supervisors may enter another person's work, Techs may not | Jade |
+| 2026-10-11 | U0.1 / G1 | Passed | Two UI kits compared with a spike each (daisyUI vs Basecoat); daisyUI chosen. Hosting: self-hosted MacBook Air, VPS fallback. G5: spike on the self-hosted machine, checked on an Android phone | Jade |
 | 2026-10-11 | U0.1 / G0 | Passed | D-01, D-10, D-17 Resolved; hosting (Singapore VPS) and file storage (local disk) decided; D-18 concept recorded, details at U4.8 G0. G1 = VPS provider + UI kit spike | Jade |

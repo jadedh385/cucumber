@@ -93,7 +93,7 @@ exits · *Gate focus* = unit-specific checks on top of [the standard gates](gate
 | Review Voids (including Undo) | ✅ | — | — | — |
 | Reclassify a plant's genus (new SKU) | ✅ | — | — | — |
 | Complete the Zoho link (vendor, `zoho_ref`) | ✅ | — | — | — |
-| Enter work done by another staff member | ✅ | ? | ? | — |
+| Enter work done by another staff member | ✅ | ✅ | — | — |
 | Release a batch from quarantine | ✅ | ? | ? | — |
 | Edit reference lists | ✅ | — | — | — |
 | See Zoho references | ✅ | — | — | — |
