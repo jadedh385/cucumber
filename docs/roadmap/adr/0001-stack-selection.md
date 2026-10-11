@@ -199,6 +199,24 @@ a UPS and off-site backups.
 **Provider** is picked at G1 by these checks: Singapore region, automatic
 snapshots, Docker support, monthly price, and a plain-language control panel.
 
+**Size:** 2 GB RAM. Django, PostgreSQL and `cloudflared` together are tight on
+1 GB; a handful of staff won't need more than 2 GB for a long time. Every
+provider below can resize later.
+
+Prices as listed in October 2026 (USD/month, 2 GB plan; check at sign-up):
+
+| | Server | Automatic backups | Total | Notes |
+|---|---|---|---|---|
+| **DigitalOcean** (recommended) | $12 (1 vCPU, 50 GB) | Weekly +20% ($2.40) or daily +30% ($3.60); daily offered in Singapore | ~$14–16 | Simplest panel; largest library of Django + Docker guides |
+| Vultr | $10 (1 vCPU, 55 GB) | +20% ($2), daily to monthly | ~$12 | Cheapest; panel almost as simple |
+| Akamai (Linode) | $12 (1 vCPU, 50 GB) | $2.50, daily + weekly kept | ~$14.50 | Solid; fewer beginner guides now |
+| AWS Lightsail | ~$12 (2 vCPU, 60 GB) | Free to switch on; $0.05/GB stored | ~$13 | Most for the money, but sits inside the AWS console and billing, harder for a newcomer |
+
+Recommended: **DigitalOcean with daily backups**, for the plain panel and the
+guides the Owner can follow alone. Vultr is the fine cheaper choice.
+The provider's backups copy the whole server. They do **not** replace the
+off-server database backups in U0.11.
+
 ## File storage
 
 Decided 2026-10-11. Photo volume is unknown, so files start on the VPS disk
