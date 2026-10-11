@@ -16,3 +16,8 @@ None
 ## Test plan
 
 - [ ]
+
+## Before merging
+
+- [ ] Every CI check is green (merge rule: GitHub can't block red merges on our plan)
+- [ ] Title is `type: description` (it becomes the squash commit and the release-notes line)
