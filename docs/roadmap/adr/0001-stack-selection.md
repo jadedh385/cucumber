@@ -22,8 +22,8 @@
 | Deploy | Docker Compose, same setup on any host |
 | Network access | Internet-reachable through **Cloudflare Tunnel + Access** (D-10); no open inbound ports |
 | Connectivity | **Online only** (D-17): Nursery 24/7 Wi-Fi, staff phone hotspots as backup; no offline mode |
-| Hosting | **Cloud VPS in Singapore** (about US$5–15/month); provider picked at G1. Can move to a lab machine later (see [Hosting](#hosting)) |
-| File storage | **Local disk on the VPS behind django-storages**; move to Cloudflare R2 by a settings change when photo volume grows |
+| Hosting | **Self-hosted**: start on the Owner's spare MacBook Air M2; a Linux mini PC if self-hosting stays. **Cloud VPS in Singapore is the fallback** if self-hosting proves a hassle (see [Hosting](#hosting)) |
+| File storage | **Local disk on the server behind django-storages**; move to Cloudflare R2 by a settings change when photo volume grows |
 | Label printing | **No app-to-printer link for now** (D-18): Cucumber lists what to print; staff print from the phone app |
 
 ## Context
@@ -176,28 +176,70 @@ Graphene-Django is not recommended (older, less maintained).
 
 ## Hosting
 
-Decided 2026-10-11.
+Decided 2026-10-11 by the Owner: **go live self-hosted (B); move to the cloud
+(A) if it proves a hassle.** Earlier the same day A was chosen for least effort;
+the Owner chose to try B first to keep running costs near zero.
 
-| | **A) Cloud VPS, Singapore** (chosen) | B) Lab mini PC via Cloudflare Tunnel | C) Hosted platform |
+| | A) Cloud VPS, Singapore (fallback) | **B) Self-hosted machine** (chosen) | C) Hosted platform |
 |---|---|---|---|
-| Owner effort | Lowest: no hardware, provider handles power and network | UPS, disk health, physical access | Low, but less control |
-| Lab power or internet outage | Remote users unaffected | Everyone cut off | Unaffected |
-| Label printing | Not affected (no printer link, D-18) | Not affected | Not affected |
-| Cost | About US$5–15/month | Hardware once + electricity | Usually higher at this size |
+| Owner effort | Lowest: provider handles power and network | Power, UPS, updates, occasional visit | Low, but less control |
+| Power or internet cut where the server is | Not affected | **Everyone loses Cucumber** until it's back | Not affected |
+| Cost | ~US$15.60/month | Electricity ~฿30–40/month + hardware once | Usually higher |
 | Fit with Docker Compose | ✅ | ✅ | Weaker |
 
-Chosen because the Owner wants to spend as little time as possible on
-maintenance. Lab outages stop mattering for remote staff. D-18 no longer
-affects this choice, because the app won't drive the printer.
+**The server doesn't have to be in the lab.** Cucumber doesn't drive the
+printer (D-18) and staff reach it through Cloudflare Tunnel, so the machine
+goes wherever the power and internet are most reliable. No router ports are
+opened.
 
-**Moving to a lab machine later**, if that would cut costs: the same Docker
-Compose file runs there. Restore the latest backup (U0.11), point the
-Cloudflare Tunnel at the new machine, and switch off the VPS. Staff URLs stay
-the same and no router ports need opening. Before moving, the lab machine needs
-a UPS and off-site backups.
+### Machine
 
-**Provider** is picked at G1 by these checks: Singapore region, automatic
-snapshots, Docker support, monthly price, and a plain-language control panel.
+| Machine | Status | Notes |
+|---|---|---|
+| **Spare MacBook Air M2** (8 GB, 512 GB) | **Start here**, free | Its battery rides through short power cuts. Catches: battery wear (set the 80% charge limit), no Ethernet socket (USB-C adapter), Docker runs inside a hidden Linux VM (2–4 GB of memory), and FileVault waits for a password after an unplanned restart |
+| **Linux mini PC** | Upgrade if self-hosting stays | Best fit: restarts on its own after a power cut, no password wait, no battery. Minimum 4 cores (e.g. Intel N100), 8 GB RAM (16 GB comfortable), 256 GB SSD (512 GB comfortable), Ethernet, BIOS "power on after AC loss", Ubuntu Server 24.04 LTS. About ฿6,000–10,000 new; used business mini PCs (ThinkCentre Tiny, EliteDesk Mini, OptiPlex Micro) cost less |
+| Mac mini M4 | Not chosen | Very efficient (3–4 W idle) and restarts after power cuts, but about ฿21,000–29,000 and keeps the macOS catches (Docker VM, FileVault password) |
+
+### Set-up checklist (U0.4)
+
+- **MacBook:** macOS 26.4 or later with the battery **charge limit at 80%**;
+  never sleeps on power; macOS updates download but install only when the
+  Owner chooses (no surprise restarts); Docker Desktop starts at login;
+  USB-C Ethernet adapter.
+- **UPS** for the internet router (and the Mac's charger). A server on battery
+  is no use if the router is off.
+- **FileVault** (open, decide at U0.4): keep it on and have someone at the
+  location type the password after an unplanned restart, or turn it off and
+  rely on encrypted backups. On means the data is safe if the laptop is stolen.
+- **Remote management** through Cloudflare Access (SSH), so the Owner can
+  look after it from anywhere without opening ports.
+- **Off-site backup (U0.11) running before go-live**, encrypted, to cloud
+  storage (e.g. Cloudflare R2, free up to 10 GB). This is what makes a dead or
+  stolen machine survivable.
+- **Uptime alert:** a free outside check emails the Owner when Cucumber can't
+  be reached. It also measures the "hassle" below.
+
+### When to move to the cloud
+
+Move to A if **any** of these happen:
+
+- Cucumber is unreachable for more than 4 hours at once during working hours,
+  or more than twice in a month;
+- someone has to go to the machine (type a password, restart it) more than
+  once a month;
+- looking after it takes the Owner more than about 1 hour a week;
+- the machine fails.
+
+**How to move:** create the cloud server, restore the latest off-site backup
+there, point the Cloudflare Tunnel at it, and switch the old machine off. It
+takes a few hours, and staff keep the same URL. The same steps move back to a
+local machine later.
+
+### Fallback: cloud VPS
+
+Kept from the October 2026 research so the move is quick. **Provider** checks:
+Singapore region, automatic snapshots, Docker support, monthly price, and a
+plain-language control panel.
 
 **Size:** 2 GB RAM. Django, PostgreSQL and `cloudflared` together are tight on
 1 GB; a handful of staff won't need more than 2 GB for a long time. Every
@@ -243,7 +285,7 @@ an adviser before R1 if in doubt.
 
 ## File storage
 
-Decided 2026-10-11. Photo volume is unknown, so files start on the VPS disk
+Decided 2026-10-11. Photo volume is unknown, so files start on the server's disk
 behind **django-storages**. Moving to Cloudflare R2 later needs a settings
 change plus a one-off copy of existing files, with no code changes. Uploaded
 files go into the backup with the database (U0.11). Revisit when photos pass
@@ -259,7 +301,8 @@ impact is small. No customer data (D-04).
 | Item | Options | Decided by |
 |---|---|---|
 | UI kit | daisyUI, Basecoat, or another Tailwind kit | G1 spike on the lab phone |
-| VPS provider | Any that passes the checks under [Hosting](#hosting) | G1 |
+| FileVault on the MacBook | On (someone types the password after a restart) or off (encrypted backups only) | U0.4 |
+| Fallback cloud provider | DigitalOcean recommended (see [Fallback](#fallback-cloud-vps)) | Only when a move is triggered |
 
 ## Spikes (U0.1 / G1)
 
@@ -272,14 +315,15 @@ compare **UI kits**:
    afterwards (blocked at the database), and one data-entry screen, checked
    one-handed on the actual lab phone.
 
-The winner is deployed on the VPS behind Cloudflare Tunnel + Access for **G5**.
+The winner is deployed on the self-hosted machine behind Cloudflare Tunnel + Access for **G5**.
 
 ## Rejected or deferred
 
 | Option | Status | Revisit when |
 |---|---|---|
 | Build inside Anemone | Rejected | D-13 at R1 |
-| Lab mini PC hosting | Deferred | VPS cost is worth cutting; see [Hosting](#hosting) |
+| Cloud VPS hosting | Fallback | Self-hosting proves a hassle; see [When to move to the cloud](#when-to-move-to-the-cloud) |
+| Mac mini as server | Rejected | — |
 | Direct printing from the app | Deferred | U4.8 shows retyping or CSV import is too slow (D-18) |
 | TypeScript back end / Next.js only | Rejected | — |
 | Django API + React or Next.js front end | Deferred | A richer or offline-first front end is needed |

@@ -23,9 +23,10 @@ exits · *Gate focus* = unit-specific checks on top of [the standard gates](gate
   deployed on the target host.
 - **ADR:** [ADR-0001 Stack selection](adr/0001-stack-selection.md). Stack decided
   2026-10-09; D-10 Resolved (Cloudflare Access gate); D-17 Resolved (online only).
-  Hosting (Singapore VPS) and file storage (local disk, R2 later) decided
-  2026-10-11. Spikes compare UI kits (daisyUI vs Basecoat); the winner is
-  deployed on the VPS for G5.
+  Hosting decided 2026-10-11: self-hosted, starting on the Owner's spare
+  MacBook Air, with a Singapore cloud VPS as the fallback if it proves a
+  hassle. File storage: local disk, R2 later. Spikes compare UI kits (daisyUI
+  vs Basecoat); the winner is deployed on the self-hosted machine for G5.
 
 ### U0.2 · Domain model v1
 - **Split 2026-10-11** (architect review H5) into two units that share one spec
@@ -57,7 +58,10 @@ exits · *Gate focus* = unit-specific checks on top of [the standard gates](gate
 - **Scope:** dev / staging / production; containerized deploy; remote access via
   Cloudflare Tunnel + Access (D-10), no open inbound ports; secrets via
   environment variables; startup check that required secrets are present;
-  feature flags.
+  feature flags. Host set-up from the
+  [ADR checklist](adr/0001-stack-selection.md#set-up-checklist-u04): power and
+  sleep settings, UPS for the router, FileVault decision, remote management
+  through Cloudflare Access, and an uptime alert to the Owner.
 - **Acceptance:** one command deploys to staging; app refuses to start with a
   missing secret; flags can toggle a feature without a redeploy.
 - **Gate focus:** G4 security review (secrets, exposed ports) · G5 fresh-host deploy test.
@@ -134,7 +138,11 @@ exits · *Gate focus* = unit-specific checks on top of [the standard gates](gate
 ### U0.11 · Backup & restore baseline
 - **Size:** S · **Deps:** U0.4
 - **Scope:** scheduled DB + file backup to a second location; documented restore.
-  (Encryption comes in U6.2.)
+  The production server is self-hosted, so the second location is **off-site
+  cloud storage** (e.g. Cloudflare R2) and must run **before go-live**. The
+  off-site copy is encrypted from the start; key management and the rest of
+  encryption stay in U6.2. The same restore moves Cucumber to the fallback
+  cloud server.
 - **Acceptance:** restore of last night's backup into a clean staging host succeeds
   and passes the smoke test **and a post-restore check**: every table in the
   source exists in the restore, row counts per table match, and
