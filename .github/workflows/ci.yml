@@ -1,0 +1,71 @@
+# Every check on every pull request and every push to main (U0.3 AC1-AC4).
+# GitHub can't block a red merge on our plan: the merge rule is that the Owner
+# merges only with Claude, after every job here is green.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Lint, types, tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: ci-only-not-a-secret-postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 15
+
+    # Fake values so settings load. They protect nothing: CI's database is
+    # thrown away after each run.
+    env:
+      DJANGO_SECRET_KEY: ci-only-not-a-secret
+      DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1
+      DB_NAME: cucumber
+      DB_USER: cucumber_owner
+      DB_PASSWORD: ci-only-not-a-secret-owner
+      DB_HOST: localhost
+      DB_PORT: "5432"
+      DB_OWNER_PASSWORD: ci-only-not-a-secret-owner
+      DB_APP_PASSWORD: ci-only-not-a-secret-app
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+
+      - name: Install Python packages
+        run: uv sync --locked
+
+      - name: Install the test browser
+        run: uv run playwright install --with-deps chromium
+
+      - name: Create the database roles
+        env:
+          PGHOST: localhost
+          PGUSER: postgres
+          PGPASSWORD: ci-only-not-a-secret-postgres
+        run: docker/postgres/init/01-roles.sh
+
+      - name: Run every check
+        run: scripts/check.sh

@@ -1,0 +1,31 @@
+# Pull request titles must read `type: description` (U0.3 AC5): the title
+# becomes the squash commit and the release-notes line. A separate workflow,
+# so renaming a PR re-checks the title without re-running the tests.
+name: PR title
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions: {}
+
+jobs:
+  title:
+    name: Title is "type: description"
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Check the title
+        env:
+          # The title arrives as data in a variable, never pasted into the script.
+          TITLE: ${{ github.event.pull_request.title }}
+          PATTERN: '^(feat|fix|perf|refactor|docs|test|chore|ci)(\(.+\))?!?: .+'
+        run: |
+          if [[ "$TITLE" =~ $PATTERN ]]; then
+            echo "Title OK: $TITLE"
+          else
+            echo "::error::Title must look like 'feat: what changed'."
+            echo "Allowed types: feat, fix, perf, refactor, docs, test, chore, ci."
+            echo "Got: $TITLE"
+            exit 1
+          fi

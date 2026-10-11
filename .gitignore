@@ -4,3 +4,10 @@
 __pycache__/
 *.pyc
 .venv/
+!.env.example
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+test-results/
