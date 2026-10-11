@@ -8,6 +8,7 @@
   {% endif %}
   <form class="card" method="post" action="{% url 'entries:create' kit %}"
         hx-post="{% url 'entries:create' kit %}" hx-target="#panel" hx-swap="outerHTML"
+        hx-sync="this:drop" hx-disabled-elt="find button"
         hx-on::before-request="document.getElementById('net-error').hidden = true"
         hx-on::send-error="document.getElementById('net-error').hidden = false"
         hx-on::response-error="document.getElementById('net-error').hidden = false">

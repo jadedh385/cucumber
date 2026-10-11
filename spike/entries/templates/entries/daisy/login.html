@@ -2,7 +2,7 @@
 {% load i18n %}
 {% block body %}
 <main class="mx-auto max-w-sm p-4 pt-16">
-  <form method="post" class="card bg-base-100 shadow-sm">
+  <form method="post" onsubmit="this.querySelector('button').disabled = true" class="card bg-base-100 shadow-sm">
     {% csrf_token %}
     <div class="card-body gap-2">
       <h1 class="card-title text-2xl">Cucumber</h1>
@@ -17,4 +17,8 @@
     </div>
   </form>
 </main>
+<script>
+  // Back button can restore the page with Log in still greyed out.
+  addEventListener("pageshow", () => document.querySelectorAll("form button").forEach(b => b.disabled = false));
+</script>
 {% endblock %}
