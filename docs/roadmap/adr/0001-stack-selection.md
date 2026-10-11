@@ -217,6 +217,30 @@ guides the Owner can follow alone. Vultr is the fine cheaper choice.
 The provider's backups copy the whole server. They do **not** replace the
 off-server database backups in U0.11.
 
+Also looked at (October 2026 research):
+
+| Option | Why not chosen |
+|---|---|
+| Hetzner, Singapore | Cheap in Europe, but Singapore plans cost more and include only 0.5 TB traffic; stricter sign-up checks |
+| Thai providers in Bangkok (e.g. NIPA Cloud, Nine Web, VPSThai) | Slightly faster from the lab and billed in baht, but fewer English and Docker guides, uneven quality, and usually higher prices (from about US$8–45/month). Singapore is only about 30 ms further away, which staff won't notice |
+| Managed PostgreSQL (DigitalOcean, from about US$15/month extra) | The provider runs database updates and backups. Not needed for a few staff; PostgreSQL runs in Docker on the same server and U0.11 handles backups. Revisit if database upkeep becomes a burden |
+
+**Things easy to overlook:**
+- Bills are in US dollars on a card, so the bank may add a foreign-exchange fee.
+- No lock-in: everything runs from one Docker Compose file, so moving provider
+  means restoring a backup elsewhere (the same steps as moving to a lab machine).
+- If the provider account is ever closed or locked, the server and its backups
+  go with it. That is why U0.11 keeps a copy of the database **outside** the
+  provider.
+- Cloudflare Tunnel sends very little traffic, so bandwidth limits don't matter
+  at this size.
+
+**PDPA:** only staff accounts are personal data. Storing them on a server in
+Singapore that only the business can access may not count as a cross-border
+transfer under Thai guidance. If it does, a standard contract clause covers it
+(for example the provider's data processing agreement). Low risk; confirm with
+an adviser before R1 if in doubt.
+
 ## File storage
 
 Decided 2026-10-11. Photo volume is unknown, so files start on the VPS disk
