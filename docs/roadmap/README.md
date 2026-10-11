@@ -63,7 +63,7 @@ flowchart LR
     P6 -. "if public without<br/>access gate (D-10):<br/>U6.1, U6.6 before R1" .-> R1
 ```
 
-- **Critical path to MVP:** U0.1 → U0.2 → U0.7 → U1.1 → U1.3 → U1.4 → U1.5 / U1.6 → U1.10 → R1.
+- **Critical path to MVP:** U0.1 → U0.2a → U0.2b → U0.7 → U1.1 → U1.3 → U1.4 → U1.5 / U1.6 → U1.10 → R1.
 - **Parallel after R1:** Phases 2, 3 and 5 can run side by side. Phase 4 needs
   U2.2, U2.4, U3.3 and U3.4 first.
 - **Phase 6** units can start any time after R0; U6.3 and U6.5 wait for the data units.

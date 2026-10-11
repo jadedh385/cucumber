@@ -28,7 +28,14 @@ exits · *Gate focus* = unit-specific checks on top of [the standard gates](gate
   deployed on the VPS for G5.
 
 ### U0.2 · Domain model v1
-- **Size:** L · **Deps:** U0.1 · **Decisions:** D-02, D-05, D-07, D-15
+- **Split 2026-10-11** (architect review H5) into two units that share one spec
+  and design note:
+  - **U0.2a · Schema** (M, Deps: U0.1): all tables, checks, foreign keys,
+    triggers, database permissions and seed data. AC 1–12, 13–16c, 18–21.
+  - **U0.2b · Event core services** (M, Deps: U0.2a): the projection ("the
+    count wins"), row locking, Void, Correction, Close, Split and
+    `check_projections`. AC 12a–c, 16d–g, 17, 19a–d.
+- **Size:** L (as two M units) · **Deps:** U0.1 · **Decisions:** D-02, D-05, D-07, D-15
 - **Source:** SOP §3, §4, §5
 - **Scope:** final ER model for `plants`, `batches`, `events`, reference lists,
   users, audit. Includes the decisions on vessel grain and deletion policy.
@@ -84,7 +91,7 @@ exits · *Gate focus* = unit-specific checks on top of [the standard gates](gate
 - **Gate focus:** G2 role × endpoint test matrix generated, not hand-written · G4 security review.
 
 ### U0.7 · Audit trail & append-only event store
-- **Size:** M · **Deps:** U0.2, U0.5 · **Decisions:** D-07
+- **Size:** M · **Deps:** U0.2b, U0.5 · **Decisions:** D-07
 - **Source:** SOP §2.5, §5.6; deck 03 "Audit Trail"
 - **Scope:** every write records user, timestamp, before/after. Event table is
   insert-only at the DB level. Archive / retire / deactivate / **void** actions
@@ -95,7 +102,7 @@ exits · *Gate focus* = unit-specific checks on top of [the standard gates](gate
 - **Gate focus:** G2 tests that try to mutate events through the API **and** raw SQL · G4 security review.
 
 ### U0.8 · ID sequence service
-- **Size:** S · **Deps:** U0.2
+- **Size:** S · **Deps:** U0.2a
 - **Source:** SOP §3 IDs
 - **Scope:** `PLT-nnnn`, `BAT-nnnnn`, `EVT-nnnnn`, SKU `<GENUS3><nnn>` per genus.
   Global, sequential, never reused, safe under concurrent writes.
