@@ -41,7 +41,8 @@ to a LINE photo to manual retyping, which introduced errors.
    or a **Correction**, always with a reason (D-07).
 6. **Portfolio = intent, availability = calculated.** Nobody types "available".
 7. **Enter once, in the app.** Coded fields use dropdowns, and the date and
-   week are filled in automatically.
+   week are filled in automatically. The date can be moved back up to 7 days
+   for work logged late, never forward.
 8. **Online only.** Every site has Wi-Fi; staff phone hotspots are the backup.
    There is no offline entry (D-17).
 9. **English first, Thai-ready.** All screen text is translatable so Thai can be
@@ -73,6 +74,8 @@ registered straight into `Collection`.
 
 **Plant source:** `Purchase` | `Gift` | `Propagated` | `Unknown`. Only
 `Purchase` needs a Zoho link and a vendor (picked from the Zoho vendor list).
+Both can be completed after registration, but must be set before the plant is
+promoted to Portfolio.
 Gifts go straight into inventory with no cost record; who gave it goes in a
 free-text source note.
 
@@ -125,29 +128,38 @@ erDiagram
 | Table | Grain | Fields |
 |---|---|---|
 | `plants` | one per cultivar | `plt_id`, `genus`, `full_name`, `sku` (nullable, unique), `status`, `source`, `source_note` (nullable), `vendor_id` (nullable), `zoho_ref` (nullable), `min_saleable_qty` (nullable override), `promoted_by`, `promoted_at`, `notes` |
-| `batches` | one per lab batch, or one standing batch per plant per non-lab location | `bat_id`, `plt_id`, `parent_batch_id` (nullable), `location`, `stage` (nullable at Nursery only), `quarantined`, `status` (`Open` / `Closed` / `Voided`), `live_count`*, `created_at`, `closed_at` |
-| `events` | one per action, append-only | `evt_id`, `bat_id`, `action`, `qty_in`, `qty_out`, `qty_contaminated`, `media_code`, `media_lot` (nullable, after U3.5), `stage_to`, `staff`, `occurred_at`, `week`*, `reason` (for Void / Correction), `voids_evt_id` (nullable), `reviewed_by`, `reviewed_at`, `note` |
+| `batches` | one per group of plants tracked together (a lab batch, a Nursery arrival, or a split-off group); a plant can have any number at any location | `bat_id`, `plt_id`, `parent_batch_id` (nullable), `location`, `stage` (nullable at Nursery only), `quarantined`, `status` (`Open` / `Closed` / `Voided`), `live_count`*, `created_at`, `closed_at` |
+| `events` | one per action, append-only | `evt_id`, `bat_id`, `action`, `qty_in`, `qty_out`, `media_code`, `media_lot` (nullable, after U3.5), `stage_to`, `staff`, `occurred_at`, `week`*, `reason` (for Void / Correction / Loss), `voids_evt_id` (nullable), `note`, `entered_via` (`form` / `assistant`, D-21) |
+| `event_reviews` | one per reviewed event, append-only | `evt_id`, `reviewed_by`, `reviewed_at`, `note` |
 | `vendors` | read-only copy of Zoho Books vendors | `zoho_contact_id`, `name`, `active`, `synced_at` |
 
 \* Calculated, never typed: `live_count` is the sum of events. `week` comes
 from `occurred_at`.
 
 **Event actions:** `Intake` · `Subculture` · `StageChange` · `Count` ·
-`Contamination` · `Quarantine` · `Release` · `Transfer` · `Out` (sold or given
-away) · `Correction` · `Void`
+`Contamination` · `Quarantine` · `Release` · `Transfer` · `Split` · `Close` · `Out` (sold or given
+away) · `Loss` (died or damaged, not contamination; reason required) ·
+`Correction` · `Void`
 
 > Field names, types and the exact shape of `Void` and `Quarantine` events are
 > finalised in U0.2 (D-05). The table above is the agreed shape, not the final schema.
 
 ## 5. Business Rules
 
-1. `sku` is set only when `status = Portfolio`, and it must be unique. The genus
-   code must match `genus`.
+1. An `sku` is assigned the first time a plant is promoted to `Portfolio`, and
+   then never changes, is never cleared and is never reused. A `Portfolio` plant
+   must have an SKU; a `Collection` or `Retired` plant keeps the one it has. The
+   genus code must match `genus`. **Only exception:** if the Admin reclassifies
+   the genus, the plant gets a new SKU for the new genus; the old one is kept as
+   a former SKU (still searchable, never reused).
 2. Only the Admin can promote, demote or retire a plant. Each change stamps
    `promoted_by` and `promoted_at`. Moving a `Candidate` to `Collection` happens
    when its first `Intake` is logged (SOP-1).
 3. A `Candidate` plant can't have batches or events.
-4. `source = Purchase` → `zoho_ref` and `vendor_id` are required. Vendors come
+4. `source = Purchase` → `zoho_ref` and `vendor_id` are required **before the
+   plant can be promoted to Portfolio**. They may be missing at registration; the
+   plant then shows on the "Zoho link missing" list until the Admin completes
+   both. Other sources can't have either. Vendors come
    only from the Zoho copy; they can't be created or edited in Cucumber (D-04).
 5. A lab batch created from a subculture must have a `parent_batch_id`.
 6. Every `Lab` batch has a stage (D-15).
@@ -164,26 +176,40 @@ away) · `Correction` · `Void`
    The only exceptions are anonymising staff personal data on request (PDPA)
    and wiping sandbox data (D-07).
 10. Unreviewed events still count toward totals, but they are flagged until
-    reviewed. **Nobody reviews their own events, except the Admin** (D-03).
-    Voids always go to the review queue.
+    reviewed. **Nobody reviews their own events, except the Admin** (D-03); the
+    Admin's own events are marked reviewed automatically. Reviews are stored
+    separately, so events are never edited. Voids always go to the Admin's
+    review queue; a voided event leaves the queue, and reviewing the Void
+    covers both.
 11. A quarantined batch keeps its count and lineage, but it is excluded from
     availability (§8).
-12. `PHL005` ("Philodendron ???") stays as a valid record until it is identified.
+12. An unidentified plant stays a valid record until it is identified, but
+    it still gets a human-readable name; `???` names are not allowed. The
+    naming standard is still being decided (D-19). `PHL005` ("Philodendron
+    ???") is renamed when V.2 data is migrated.
+13. Two plants can't share the same genus + name. Every plant except a
+    `Voided` one holds its name, Retired included. Case, extra spaces and
+    quote marks are ignored when names are compared.
 
 ## 6. Procedures
 
 **SOP-1 · Register a plant** (Tech or above)
-1. Search existing plants first (genus + name) to avoid duplicates.
+1. Search existing plants first (genus + name) to avoid duplicates. If the
+   plant exists, use that record, even if it is `Retired` (ask the Admin to
+   bring it back). The app refuses a second plant with the same name.
 2. If the plant is wanted but not held yet, create it as `Candidate` and stop here.
 3. Otherwise create the `PLT` record (or open the Candidate): genus, full name,
    `source`. Status becomes `Collection`.
-4. If `source = Purchase`, pick the vendor from the Zoho list and record the
-   Zoho expense reference (SOP-8). If `Gift`, note who gave it.
+4. If `source = Purchase`, pick the vendor from the Zoho list. If the seller
+   isn't listed yet, type their name in the source note. The Admin adds the Zoho
+   expense reference later (SOP-8). If `Gift`, note who gave it.
 5. Create its first batch at the location where it is held, and log an `Intake`
    event with the quantity.
 
 **SOP-2 · Promote to Portfolio** (Admin only, at the Admin's judgement)
-1. Open the plant and choose *Promote*. The app proposes the next SKU for that genus.
+1. Open the plant and choose *Promote*. If the plant already has an SKU from an
+   earlier promotion, it is reused; otherwise the app proposes the next SKU for
+   that genus.
 2. Confirm. The app saves the SKU, `promoted_by` and `promoted_at`.
 
 **SOP-3 · Start a lab batch (P0)** (Tech or above)
@@ -199,26 +225,40 @@ away) · `Correction` · `Void`
 3. Contaminated units that are **thrown away**: log a `Contamination` event (the
    units are removed from the batch).
 4. Contaminated units that are **kept**: quarantine them (SOP-9).
+5. Steps 1, 3 and 4 are one form in the app ("contaminated, thrown away" and
+   "contaminated, kept" fields). Contaminated units are entered only there,
+   never as a separate number on the subculture.
 
 **SOP-5 · Stage change / transfer** (Tech or above)
 - Use `StageChange` (for example P1 → P2, P2 → A1, A1 → P4) or `Transfer`
-  (Lab → Nursery). A transfer closes the units out of one batch and creates or
-  adds to the batch at the destination.
+  (Lab → Nursery). A transfer moves the units out of one batch into the
+  destination: by default a **new batch**, so plants of different ages stay
+  apart, or an existing open batch of the same plant there if they are
+  physically kept together.
 
 **SOP-6 · Collection count** (Tech or above, **monthly**, T-3)
 - For each Collection batch at the Nursery and in Lab, log a `Count` with the
-  physical quantity. The app records the difference from the last count.
+  physical quantity. The app records the difference from the batch's total on
+  the count date (so a count entered a day or two late is still right).
 
 **SOP-7 · Review** (weekly)
 - **Supervisor** reviews Tech events and corrections.
 - **Admin** reviews Supervisor events and corrections, and any voids.
+- Entries logged more than a day after the work are flagged "entered late";
+  check the date. If a note gives an older real date, fix it with a
+  `Correction` (reason "wrong date").
 - Open the unreviewed-events queue, check entries against reality, then mark
-  them reviewed, or add a `Correction` or `Void` with a reason.
+  them reviewed, or add a `Correction` or `Void` with a reason. Adding a fix
+  marks the original reviewed; the fix itself goes to the Admin's queue.
+- A review can't be undone. If an event was marked reviewed by mistake and is
+  wrong, fix it with a `Correction` or `Void`.
 
 **SOP-8 · Link a purchase to Zoho Books** (Admin)
 - When recording the expense in Zoho Books, type the plant's `PLT-` ID in the
   expense's **reference** field (T-4). Store the Zoho expense reference on the
   plant. Cost per plant is looked up in Zoho, by the Admin only.
+- Weekly, clear the **"Zoho link missing"** list: for each purchased plant, set
+  the vendor (create it in Zoho first if needed) and the expense reference.
 - Receipts sent through **Anemone** follow the same rule: Anemone writes the
   `PLT-` ID into the reference field (D-13).
 
@@ -233,9 +273,36 @@ away) · `Correction` · `Void`
 
 **SOP-10 · Fix a mistake** (anyone, for their own entries; reviewers for others)
 - Just saved it wrong (within 10 minutes): use **Undo**.
-- Event should never have existed: **Void** it, with a reason.
+- Event should never have existed: **Void** it, with a reason. If it was one
+  action that made several records (a Subculture with child batches, a Split,
+  a Transfer), the whole action is voided together. If a batch it created
+  already has later events, the app lists them; void those first.
+- Forgot to log something more than 7 days ago: log it today and write the real
+  date in the note. A reviewer corrects the date during review.
 - Event happened but a number or code is wrong: add a **Correction**, with a reason.
+  Correcting a Split or Transfer quantity changes both batches together.
 - Plant or batch created by mistake: set it to `Voided` (Admin).
+- Batch closed by mistake: **Undo** within 10 minutes, or ask a reviewer to
+  **Void** the Close. The batch reopens.
+
+**SOP-11 · Record a loss** (Tech or above)
+- Units that died or were damaged for a reason **other than contamination**
+  (failed hardening off, pests, rot, breakage): log `Loss` with the number of
+  units and a reason. Don't use `Contamination` for these, so the contamination
+  rate stays accurate.
+
+**SOP-12 · Split a batch** (Tech or above)
+- To treat part of a batch differently (a customer pre-order, a different
+  protocol, multiplication vs growing on), log `Split` with the number of
+  units and a note saying why. The app moves them into a new child batch at
+  the same location and stage; the rest stays in the original.
+
+**SOP-13 · Close a batch** (Tech or above)
+- A batch can only be closed when its count is 0. When an event brings a
+  batch to 0, the app asks "Close this batch?"; confirm if the group is
+  finished. Batches left open at 0 appear on the Supervisor's "empty but
+  open" list. A closed batch never takes new stock; to fix a wrong close,
+  see SOP-10.
 
 ## 7. Roles (D-03)
 
@@ -260,10 +327,10 @@ away) · `Correction` · `Void`
 
 **Availability**
 ```
-available_to_sell = status = Portfolio
-                AND batch not quarantined
-                AND stage sort order >= P4
-                AND live_count >= min_saleable_qty
+available_to_sell (per plant) = status = Portfolio
+                AND units >= min_saleable_qty
+units             = sum of live_count over the plant's open batches that are
+                    not quarantined AND at stage sort order >= P4     -- Q7
 min_saleable_qty  = plant's own value if set, else the global default   -- T-2
 ```
 
@@ -272,9 +339,12 @@ its stage's default interval (D-11).
 
 **Metrics** (all come from events + lineage, so no extra data entry):
 - Multiplication factor per SKU per cycle
-- Contamination rate by SKU / media / staff / week (including quarantined units)
+- Contamination rate by SKU / media / staff / week (including quarantined units).
+  Counts `Quarantine` events plus `Contamination` on batches not under
+  quarantine, so no unit is counted twice. Media, staff and week come from the
+  batch's own `Intake`. `Loss` is not contamination.
 - Media effectiveness by media code
-- Acclimatization survival rate (A1 → P4)
+- Acclimatization survival rate (A1 → P4), with losses by reason
 - Days in stage, stage conversion, weeks-to-saleable
 - Weekly lab output
 
@@ -305,3 +375,11 @@ its stage's default interval (D-11).
 |---|---|---|
 | V.1 | — | First consolidated SOP |
 | V.2 | 2026-10-10 | Standalone **Cucumber** app (D-01); four roles (D-03); Void / Correction / Undo, no hard deletes (D-07); locations Lab / Nursery (D-14); new stage `A1`, potted = `P4`, stage sort order (D-06, D-15); Protocol plan shelved (D-08); quarantine-by-split (D-02); Zoho vendor copy (D-04); `Candidate` status (T-1); global + per-SKU `min_saleable_qty` (T-2); monthly counts (T-3); Zoho reference text (T-4); clean start (T-5); per-stage subculture intervals (D-11); optional media lot (D-12); online only (D-17); translation-ready (D-16). All §9 TBDs closed. |
+| V.2 (amended) | 2026-10-11 | One action is voided as a whole; refused while a batch it created has later events; Split / Transfer quantity corrections change both batches (U0.2 Q8). SOP-10. |
+| V.2 (amended) | 2026-10-10 | Closing a batch is a `Close` event; a wrong close is voided to reopen; one-standing-batch rule removed (any number of batches per plant per location); new `Split` action; transfers go to a new batch by default; availability sums a plant's batches; pre-orders parked as D-20 (U0.2 Q7). §4, SOP-5, SOP-10, SOP-12, SOP-13, §8. |
+| V.2 (amended) | 2026-10-10 | Duplicate plant names blocked by any non-voided plant, Retired included; case, spaces and quotes ignored; no `???` names; naming standard parked as D-19 (U0.2 Q6). §5 rules 12–13, SOP-1. |
+| V.2 (amended) | 2026-10-10 | Event date can be moved back up to 7 days; older dates fixed by a reviewer's Correction; late entries flagged; counts compared as of their own date (U0.2 Q5). Principle 7, SOP-6, SOP-7, SOP-10. |
+| V.2 (amended) | 2026-10-10 | `qty_contaminated` dropped (contamination recorded once, as events); new `Loss` action and SOP-11; contamination-rate counting rules (U0.2 Q4). §4, SOP-4, SOP-11, §8. |
+| V.2 (amended) | 2026-10-10 | Reviews stored in their own append-only table; Admin's own events auto-reviewed; voided events leave the queue (U0.2 Q3). §4, §5 rule 10, SOP-7. |
+| V.2 (amended) | 2026-10-10 | Zoho link for purchases can be completed after registration; required before Portfolio; "Zoho link missing" list (U0.2 Q2). §3, §5 rule 4, SOP-1, SOP-8. |
+| V.2 (amended) | 2026-10-10 | Static SKU: assigned on first promotion, never changed or reused; new SKU only on genus reclassification, old one kept as former SKU (U0.2 Q1). §5 rule 1, SOP-2. |

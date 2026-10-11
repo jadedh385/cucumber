@@ -22,7 +22,10 @@ data entry (SOP §8).
 ### U5.2 · Availability calculation
 - **Size:** S · **Deps:** U1.2, U1.4 · **Decisions:** T-2, D-06
 - **Source:** SOP §8 Availability, principle 6
-- **Scope:** `available_to_sell = Portfolio AND live_count ≥ min_saleable_qty AND stage ≥ P4`.
+- **Scope:** per plant, `available_to_sell = Portfolio AND units ≥ min_saleable_qty`,
+  where units = sum of `live_count` over its open, non-quarantined batches at
+  stage ≥ P4 (summed because a plant can have several batches, U0.2 Q7).
+  Reservations come later (D-20).
   Never typed.
 - **Acceptance:** no input field for availability anywhere; changes as soon as the
   underlying events change.

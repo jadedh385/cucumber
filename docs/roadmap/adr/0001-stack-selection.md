@@ -1,9 +1,8 @@
 # ADR-0001 · Stack selection
 
 **Unit:** [U0.1](../phase-0-foundations.md#u01--decision-register--stack-selection)
-**Status:** Accepted for language, framework, front end and database ·
-hosting and file storage still **Open** (see [Open items](#open-items))
-**Date:** 2026-10-09 · **Decided by:** Jade (Owner)
+**Status:** Accepted · UI kit **daisyUI**, chosen by the Owner from the G1 spike (2026-10-11)
+**Date:** 2026-10-09, hosting and file storage 2026-10-11 · **Decided by:** Jade (Owner)
 **Resolves:** [D-01](../decisions.md#conflicts-between-sop-and-deck),
 [D-10](../decisions.md#conflicts-between-sop-and-deck),
 [D-17](../decisions.md#added-2026-10-09)
@@ -16,13 +15,16 @@ hosting and file storage still **Open** (see [Open items](#open-items))
 | Language | **Python** |
 | Framework | **Django 5.2 LTS** (security fixes until April 2028) |
 | Front end | Django templates + **HTMX**, with **Alpine.js** for small interactions |
-| UI styling | **Tailwind CSS** + a component kit (daisyUI first choice), checked in the spike |
+| UI styling | **Tailwind CSS + daisyUI 5**, chosen over Basecoat in the U0.1 spike (2026-10-11) |
 | Rich widgets | Small TypeScript "islands" only where a screen needs them (QR scanner U4.6, lineage tree U2.3, charts U5.1, map U5.5) |
 | Database | **PostgreSQL** |
 | API | None for now. Added later on top of the services layer if a new front end is planned (see [Future front ends](#future-front-ends)) |
 | Deploy | Docker Compose, same setup on any host |
 | Network access | Internet-reachable through **Cloudflare Tunnel + Access** (D-10); no open inbound ports |
 | Connectivity | **Online only** (D-17): Nursery 24/7 Wi-Fi, staff phone hotspots as backup; no offline mode |
+| Hosting | **Self-hosted**: start on the Owner's spare MacBook Air M2; a Linux mini PC if self-hosting stays. **Cloud VPS in Singapore is the fallback** if self-hosting proves a hassle (see [Hosting](#hosting)) |
+| File storage | **Local disk on the server behind django-storages**; move to Cloudflare R2 by a settings change when photo volume grows |
+| Label printing | **No app-to-printer link for now** (D-18): Cucumber lists what to print; staff print from the phone app |
 
 ## Context
 
@@ -172,34 +174,169 @@ Graphene-Django is not recommended (older, less maintained).
 - ⚠️ The Django admin bypasses services, so append-only and other critical
   rules must also be enforced in the database.
 
+## Hosting
+
+Decided 2026-10-11 by the Owner: **go live self-hosted (B); move to the cloud
+(A) if it proves a hassle.** Earlier the same day A was chosen for least effort;
+the Owner chose to try B first to keep running costs near zero.
+
+| | A) Cloud VPS, Singapore (fallback) | **B) Self-hosted machine** (chosen) | C) Hosted platform |
+|---|---|---|---|
+| Owner effort | Lowest: provider handles power and network | Power, UPS, updates, occasional visit | Low, but less control |
+| Power or internet cut where the server is | Not affected | **Everyone loses Cucumber** until it's back | Not affected |
+| Cost | ~US$15.60/month | Electricity ~฿30–40/month + hardware once | Usually higher |
+| Fit with Docker Compose | ✅ | ✅ | Weaker |
+
+**The server doesn't have to be in the lab.** Cucumber doesn't drive the
+printer (D-18) and staff reach it through Cloudflare Tunnel, so the machine
+goes wherever the power and internet are most reliable. No router ports are
+opened.
+
+### Machine
+
+| Machine | Status | Notes |
+|---|---|---|
+| **Spare MacBook Air M2** (8 GB, 512 GB) | **Start here**, free | Its battery rides through short power cuts. Catches: battery wear (set the 80% charge limit), no Ethernet socket (USB-C adapter), Docker runs inside a hidden Linux VM (2–4 GB of memory), and FileVault waits for a password after an unplanned restart |
+| **Linux mini PC** | Upgrade if self-hosting stays | Best fit: restarts on its own after a power cut, no password wait, no battery. Minimum 4 cores (e.g. Intel N100), 8 GB RAM (16 GB comfortable), 256 GB SSD (512 GB comfortable), Ethernet, BIOS "power on after AC loss", Ubuntu Server 24.04 LTS. About ฿6,000–10,000 new; used business mini PCs (ThinkCentre Tiny, EliteDesk Mini, OptiPlex Micro) cost less |
+| Mac mini M4 | Not chosen | Very efficient (3–4 W idle) and restarts after power cuts, but about ฿21,000–29,000 and keeps the macOS catches (Docker VM, FileVault password) |
+
+### Set-up checklist (U0.4)
+
+- **MacBook:** macOS 26.4 or later with the battery **charge limit at 80%**;
+  never sleeps on power; macOS updates download but install only when the
+  Owner chooses (no surprise restarts); Docker Desktop starts at login;
+  USB-C Ethernet adapter.
+- **UPS** for the internet router (and the Mac's charger). A server on battery
+  is no use if the router is off.
+- **FileVault** (open, decide at U0.4): keep it on and have someone at the
+  location type the password after an unplanned restart, or turn it off and
+  rely on encrypted backups. On means the data is safe if the laptop is stolen.
+- **Remote management** through Cloudflare Access (SSH), so the Owner can
+  look after it from anywhere without opening ports.
+- **Off-site backup (U0.11) running before go-live**, encrypted, to cloud
+  storage (e.g. Cloudflare R2, free up to 10 GB). This is what makes a dead or
+  stolen machine survivable.
+- **Uptime alert:** a free outside check emails the Owner when Cucumber can't
+  be reached. It also measures the "hassle" below.
+
+### When to move to the cloud
+
+Move to A if **any** of these happen:
+
+- Cucumber is unreachable for more than 4 hours at once during working hours,
+  or more than twice in a month;
+- someone has to go to the machine (type a password, restart it) more than
+  once a month;
+- looking after it takes the Owner more than about 1 hour a week;
+- the machine fails.
+
+**How to move:** create the cloud server, restore the latest off-site backup
+there, point the Cloudflare Tunnel at it, and switch the old machine off. It
+takes a few hours, and staff keep the same URL. The same steps move back to a
+local machine later.
+
+### Fallback: cloud VPS
+
+Kept from the October 2026 research so the move is quick. **Provider** checks:
+Singapore region, automatic snapshots, Docker support, monthly price, and a
+plain-language control panel.
+
+**Size:** 2 GB RAM. Django, PostgreSQL and `cloudflared` together are tight on
+1 GB; a handful of staff won't need more than 2 GB for a long time. Every
+provider below can resize later.
+
+Prices as listed in October 2026 (USD/month, 2 GB plan; check at sign-up):
+
+| | Server | Automatic backups | Total | Notes |
+|---|---|---|---|---|
+| **DigitalOcean** (recommended) | $12 (1 vCPU, 50 GB) | Weekly +20% ($2.40) or daily +30% ($3.60); daily offered in Singapore | ~$14–16 | Simplest panel; largest library of Django + Docker guides |
+| Vultr | $10 (1 vCPU, 55 GB) | +20% ($2), daily to monthly | ~$12 | Cheapest; panel almost as simple |
+| Akamai (Linode) | $12 (1 vCPU, 50 GB) | $2.50, daily + weekly kept | ~$14.50 | Solid; fewer beginner guides now |
+| AWS Lightsail | ~$12 (2 vCPU, 60 GB) | Free to switch on; $0.05/GB stored | ~$13 | Most for the money, but sits inside the AWS console and billing, harder for a newcomer |
+
+Recommended: **DigitalOcean with daily backups**, for the plain panel and the
+guides the Owner can follow alone. Vultr is the fine cheaper choice.
+The provider's backups copy the whole server. They do **not** replace the
+off-server database backups in U0.11.
+
+Also looked at (October 2026 research):
+
+| Option | Why not chosen |
+|---|---|
+| Hetzner, Singapore | Cheap in Europe, but Singapore plans cost more and include only 0.5 TB traffic; stricter sign-up checks |
+| Thai providers in Bangkok (e.g. NIPA Cloud, Nine Web, VPSThai) | Slightly faster from the lab and billed in baht, but fewer English and Docker guides, uneven quality, and usually higher prices (from about US$8–45/month). Singapore is only about 30 ms further away, which staff won't notice |
+| Managed PostgreSQL (DigitalOcean, from about US$15/month extra) | The provider runs database updates and backups. Not needed for a few staff; PostgreSQL runs in Docker on the same server and U0.11 handles backups. Revisit if database upkeep becomes a burden |
+
+**Things easy to overlook:**
+- Bills are in US dollars on a card, so the bank may add a foreign-exchange fee.
+- No lock-in: everything runs from one Docker Compose file, so moving provider
+  means restoring a backup elsewhere (the same steps as moving to a lab machine).
+- If the provider account is ever closed or locked, the server and its backups
+  go with it. That is why U0.11 keeps a copy of the database **outside** the
+  provider.
+- Cloudflare Tunnel sends very little traffic, so bandwidth limits don't matter
+  at this size.
+
+**PDPA:** only staff accounts are personal data. Storing them on a server in
+Singapore that only the business can access may not count as a cross-border
+transfer under Thai guidance. If it does, a standard contract clause covers it
+(for example the provider's data processing agreement). Low risk; confirm with
+an adviser before R1 if in doubt.
+
+## File storage
+
+Decided 2026-10-11. Photo volume is unknown, so files start on the server's disk
+behind **django-storages**. Moving to Cloudflare R2 later needs a settings
+change plus a one-off copy of existing files, with no code changes. Uploaded
+files go into the backup with the database (U0.11). Revisit when photos pass
+about 10 GB or the disk is 70% full.
+
+## Personal data
+
+Personal data is limited to staff accounts (name, email, role), so Thai PDPA
+impact is small. No customer data (D-04).
+
+## UI kit
+
+Decided 2026-10-11 by the Owner after trying the spike (`spike/` on branch
+`spike/u0.1-ui-kit`) on an iPhone 13: **daisyUI 5** over Basecoat 1.0.
+
+- The spike loads daisyUI from a CDN. The real app builds its CSS with the
+  **Tailwind standalone CLI** and daisyUI's bundled plugin file, so there is no
+  Node toolchain and no runtime CDN (U0.10).
+- The look (theme colours, rounding) is tuned in U0.10. daisyUI themes make a
+  later restyle a settings change, not a rewrite.
+- Still to check on an **Android** staff phone: at G5, when the spike app runs
+  on the self-hosted machine.
+
 ## Open items
 
-U0.1 can't exit G0 until these are closed.
-
-| Item | Options | Depends on |
+| Item | Options | Decided by |
 |---|---|---|
-| Hosting | A) Cloud VPS in Singapore, about US$5–15/month · B) Mini PC in the lab via Cloudflare Tunnel (needs a UPS and off-site backups; a lab power or internet outage cuts remote users off) · C) Hosted platform (weaker fit for self-hosting) | Who maintains the server; tolerance for lab outages |
-| File storage | Local disk via django-storages to start, or Cloudflare R2 / Backblaze B2 from day one | Expected photo volume |
-| UI kit | daisyUI, Basecoat, or another Tailwind kit | Spike on the lab phone |
-
-Also record in this ADR: personal data is limited to staff accounts, so Thai
-PDPA impact is small.
+| FileVault on the MacBook | On (someone types the password after a restart) or off (encrypted backups only) | U0.4 |
+| Fallback cloud provider | DigitalOcean recommended (see [Fallback](#fallback-cloud-vps)) | Only when a move is triggered |
 
 ## Spikes (U0.1 / G1)
 
 The language spike was skipped: Django was chosen on readability and built-in
-features. The required two spikes compare **hosting** instead:
+features. Hosting was decided on maintenance effort, so the two spikes now
+compare **UI kits**:
 
-1. Same tiny Django app deployed on a **VPS** and on a **lab mini PC**.
-2. Each spike includes: log in, record one event that can't be edited
-   afterwards (blocked at the database), and one screen styled with Tailwind
-   + the chosen kit, checked on the actual lab phone.
+1. The same tiny Django app styled with **daisyUI** and with **Basecoat**.
+2. Each version includes: log in, record one event that can't be edited
+   afterwards (blocked at the database), and one data-entry screen, checked
+   one-handed on the actual lab phone.
+
+The winner is deployed on the self-hosted machine behind Cloudflare Tunnel + Access for **G5**.
 
 ## Rejected or deferred
 
 | Option | Status | Revisit when |
 |---|---|---|
 | Build inside Anemone | Rejected | D-13 at R1 |
+| Cloud VPS hosting | Fallback | Self-hosting proves a hassle; see [When to move to the cloud](#when-to-move-to-the-cloud) |
+| Mac mini as server | Rejected | — |
+| Direct printing from the app | Deferred | U4.8 shows retyping or CSV import is too slow (D-18) |
 | TypeScript back end / Next.js only | Rejected | — |
 | Django API + React or Next.js front end | Deferred | A richer or offline-first front end is needed |
 | GraphQL | Deferred | Several front ends, or deeply nested screens multiply REST endpoints |

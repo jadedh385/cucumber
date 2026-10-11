@@ -17,7 +17,7 @@ No implementation starts until **U0.1** (decisions & stack) passes G0.
 | Concept | Meaning |
 |---|---|
 | **Phase** | A group of units that ships together behind a release gate (R0–R6). |
-| **Unit** (`Ux.y`) | Smallest piece of work that is specified, tested, reviewed and released on its own. 51 units total. |
+| **Unit** (`Ux.y`) | Smallest piece of work that is specified, tested, reviewed and released on its own. 52 units total. |
 | **Gate** (G0–G6) | Checkpoint every unit must pass in order: Spec → Design → Tests First → Build → Review → Verify → Release. Defined in [gates.md](gates.md). |
 | **Release gate** (R0–R6) | Extra phase-level criteria checked once all units in the phase are at G6. |
 | **Decision** (`D-nn`, `T-n`) | Open question that blocks specific units. Listed in [decisions.md](decisions.md). |
@@ -35,7 +35,7 @@ Every unit's G1 design is checked against these:
 4. Batch is the tracking unit — lineage via `parent_batch_id`.
 5. Events are append-only — fix mistakes with `Correction` events.
 6. Availability is calculated, never typed.
-7. Enter once — dropdowns for coded fields; date and week automatic.
+7. Enter once — dropdowns for coded fields; date and week automatic (date may be moved back up to 7 days).
 
 ## Phases
 
@@ -45,7 +45,7 @@ Every unit's G1 design is checked against these:
 | [1](phase-1-core-inventory.md) | Core inventory **MVP** | U1.1–U1.10 | 01 (part) + SOP-1…8 | R1 Go-live, Sheets retired |
 | [2](phase-2-lab-depth.md) | Lab depth | U2.1–U2.6 | 01 | R2 |
 | [3](phase-3-media-materials.md) | Media, materials & locations | U3.1–U3.5 | 02 | R3 |
-| [4](phase-4-workflow.md) | Workflow & documentation | U4.1–U4.7 | 03 | R4 |
+| [4](phase-4-workflow.md) | Workflow & documentation | U4.1–U4.8 | 03 | R4 |
 | [5](phase-5-analytics.md) | Analytics & monitoring | U5.1–U5.6 | 04 + SOP §8 | R5 |
 | [6](phase-6-hardening.md) | Infrastructure & security | U6.1–U6.6 | 05 | R6 |
 
@@ -63,7 +63,7 @@ flowchart LR
     P6 -. "if public without<br/>access gate (D-10):<br/>U6.1, U6.6 before R1" .-> R1
 ```
 
-- **Critical path to MVP:** U0.1 → U0.2 → U0.7 → U1.1 → U1.3 → U1.4 → U1.5 / U1.6 → U1.10 → R1.
+- **Critical path to MVP:** U0.1 → U0.2a → U0.2b → U0.7 → U1.1 → U1.3 → U1.4 → U1.5 / U1.6 → U1.10 → R1.
 - **Parallel after R1:** Phases 2, 3 and 5 can run side by side. Phase 4 needs
   U2.2, U2.4, U3.3 and U3.4 first.
 - **Phase 6** units can start any time after R0; U6.3 and U6.5 wait for the data units.
@@ -100,6 +100,7 @@ A phase passes its release gate when **all its units are at G6** *and*:
 | QR Code Labels & Scanning | U4.5, U4.6 |
 | Audit Trail & Record Keeping | U0.7 |
 | Document Management | U4.7 |
+| Culture labels after events (Owner request) | U4.8 |
 | Dashboard & Analytics | U5.1, U5.3 |
 | Report Builder | U5.4 |
 | Environmental Telemetry | U5.6 |
@@ -119,5 +120,6 @@ A phase passes its release gate when **all its units are at G6** *and*:
 | SOP-6 Collection count | U1.7 |
 | SOP-7 Review | U1.8 |
 | SOP-8 Zoho link | U1.9 |
+| SOP-11 Record a loss | U1.4 |
 | §8 Availability & metrics | U5.1, U5.2 |
 | Migration from V.2 | U1.10 |
