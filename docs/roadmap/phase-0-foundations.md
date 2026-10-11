@@ -84,14 +84,22 @@ exits · *Gate focus* = unit-specific checks on top of [the standard gates](gate
 |---|:-:|:-:|:-:|:-:|
 | Register plant, create batch, log events | ✅ | ✅ | ✅ | — |
 | Promote / demote / retire plant, assign SKU | ✅ | — | — | — |
-| Review events, add corrections | ✅ | ✅ except own events (D-03) | — | — |
+| Review events, add corrections | ✅ | ✅ except events they did or saved (D-03, U0.2 M5) | — | — |
+| Split, close, record loss | ✅ | ✅ | ✅ | — |
+| Undo an entry they saved, within 10 minutes (D-07) | ✅ | ✅ | ✅ | — |
+| Review Voids (including Undo) | ✅ | — | — | — |
+| Reclassify a plant's genus (new SKU) | ✅ | — | — | — |
+| Complete the Zoho link (vendor, `zoho_ref`) | ✅ | — | — | — |
+| Enter work done by another staff member | ✅ | ? | ? | — |
+| Release a batch from quarantine | ✅ | ? | ? | — |
 | Edit reference lists | ✅ | — | — | — |
 | See Zoho references | ✅ | — | — | — |
 | View dashboards | ✅ | ✅ | ✅ | ✅ |
 | Manage users | ✅ | — | — | — |
 
 - **Acceptance:** every endpoint has a permission test for each role (allowed and denied);
-  a Supervisor can't review or correct an event they logged (D-03).
+  a Supervisor can't review or correct an event they did or saved (D-03).
+  Rows marked **?** are decided at U0.6 G1 (added by U0.2 architect review M6).
 - **Gate focus:** G2 role × endpoint test matrix generated, not hand-written · G4 security review.
 
 ### U0.7 · Audit trail & append-only event store
