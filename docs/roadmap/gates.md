@@ -114,7 +114,7 @@ implementation.
 | Migration run on production; rollback rehearsed on staging | Release log |
 | Feature switched on (flag) and smoke-tested in production | Release log |
 | SOP / user guide updated for any changed procedure | Docs diff |
-| Staff told what changed | Message / note |
+| Staff told what changed | Published GitHub Release with a staff note, posted to the staff Discord channel ([release process](release-process.md)) |
 
 **Sign-off:** Owner.
 
