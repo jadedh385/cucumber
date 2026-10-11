@@ -68,6 +68,8 @@ flowchart LR
   U2.2, U2.4, U3.3 and U3.4 first.
 - **Phase 6** units can start any time after R0; U6.3 and U6.5 wait for the data units.
 
+Release notes and version numbers: see [release-process.md](release-process.md).
+
 ## Phase release gates
 
 A phase passes its release gate when **all its units are at G6** *and*:

@@ -52,7 +52,9 @@ exits · *Gate focus* = unit-specific checks on top of [the standard gates](gate
 ### U0.3 · Repository, CI & test harness
 - **Size:** M · **Deps:** U0.1
 - **Scope:** repo layout (by feature), lint, type check, unit / integration / E2E
-  runners, coverage report with an 80 % threshold that fails CI.
+  runners, coverage report with an 80 % threshold that fails CI. Release notes
+  tooling from the [release process](release-process.md): git-cliff config,
+  `CHANGELOG.md`, and the *Draft release* workflow (date versions `YYYY.MM.N`).
 - **Acceptance:** CI fails on lint error, type error, failing test, or coverage < 80 %.
 - **Gate focus:** G2 a deliberately failing test proves CI blocks merge.
 
@@ -64,7 +66,9 @@ exits · *Gate focus* = unit-specific checks on top of [the standard gates](gate
   feature flags. Host set-up from the
   [ADR checklist](adr/0001-stack-selection.md#set-up-checklist-u04): power and
   sleep settings, UPS for the router, FileVault decision, remote management
-  through Cloudflare Access, and an uptime alert to the Owner.
+  through Cloudflare Access, and an uptime alert to the Owner. Deploys go out
+  from a release tag; publishing the GitHub Release triggers the LINE staff
+  note ([release process](release-process.md)).
 - **Acceptance:** one command deploys to staging; app refuses to start with a
   missing secret; flags can toggle a feature without a redeploy.
 - **Gate focus:** G4 security review (secrets, exposed ports) · G5 fresh-host deploy test.
