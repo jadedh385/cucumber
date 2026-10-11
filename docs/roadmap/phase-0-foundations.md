@@ -32,19 +32,21 @@ exits · *Gate focus* = unit-specific checks on top of [the standard gates](gate
 - **Split 2026-10-11** (architect review H5) into two units that share one spec
   and design note:
   - **U0.2a · Schema** (M, Deps: U0.1): all tables, checks, foreign keys,
-    triggers, database permissions and seed data. AC 1–12, 13–16c, 18–21.
+    triggers, database permissions and seed data. AC 1–4a, 4c–4e, 5–5b, 6–12,
+    13–16c, 18, 19, 20, 21.
   - **U0.2b · Event core services** (M, Deps: U0.2a): the projection ("the
-    count wins"), row locking, Void, Correction, Close, Split and
-    `check_projections`. AC 12a–c, 16d–g, 17, 19a–d.
+    count wins"), row locking, Void, Correction, Close, Split,
+    genus reclassification, review rules, `check_projections`. AC 4b, 12a–c,
+    16d–g, 17, 19a–d.
 - **Size:** L (as two M units) · **Deps:** U0.1 · **Decisions:** D-02, D-05, D-07, D-15
 - **Source:** SOP §3, §4, §5
 - **Scope:** final ER model for `plants`, `batches`, `events`, reference lists,
   users, audit. Includes the decisions on vessel grain and deletion policy.
-- **Acceptance:** every SOP rule (§5 1–8) maps to a DB constraint, a domain
+- **Acceptance:** every SOP rule (§5 1–13) maps to a DB constraint, a domain
   guard, or a documented reason it can't be enforced in the DB.
 - **Gate focus:** G1 rule-to-enforcement table · G2 schema tests for uniqueness,
   FK, non-negative counts · G4 database review.
-- **Unit files:** [spec (G0)](units/u0.2-spec.md) · [design note (G1 draft)](units/u0.2-design.md)
+- **Unit files:** [spec (G0)](units/u0.2-spec.md) · [design note (G1)](units/u0.2-design.md)
 
 ### U0.3 · Repository, CI & test harness
 - **Size:** M · **Deps:** U0.1
@@ -110,7 +112,7 @@ exits · *Gate focus* = unit-specific checks on top of [the standard gates](gate
   require a reason. Void and 10-minute Undo per D-07; staff anonymisation on request.
 - **Acceptance:** an UPDATE or DELETE on events fails at the DB; an archive or
   void without a reason is rejected; Undo is refused after 10 minutes or for
-  another user's event; audit rows can't be edited by any role.
+  an event someone else saved; audit rows can't be edited by any role.
 - **Gate focus:** G2 tests that try to mutate events through the API **and** raw SQL · G4 security review.
 
 ### U0.8 · ID sequence service
