@@ -37,8 +37,8 @@ exits · *Gate focus* = unit-specific checks on top of [the standard gates](gate
     13–16c, 18, 19, 20, 21.
   - **U0.2b · Event core services** (M, Deps: U0.2a): the projection ("the
     count wins"), row locking, Void, Correction, Close, Split,
-    genus reclassification, review rules, `check_projections`. AC 4b, 12a–c,
-    16d–g, 17, 19a–d.
+    genus reclassification, review rules, duplicate-save guard,
+    `check_projections`. AC 4b, 12a–c, 16d–g, 17, 17a, 19a–d.
 - **Size:** L (as two M units) · **Deps:** U0.1 · **Decisions:** D-02, D-05, D-07, D-15
 - **Source:** SOP §3, §4, §5
 - **Scope:** final ER model for `plants`, `batches`, `events`, reference lists,
@@ -63,7 +63,9 @@ exits · *Gate focus* = unit-specific checks on top of [the standard gates](gate
 - **Scope:** dev / staging / production; containerized deploy; remote access via
   Cloudflare Tunnel + Access (D-10), no open inbound ports; secrets via
   environment variables; startup check that required secrets are present;
-  feature flags. Host set-up from the
+  feature flags. Every container (database included) restarts on its own after
+  a reboot (`restart: unless-stopped`; the spike's database didn't, see the
+  [setup log](runbooks/macbook-server-setup.md#setup-log)). Host set-up from the
   [ADR checklist](adr/0001-stack-selection.md#set-up-checklist-u04): power and
   sleep settings, UPS for the router, FileVault decision, remote management
   through Cloudflare Access, and an uptime alert to the Owner. Deploys go out
@@ -71,7 +73,8 @@ exits · *Gate focus* = unit-specific checks on top of [the standard gates](gate
   note to Discord ([release process](release-process.md)).
 - **Acceptance:** one command deploys to staging; app refuses to start with a
   missing secret; flags can toggle a feature without a redeploy.
-- **Gate focus:** G4 security review (secrets, exposed ports) · G5 fresh-host deploy test.
+- **Gate focus:** G4 security review (secrets, exposed ports) · G5 fresh-host deploy test,
+  including a restart test (the app comes back after a reboot and the FileVault password).
 
 ### U0.5 · Authentication
 - **Size:** M · **Deps:** U0.3, U0.4
@@ -146,10 +149,14 @@ exits · *Gate focus* = unit-specific checks on top of [the standard gates](gate
   coded fields, auto date / week), list + detail layouts, error and empty states,
   mobile-first. English UI, translation-ready (D-16). Built on **Tailwind +
   daisyUI 5** (ADR-0001), CSS compiled by the Tailwind standalone CLI.
+  **Double-tap guard** in the shared button / form component (ignore taps while
+  sending; re-enable on Back), and a friendly "please reload and try again"
+  page for CSRF failures instead of a bare 403 (issue #4).
 - **Acceptance:** all components usable one-handed at 375 px width; date and week
   never typed; no UI text hard-coded outside the translation function (checked by
   a lint rule or test).
-- **Gate focus:** G5 Staff UAT on the actual lab phone.
+- **Gate focus:** G5 Staff UAT on the actual lab phones, **including a low-end
+  Android** (the vivo Y3s, 3 GB RAM, found the double-tap bug).
 
 ### U0.11 · Backup & restore baseline
 - **Size:** S · **Deps:** U0.4

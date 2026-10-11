@@ -208,9 +208,8 @@ opened.
   USB-C Ethernet adapter.
 - **UPS** for the internet router (and the Mac's charger). A server on battery
   is no use if the router is off.
-- **FileVault** (open, decide at U0.4): keep it on and have someone at the
-  location type the password after an unplanned restart, or turn it off and
-  rely on encrypted backups. On means the data is safe if the laptop is stolen.
+- **FileVault: on** (Owner, 2026-10-11). Someone at the location types the
+  password after an unplanned restart; the data is safe if the laptop is stolen.
 - **Remote management** through Cloudflare Access (SSH), so the Owner can
   look after it from anywhere without opening ports.
 - **Off-site backup (U0.11) running before go-live**, encrypted, to cloud
@@ -218,6 +217,17 @@ opened.
   stolen machine survivable.
 - **Uptime alert:** a free outside check emails the Owner when Cucumber can't
   be reached. It also measures the "hassle" below.
+- **Free disk: at least 80–100 GB before go-live.** The database, Docker
+  images, local backup copies and photos all grow. The MacBook had 25 GB free
+  of 228 GB at set-up (2026-10-11).
+
+**Set up 2026-10-11** with the [runbook](../runbooks/macbook-server-setup.md):
+macOS 27.0.1, sleep off on power, charge limit 90 % (Owner's choice),
+FileVault **on** (decided: someone types the password after an unplanned
+restart), hostname `cucumber-server`, firewall on, SSH and Screen Sharing for
+the admin account only, Docker Desktop starting at login. Still to do: USB-C
+Ethernet adapter, UPS for the router, free disk space, Cloudflare (waits for
+the domain).
 
 ### When to move to the cloud
 
@@ -313,7 +323,6 @@ Decided 2026-10-11 by the Owner after trying the spike (`spike/` on branch
 
 | Item | Options | Decided by |
 |---|---|---|
-| FileVault on the MacBook | On (someone types the password after a restart) or off (encrypted backups only) | U0.4 |
 | Fallback cloud provider | DigitalOcean recommended (see [Fallback](#fallback-cloud-vps)) | Only when a move is triggered |
 
 ## Spikes (U0.1 / G1)
