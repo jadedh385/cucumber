@@ -126,11 +126,11 @@ Fill this in as you go, then commit and push it (last step).
 | Firewall | On |
 | SSH / Screen Sharing | Both on, Administrators only (`sawat`) |
 | Network (Ethernet / Wi-Fi), IP address | Wi-Fi 5 GHz (ch 36, -61 dBm), 192.168.101.12; no Ethernet adapter yet |
-| Docker Desktop version, starts at login | Desktop 4.94.0, Engine 29.8.2, 4 GB memory; start at login on (Owner set; confirm in restart test) |
+| Docker Desktop version, starts at login | Desktop 4.94.0, Engine 29.8.2, 4 GB memory; starts at login (confirmed in restart test) |
 | Spike tests (expect 18 passed) | 18 passed |
 | iPhone 13 test | Worked: login, saved an entry, quantity 0 rejected (daisyUI) |
 | Android test (model) | vivo Y3s (V2044), Funtouch OS 12, 3 GB RAM, Chrome: login first showed **403 CSRF** (see Problems); works after the double-tap fix |
-| Restart test | Pending: next session runs `docker info` after the restart and fills this in |
+| Restart test | Passed. Restarted 23:02; waited for the FileVault password as expected, then Docker Desktop started by itself (23:03, `docker info` OK). SSH, firewall, `sleep 0` and the IP address unchanged. The spike's `db` container stayed stopped (no `restart:` policy in `compose.yaml`); `docker compose up -d --wait` brought it back with the user and the saved entry intact. The real app's service in U0.4 needs to start its database on boot |
 | Problems or open questions | Android login sent 4 POSTs in the same second (repeat taps on a slow phone). The 1st logged in and rotated the CSRF token, so the later ones got 403 "CSRF token from POST incorrect". The spike has no double-submit guard on login or on entry Save; on append-only entries a double tap would save a duplicate that can't be removed. Spike now has the button guard; real-app work tracked in #4 |
 
 **Last step:** commit the filled-in log on the spike branch and push it, so
