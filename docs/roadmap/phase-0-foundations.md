@@ -50,12 +50,12 @@ exits · *Gate focus* = unit-specific checks on top of [the standard gates](gate
 - **Unit files:** [spec (G0)](units/u0.2-spec.md) · [design note (G1 passed)](units/u0.2-design.md)
 
 ### U0.3 · Repository, CI & test harness
-- **Unit files:** [spec (G0)](units/u0.3-spec.md)
+- **Unit files:** [spec (G0)](units/u0.3-spec.md) · [design note (G1 draft)](units/u0.3-design.md)
 - **Size:** M · **Deps:** U0.1
 - **Scope:** repo layout (by feature), lint, type check, unit / integration / E2E
   runners, coverage report with an 80 % threshold that fails CI. Release notes
   tooling from the [release process](release-process.md): git-cliff config,
-  `CHANGELOG.md`, and the *Draft release* workflow (date versions `YYYY.MM.N`).
+  and the *Draft release* workflow (date versions `YYYY.MM.N`).
 - **Acceptance:** CI fails on lint error, type error, failing test, or coverage < 80 %.
 - **Gate focus:** G2 a deliberately failing test proves CI blocks merge.
 

@@ -8,7 +8,7 @@ Every release produces **one GitHub Release** holding two kinds of notes:
 | Part | Reader | Written by | Sent to |
 |---|---|---|---|
 | **For staff** | Everyone who uses Cucumber | A person, in plain words | Staff Discord channel, automatically |
-| **Technical changes** | Owner, developers, Claude | Generated from commit messages (git-cliff) | Stays on GitHub and in `CHANGELOG.md` |
+| **Technical changes** | Owner, developers, Claude | Generated from commit messages (git-cliff) | Stays on GitHub; the list of GitHub Releases is the changelog (no `CHANGELOG.md` file, U0.3 design §7) |
 
 The published GitHub Release is the evidence for the G6 line "Staff told what
 changed".
@@ -109,7 +109,7 @@ prices or costs (SOP §2 principle 2).
 | Piece | Unit |
 |---|---|
 | Pull request template with "Staff note" | Now (this change) |
-| git-cliff config, `CHANGELOG.md`, *Draft release* workflow | U0.3 |
+| git-cliff config, *Draft release* workflow | U0.3 |
 | Deploy from a tag, smoke test, `release: published` Discord hook | U0.4 |
 | Discord webhook for the announcements channel, saved as a GitHub secret | Owner, before the first release (R0) |
 | Optional in-app "What's new" page | Later; revisit after R1 |

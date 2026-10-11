@@ -12,7 +12,7 @@ Mark each cell with the sign-off date (e.g. `10-14`) when the gate passes.
 | U0.1 | Decisions & stack | M | D-01, D-10, D-17 | 10-11 | 10-11 | 10-11 | 10-11 | 10-11 | ▶ | · |
 | U0.2a | Domain model: schema | M | D-02, D-05, D-07, D-15; U0.3 | 10-11 | 10-11 | · | · | · | · | · |
 | U0.2b | Domain model: event core services | M | U0.2a | 10-11 | 10-11 | · | · | · | · | · |
-| U0.3 | Repo, CI, test harness | M | | ▶ | · | · | · | · | · | · |
+| U0.3 | Repo, CI, test harness | M | | 10-11 | ▶ | · | · | · | · | · |
 | U0.4 | Environments & deploy | M | D-10 | · | · | · | · | · | · | · |
 | U0.5 | Authentication | M | | · | · | · | · | · | · | · |
 | U0.6 | Roles & permissions | M | D-03 | · | · | · | · | · | · | · |
@@ -114,4 +114,5 @@ Record every failed gate and every sign-off with notes.
 | 2026-10-11 | U0.1 / G2, G3 | Passed (recorded late) | Spike tests written first and seen failing, then 18 green; local runs (no CI yet, U0.3) | Claude |
 | 2026-10-11 | U0.1 / G4 | Passed with notes | Spike code review: no CRITICAL; HIGH H1–H3 and MEDIUM M1–M6 are carry-forward notes, logged in U0.2 design (date tests), U0.3 AC12 (DEBUG off by default), U0.5 and U0.10. Spike not polished further: it is throwaway | Reviewer (code-reviewer agent) |
 | 2026-10-11 | U0.1 / G5 | In progress | Spike runs on the self-hosted MacBook; iPhone 13 and Android (vivo Y3s) pass after a double-tap fix (issue #4); restart test passed. Left: check behind Cloudflare Tunnel + Access, waits for the domain | Jade |
+| 2026-10-11 | U0.3 / G0 | Passed | Spec signed off; Q1 stay on the free plan with a merge rule, Q2 squash-only merges | Jade |
 | 2026-10-11 | U0.1 / G0 | Passed | D-01, D-10, D-17 Resolved; hosting (Singapore VPS) and file storage (local disk) decided; D-18 concept recorded, details at U4.8 G0. G1 = VPS provider + UI kit spike | Jade |
