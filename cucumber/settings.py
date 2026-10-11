@@ -75,6 +75,9 @@ DATABASES = {
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
+# Where CSS and images are served from. Django's test server needs it too.
+STATIC_URL = "static/"
+
 # D-16: Bangkok time, English now with Thai to follow.
 LANGUAGE_CODE = "en"
 TIME_ZONE = "Asia/Bangkok"
