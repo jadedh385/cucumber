@@ -50,7 +50,7 @@ exits · *Gate focus* = unit-specific checks on top of [the standard gates](gate
 - **Unit files:** [spec (G0)](units/u0.2-spec.md) · [design note (G1 passed)](units/u0.2-design.md)
 
 ### U0.3 · Repository, CI & test harness
-- **Unit files:** [spec (G0)](units/u0.3-spec.md) · [design note (G1 draft, architect fixes applied)](units/u0.3-design.md)
+- **Unit files:** [spec (G0)](units/u0.3-spec.md) · [design note (G1 passed)](units/u0.3-design.md)
 - **Size:** M · **Deps:** U0.1
 - **Scope:** repo layout (by feature), lint, type check, unit / integration / E2E
   runners, coverage report with an 80 % threshold that fails CI. Release notes
