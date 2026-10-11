@@ -32,7 +32,7 @@ exits · *Gate focus* = unit-specific checks on top of [the standard gates](gate
 ### U0.2 · Domain model v1
 - **Split 2026-10-11** (architect review H5) into two units that share one spec
   and design note:
-  - **U0.2a · Schema** (M, Deps: U0.1): all tables, checks, foreign keys,
+  - **U0.2a · Schema** (M, Deps: U0.1, U0.3): all tables, checks, foreign keys,
     triggers, database permissions and seed data. AC 1–4a, 4c–4e, 5–5b, 6–12,
     13–16c, 18, 19, 20, 21.
   - **U0.2b · Event core services** (M, Deps: U0.2a): the projection ("the
@@ -50,6 +50,7 @@ exits · *Gate focus* = unit-specific checks on top of [the standard gates](gate
 - **Unit files:** [spec (G0)](units/u0.2-spec.md) · [design note (G1 passed)](units/u0.2-design.md)
 
 ### U0.3 · Repository, CI & test harness
+- **Unit files:** [spec (G0)](units/u0.3-spec.md)
 - **Size:** M · **Deps:** U0.1
 - **Scope:** repo layout (by feature), lint, type check, unit / integration / E2E
   runners, coverage report with an 80 % threshold that fails CI. Release notes
@@ -82,6 +83,11 @@ exits · *Gate focus* = unit-specific checks on top of [the standard gates](gate
   Owner-issued password reset, account deactivation.
 - **Acceptance:** wrong password rejected without revealing whether the user exists;
   deactivated user can't log in; sessions expire.
+- **From the U0.1 spike review:** tests for a good login, a bad password, POST-only
+  logout (GET refused), an unauthenticated save refused with no row written, a
+  `?next=//evil.example` redirect refused, and CSRF with `enforce_csrf_checks`
+  (the default test client skips CSRF). An HTMX request with an expired session
+  gets **401 + `HX-Redirect`** to login, never a login page swapped into the form.
 - **Gate focus:** G4 **security review mandatory** · G2 tests for lockout and session expiry.
 
 ### U0.6 · Roles & permissions
@@ -152,6 +158,11 @@ exits · *Gate focus* = unit-specific checks on top of [the standard gates](gate
   **Double-tap guard** in the shared button / form component (ignore taps while
   sending; re-enable on Back), and a friendly "please reload and try again"
   page for CSRF failures instead of a bare 403 (issue #4).
+  **From the U0.1 spike review:** no CDN at run time (htmx and CSS served from
+  the app); JavaScript in static files, not inline `onsubmit` / `hx-on`, so a
+  strict Content Security Policy is possible; an HTMX **timeout** so a hung save
+  shows the "not saved" banner and re-enables Save; different wording for "no
+  connection" and "server error".
 - **Acceptance:** all components usable one-handed at 375 px width; date and week
   never typed; no UI text hard-coded outside the translation function (checked by
   a lint rule or test).
