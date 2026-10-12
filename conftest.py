@@ -10,6 +10,9 @@ from cucumber.env import env
 
 APP_ROLE = "cucumber_app"
 
+# Row builders and fixtures for the schema tests (U0.2a).
+pytest_plugins = ["cucumber.core.tests.rows"]
+
 
 @pytest.fixture
 def app_db(transactional_db: None) -> Iterator[psycopg.Connection[tuple[object, ...]]]:
