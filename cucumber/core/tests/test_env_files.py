@@ -10,7 +10,8 @@ from django.conf import settings
 from cucumber.env import env
 
 ROOT = Path(settings.BASE_DIR)
-ENV_CALL = re.compile(r'\benv\(\s*"([A-Z0-9_]+)"')
+# env("NAME") and settings' required("NAME", …), which reads through env().
+ENV_CALL = re.compile(r'\b(?:env|required)\(\s*"([A-Z0-9_]+)"')
 COMPOSE_VARIABLE = re.compile(r"\$\{([A-Z0-9_]+)")
 
 

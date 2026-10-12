@@ -7,6 +7,8 @@ them. See `.env.example` for what each one means.
 
 from pathlib import Path
 
+from django.core.exceptions import ImproperlyConfigured
+
 from cucumber.env import env
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -15,11 +17,30 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # on only when DJANGO_DEBUG is exactly "1" (U0.3 AC12).
 DEBUG = env("DJANGO_DEBUG") == "1"
 
-SECRET_KEY = env("DJANGO_SECRET_KEY", "dev-only-not-a-secret")
+
+def required(name: str, debug_default: str) -> str:
+    """A variable that must be set when debug is off (U0.3 AC12).
+
+    With debug on (local work only) a missing value falls back to
+    `debug_default`. With debug off, Cucumber refuses to start and says which
+    variable is missing, rather than run with an unsafe default.
+    """
+    value = env(name)
+    if value:
+        return value
+    if DEBUG:
+        return debug_default
+    raise ImproperlyConfigured(
+        f"{name} must be set when debug is off (DJANGO_DEBUG is not 1). "
+        "See .env.example."
+    )
+
+
+SECRET_KEY = required("DJANGO_SECRET_KEY", "dev-only-not-a-secret")
 
 ALLOWED_HOSTS = [
     host.strip()
-    for host in env("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
+    for host in required("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
     if host.strip()
 ]
 
@@ -29,6 +50,11 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "cucumber.core",
+    "cucumber.accounts",
+    "cucumber.references",
+    "cucumber.plants",
+    "cucumber.batches",
+    "cucumber.events",
 ]
 
 MIDDLEWARE = [
@@ -67,7 +93,7 @@ DATABASES = {
         "ENGINE": "django.db.backends.postgresql",
         "NAME": env("DB_NAME", "cucumber"),
         "USER": env("DB_USER", "cucumber_owner"),
-        "PASSWORD": env("DB_PASSWORD"),
+        "PASSWORD": required("DB_PASSWORD", ""),
         "HOST": env("DB_HOST", "127.0.0.1"),
         "PORT": env("DB_PORT", "5434"),
     }

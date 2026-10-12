@@ -70,5 +70,7 @@ omit = ["*/migrations/*", "*/tests/*", "cucumber/wsgi.py"]
 
 [tool.coverage.report]
 fail_under = 80
+# Script entry points run only from the command line; their logic is in main().
+exclude_also = ['if __name__ == "__main__":']
 show_missing = true
 skip_covered = true

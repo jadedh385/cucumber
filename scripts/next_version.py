@@ -7,13 +7,18 @@ number. Used by the Draft release workflow: `python -m scripts.next_version`.
 
 import re
 from collections.abc import Iterable
-from datetime import datetime
+from datetime import UTC, datetime
 from zoneinfo import ZoneInfo
 
 from scripts.commands import Runner, run_command
 
 BANGKOK = ZoneInfo("Asia/Bangkok")
-VERSION_PATTERN = re.compile(r"^(\d{4})\.(\d{2})\.(\d+)$")
+VERSION_PATTERN = re.compile(r"(\d{4})\.(\d{2})\.(\d+)")
+GIT_TAGS = ["git", "tag", "--list"]
+GITHUB_RELEASES = [
+    "gh", "release", "list", "--limit", "1000",
+    "--json", "tagName", "--jq", ".[].tagName",
+]  # fmt: skip
 
 
 def next_version(existing: Iterable[str], now: datetime) -> str:
@@ -22,7 +27,17 @@ def next_version(existing: Iterable[str], now: datetime) -> str:
     Names must match VERSION_PATTERN whole (`fullmatch`); `now` must carry a
     time zone.
     """
-    raise NotImplementedError("U0.3 G3")
+    if now.utcoffset() is None:
+        raise ValueError("`now` must carry a time zone, e.g. datetime.now(UTC)")
+    today = now.astimezone(BANGKOK)
+    numbers_this_month = [
+        int(match[3])
+        for name in existing
+        if (match := VERSION_PATTERN.fullmatch(name))
+        and (int(match[1]), int(match[2])) == (today.year, today.month)
+    ]
+    number = max(numbers_this_month, default=0) + 1
+    return f"{today.year:04d}.{today.month:02d}.{number}"
 
 
 def existing_versions(run: Runner) -> list[str]:
@@ -31,11 +46,12 @@ def existing_versions(run: Runner) -> list[str]:
     Runs `git tag --list` and
     `gh release list --limit 1000 --json tagName --jq .[].tagName`.
     """
-    raise NotImplementedError("U0.3 G3")
+    output = "\n".join([run(GIT_TAGS), run(GITHUB_RELEASES)])
+    return [line.strip() for line in output.splitlines() if line.strip()]
 
 
 def main(run: Runner = run_command, now: datetime | None = None) -> None:
-    raise NotImplementedError("U0.3 G3")
+    print(next_version(existing_versions(run), now or datetime.now(UTC)))
 
 
 if __name__ == "__main__":

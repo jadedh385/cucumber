@@ -1,0 +1,30 @@
+{% comment %}
+  Minimal login page so Django's LoginView has something to show (U0.3).
+  U0.5 replaces it with the real, phone-first screen.
+{% endcomment %}<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Log in · Cucumber</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 0; padding: 16px; }
+    main { max-width: 24rem; margin: 0 auto; }
+    form div { margin-bottom: 1rem; }
+    label { display: block; margin-bottom: 0.25rem; }
+    input { box-sizing: border-box; width: 100%; padding: 0.6rem; font-size: 1rem; }
+    button { width: 100%; padding: 0.75rem; font-size: 1rem; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Cucumber</h1>
+    <form method="post">
+      {% csrf_token %}
+      {{ form.as_div }}
+      <input type="hidden" name="next" value="{{ next }}">
+      <button type="submit">Log in</button>
+    </form>
+  </main>
+</body>
+</html>
