@@ -11,7 +11,7 @@ Mark each cell with the sign-off date (e.g. `10-14`) when the gate passes.
 |---|---|:-:|---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
 | U0.1 | Decisions & stack | M | D-01, D-10, D-17 | 10-11 | 10-11 | 10-11 | 10-11 | 10-11 | ▶ | · |
 | U0.2a | Domain model: schema | M | D-02, D-05, D-07, D-15; U0.3 | 10-11 | 10-11 | 10-12 | 10-12 | 10-12 | · | · |
-| U0.2b | Domain model: event core services | M | U0.2a | 10-11 | 10-11 | · | · | · | · | · |
+| U0.2b | Domain model: event core services | M | U0.2a | 10-11 | 10-11 | ▶ | · | · | · | · |
 | U0.3 | Repo, CI, test harness | M | | 10-11 | 10-11 | 10-12 | 10-12 | 10-12 | ▶ | · |
 | U0.4 | Environments & deploy | M | D-10 | · | · | · | · | · | · | · |
 | U0.5 | Authentication | M | | · | · | · | · | · | · | · |

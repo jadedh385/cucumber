@@ -1,0 +1,170 @@
+"""Helpers for the U0.2b service tests (U0.2 design §2.5, §3).
+
+Staff with roles, Bangkok dates counted back from today, and stock built
+through the event services, so every test starts from numbers the services
+worked out themselves.
+
+Dates are real: the `recorded_at` trigger always stamps the database's
+`now()`, and backdated entries must stay inside the 7-day window, so the
+tests pick dates a few Bangkok days before today.
+
+Loaded for every test through `pytest_plugins` in the root conftest.py.
+"""
+
+import uuid
+from collections.abc import Iterator
+from contextlib import contextmanager
+from datetime import datetime, time, timedelta
+from typing import Any
+from zoneinfo import ZoneInfo
+
+import pytest
+from django.contrib.auth.models import Group, User
+from django.utils import timezone
+
+from cucumber.batches.models import Batch
+from cucumber.core.refusals import Refused
+from cucumber.events.services import NewBatch, NewEvent, Saved, save_operation
+
+BANGKOK = ZoneInfo("Asia/Bangkok")
+
+
+# --------------------------------------------------------------------- staff
+
+
+def make_staff(username: str, role: str) -> User:
+    """A user in the role's group: `admin`, `supervisor` or `tech` (design §2.7)."""
+    staff = User.objects.create_user(username=username)
+    group, _ = Group.objects.get_or_create(name=role)
+    staff.groups.add(group)
+    return staff
+
+
+@pytest.fixture
+def admin() -> User:
+    return make_staff("admin", "admin")
+
+
+@pytest.fixture
+def supervisor() -> User:
+    return make_staff("supervisor_1", "supervisor")
+
+
+@pytest.fixture
+def other_supervisor() -> User:
+    return make_staff("supervisor_2", "supervisor")
+
+
+@pytest.fixture
+def tech() -> User:
+    return make_staff("tech_1", "tech")
+
+
+@pytest.fixture
+def other_tech() -> User:
+    return make_staff("tech_2", "tech")
+
+
+# --------------------------------------------------------------------- dates
+
+
+def days_ago(days: int, hour: int) -> datetime:
+    """`hour`:00 in Bangkok, `days` calendar days before today in Bangkok.
+
+    Plain date arithmetic, not the code under test. At least one day back,
+    so the time is never in the future.
+    """
+    assert days >= 1, "pick a past day; use the default (now) for today"
+    today = timezone.now().astimezone(BANGKOK).date()
+    return datetime.combine(today - timedelta(days=days), time(hour), tzinfo=BANGKOK)
+
+
+# --------------------------------------------------------------------- stock
+
+
+def save(by: User, *entries: NewEvent) -> Saved:
+    """Save `entries` as one operation with a fresh `operation_id`."""
+    return save_operation(uuid.uuid4(), by, entries)
+
+
+def intake_into_new_batch(
+    by: User,
+    plant_id: int,
+    qty: int,
+    *,
+    location: str = "nursery",
+    stage: str | None = None,
+    occurred_at: datetime | None = None,
+) -> int:
+    """A new batch from an intake of `qty`; returns the batch's id."""
+    new_batch = NewBatch(plant_id=plant_id, origin="intake", location_code=location)
+    media = "M001" if location == "lab" else None
+    entry = NewEvent(
+        "intake",
+        new_batch=new_batch,
+        qty_in=qty,
+        stage_to=stage,
+        media_code=media,
+        occurred_at=occurred_at,
+    )
+    return save(by, entry).batch_ids[0]
+
+
+def new_lab_batch(by: User, plant_id: int, qty: int, stage: str = "P2") -> int:
+    return intake_into_new_batch(by, plant_id, qty, location="lab", stage=stage)
+
+
+def log(by: User, batch_id: int, action: str, **values: Any) -> int:
+    """One event on an existing batch, in its own operation; returns its id."""
+    return save(by, NewEvent(action, batch_id=batch_id, **values)).event_ids[0]
+
+
+def subculture_entries(
+    parent_id: int, plant_id: int, staff_id: int | None = None, children: int = 3
+) -> list[NewEvent]:
+    """A Subculture using 3 jars of a Lab batch, making child batches of 4 each.
+
+    The units used and the units made differ by design (design §3.1). Each
+    child entry makes its own batch, even though the entries are equal.
+    """
+    used = NewEvent(
+        "subculture",
+        batch_id=parent_id,
+        qty_out=3,
+        media_code="M001",
+        staff_id=staff_id,
+    )
+    child = NewBatch(
+        plant_id=plant_id,
+        origin="subculture",
+        location_code="lab",
+        parent_batch_id=parent_id,
+    )
+    made = NewEvent(
+        "intake",
+        new_batch=child,
+        qty_in=4,
+        stage_to="P2",
+        media_code="M001",
+        staff_id=staff_id,
+    )
+    return [used, *[made] * children]
+
+
+def batch_of(batch_id: int) -> Batch:
+    return Batch.objects.get(pk=batch_id)
+
+
+def live_count(batch_id: int) -> int:
+    return batch_of(batch_id).live_count
+
+
+# ------------------------------------------------------------------ refusals
+
+
+@contextmanager
+def refused(rule: str) -> Iterator[None]:
+    """Expect a service to refuse the save inside, naming `rule` (design §7.1)."""
+    with pytest.raises(Refused) as caught:
+        yield
+    assert caught.value.rule == rule, f"expected {rule!r}, refused by {caught.value}"

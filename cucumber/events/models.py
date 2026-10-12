@@ -27,6 +27,7 @@ from django.db.models.lookups import GreaterThanOrEqual
 
 from cucumber.batches.models import Batch
 from cucumber.core.expressions import TransactionNow
+from cucumber.events.projection import Effective
 from cucumber.references.models import MediaCode, Reason, Stage
 
 BANGKOK = "Asia/Bangkok"
@@ -177,6 +178,18 @@ def event_constraints() -> list[BaseConstraint]:
     ]
 
 
+class EventManager(models.Manager["Event"]):
+    def effective_events(self, batch_id: int) -> list[Effective]:
+        """The batch's events as they count now, in (`occurred_at`, `id`) order.
+
+        Voided events are left out; each event carries its newest non-voided
+        correction's values. Void and correction rows themselves aren't listed.
+        The projection, `check_projections` and reports all use this one
+        function (design §3.1, architect review M7).
+        """
+        raise NotImplementedError("U0.2b G3")
+
+
 class Event(models.Model):
     operation = models.ForeignKey(
         Operation, on_delete=models.PROTECT, related_name="events"
@@ -230,6 +243,8 @@ class Event(models.Model):
     entered_via = models.TextField(
         choices=EnteredVia.choices, db_default=EnteredVia.FORM
     )
+
+    objects = EventManager()
 
     class Meta:
         db_table = "events"
