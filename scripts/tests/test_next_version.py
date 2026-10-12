@@ -89,7 +89,3 @@ def test_main_prints_the_version_after_tags_and_drafts(
     main(run=FakeRunner(), now=OCT_11_NOON_BANGKOK)
 
     assert capsys.readouterr().out == "2026.10.3\n"
-
-
-def test_deliberately_wrong() -> None:
-    assert next_version([], OCT_11_NOON_BANGKOK) == "2026.10.2"
