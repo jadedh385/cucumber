@@ -10,6 +10,9 @@ from cucumber.env import env
 
 APP_ROLE = "cucumber_app"
 
+# Row builders and fixtures for the schema tests (U0.2a).
+pytest_plugins = ["cucumber.core.tests.rows"]
+
 
 @pytest.fixture
 def app_db(transactional_db: None) -> Iterator[psycopg.Connection[tuple[object, ...]]]:
@@ -20,8 +23,13 @@ def app_db(transactional_db: None) -> Iterator[psycopg.Connection[tuple[object, 
     hand a "mirror" alias the main connection inside a test (U0.2 re-check N4).
 
     It asks for `transactional_db`, so rows a test writes through Django are
-    committed and visible here. The connection is closed afterwards so it
-    can't block pytest-django from clearing or dropping the test database.
+    committed and visible here. Afterwards the whole test database is
+    flushed, seed rows from data migrations included; pytest-django runs
+    these tests after the others, so the seed tests still see them. A test
+    here that needs seed rows must insert its own.
+
+    The connection is closed afterwards so it can't block pytest-django from
+    clearing or dropping the test database.
     """
     password = env("DB_APP_PASSWORD")
     if not password:

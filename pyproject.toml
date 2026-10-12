@@ -40,6 +40,11 @@ select = ["E", "W", "F", "I", "B", "UP", "S", "DJ", "T20"]
 "**/tests/**" = ["S101", "S603", "S607"]
 "e2e/**" = ["S101"]
 "conftest.py" = ["S101"]
+# NULL means "not given" in the schema, and the checks rely on it
+# (e.g. `source IS NULL` for a candidate, U0.2 design §2), so text columns
+# may be nullable.
+"cucumber/*/models.py" = ["DJ001"]
+"cucumber/*/migrations/*.py" = ["DJ001"]
 # The release scripts call git and gh, which is their whole job.
 "scripts/*.py" = ["S603", "S607", "T201"]  # T201: the scripts print their result
 
