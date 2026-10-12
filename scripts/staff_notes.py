@@ -37,6 +37,11 @@ def format_notes(notes: Sequence[str]) -> str:
 
 
 def main(argv: Sequence[str] | None = None, run: Runner = run_command) -> None:
+    """Print the notes for one git range, e.g. `2026.10.1..<sha>`.
+
+    Runs `git log --reverse --format=%s <range>`, then for each pull request
+    `gh pr view <N> --json body --jq .body`.
+    """
     raise NotImplementedError("U0.3 G3")
 
 

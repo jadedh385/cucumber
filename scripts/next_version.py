@@ -17,12 +17,20 @@ VERSION_PATTERN = re.compile(r"^(\d{4})\.(\d{2})\.(\d+)$")
 
 
 def next_version(existing: Iterable[str], now: datetime) -> str:
-    """The version after the highest one in `existing` for `now`'s month."""
+    """The version after the highest one in `existing` for `now`'s month.
+
+    Names must match VERSION_PATTERN whole (`fullmatch`); `now` must carry a
+    time zone.
+    """
     raise NotImplementedError("U0.3 G3")
 
 
 def existing_versions(run: Runner) -> list[str]:
-    """Every git tag and every GitHub Release name, drafts included."""
+    """Every git tag and every GitHub Release tag, drafts included.
+
+    Runs `git tag --list` and
+    `gh release list --limit 1000 --json tagName --jq .[].tagName`.
+    """
     raise NotImplementedError("U0.3 G3")
 
 

@@ -38,7 +38,12 @@ def test_health_page_returns_503_when_database_is_down(
     assert response.content == b"database unavailable"
 
 
-def test_health_page_only_answers_get(client: Client) -> None:
+@pytest.mark.django_db
+def test_health_page_answers_head_for_uptime_monitors(client: Client) -> None:
+    assert client.head("/health/").status_code == 200
+
+
+def test_health_page_refuses_changes(client: Client) -> None:
     assert client.post("/health/").status_code == 405
 
 

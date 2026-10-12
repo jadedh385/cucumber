@@ -47,6 +47,17 @@ def test_dot_env_is_git_ignored_but_the_example_is_not() -> None:
     assert not is_git_ignored(".env.example")
 
 
+def test_dot_env_was_never_committed() -> None:
+    tracked = subprocess.run(
+        ["git", "ls-files", ".env"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert tracked.stdout == ""
+
+
 def test_example_names_every_variable_the_code_reads() -> None:
     read = names_read_by_python()
     assert read, "found no env() calls: has the helper been renamed?"

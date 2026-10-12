@@ -20,6 +20,12 @@ COMPLETE = {
 PRINT_DEBUG = "import cucumber.settings as s; print(s.DEBUG)"
 
 
+def error_line(result: subprocess.CompletedProcess[str]) -> str:
+    """The exception's own line; the traceback above it echoes source code."""
+    lines = result.stderr.strip().splitlines()
+    return lines[-1] if lines else ""
+
+
 def load_settings(variables: dict[str, str]) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         [sys.executable, "-c", PRINT_DEBUG],
@@ -60,8 +66,8 @@ def test_refuses_to_start_without_required_variable(missing: str) -> None:
     result = load_settings(variables)
 
     assert result.returncode != 0
-    assert "ImproperlyConfigured" in result.stderr
-    assert missing in result.stderr
+    assert error_line(result).startswith("django.core.exceptions.ImproperlyConfigured")
+    assert missing in error_line(result)
 
 
 @pytest.mark.parametrize("blank", REQUIRED_WHEN_DEBUG_OFF)
@@ -69,4 +75,4 @@ def test_blank_value_counts_as_missing(blank: str) -> None:
     result = load_settings({**COMPLETE, blank: "   "})
 
     assert result.returncode != 0
-    assert blank in result.stderr
+    assert blank in error_line(result)

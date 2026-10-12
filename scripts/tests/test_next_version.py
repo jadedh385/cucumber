@@ -24,9 +24,15 @@ def test_a_new_month_starts_again_at_1() -> None:
     assert next_version(taken, OCT_11_NOON_BANGKOK) == "2026.10.1"
 
 
-def test_dot_10_comes_after_dot_9() -> None:
-    taken = [f"2026.10.{n}" for n in range(1, 10)]
-    assert next_version(taken, OCT_11_NOON_BANGKOK) == "2026.10.10"
+def test_numbers_compare_as_numbers_not_text() -> None:
+    # As text, "2026.10.9" sorts after "2026.10.10".
+    taken = [f"2026.10.{n}" for n in range(1, 11)]
+    assert next_version(taken, OCT_11_NOON_BANGKOK) == "2026.10.11"
+
+
+def test_follows_the_highest_number_not_the_count() -> None:
+    taken = ["2026.10.4", "2026.10.1"]  # .2 and .3 abandoned, out of order
+    assert next_version(taken, OCT_11_NOON_BANGKOK) == "2026.10.5"
 
 
 def test_month_is_written_with_two_digits() -> None:
@@ -61,14 +67,20 @@ class FakeRunner:
         self.commands.append(list(command))
         if command[0] == "git":
             return "2026.10.1\n"
-        return "2026.10.2\n"  # gh release list: a draft not yet tagged
+        return "2026.10.2\n2026.10.1\n"  # gh release list: one draft, one tagged
 
 
 def test_existing_versions_include_tags_and_draft_releases() -> None:
     run = FakeRunner()
 
-    assert sorted(existing_versions(run)) == ["2026.10.1", "2026.10.2"]
-    assert [command[0] for command in run.commands] == ["git", "gh"]
+    assert sorted(set(existing_versions(run))) == ["2026.10.1", "2026.10.2"]
+    git, gh = run.commands
+    assert git == ["git", "tag", "--list"]
+    # Release *tag names*, not titles ("Cucumber 2026.10.2"), and more than
+    # gh's default of 30 so old months can't hide this month's numbers.
+    assert gh[:3] == ["gh", "release", "list"]
+    assert gh[gh.index("--json") + 1] == "tagName"
+    assert int(gh[gh.index("--limit") + 1]) >= 1000
 
 
 def test_main_prints_the_version_after_tags_and_drafts(

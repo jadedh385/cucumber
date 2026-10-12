@@ -2,6 +2,7 @@
 # Every check, in one command: the same on a laptop, the MacBook and GitHub.
 # Stops at the first check that fails and says which one.
 set -euo pipefail
+cd "$(dirname "$0")/.."   # run from the repo root, wherever it was started
 
 if [ -f .env ]; then
   export UV_ENV_FILE=.env   # local values; CI sets its own environment

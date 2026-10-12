@@ -29,6 +29,15 @@ def test_init_script_created_both_roles() -> None:
     assert roles == {"cucumber_owner", "cucumber_app"}
 
 
+def test_app_user_has_no_special_powers() -> None:
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT rolsuper, rolcreatedb, rolcreaterole, rolbypassrls"
+            " FROM pg_roles WHERE rolname = 'cucumber_app'"
+        )
+        assert cursor.fetchone() == (False, False, False, False)
+
+
 def test_django_runs_tests_as_the_owner() -> None:
     assert query_one("SELECT current_user") == "cucumber_owner"
 

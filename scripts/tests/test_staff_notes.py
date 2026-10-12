@@ -50,6 +50,21 @@ def test_none_or_empty_note_is_skipped(note: str) -> None:
     assert staff_note(pr_body(note)) is None
 
 
+def test_a_sentence_starting_with_none_is_kept() -> None:
+    body = pr_body("None of the screens changed, but saving is faster.")
+    assert staff_note(body) == "None of the screens changed, but saving is faster."
+
+
+def test_note_as_the_last_section_is_found() -> None:
+    body = "## Summary\n\nTech.\n\n## Staff note\n\nStaff can now log in.\n"
+    assert staff_note(body) == "Staff can now log in."
+
+
+def test_comment_inside_the_note_is_dropped() -> None:
+    body = pr_body("Losses need a reason.<!-- reviewer: check SOP --> See SOP §6.4.")
+    assert staff_note(body) == "Losses need a reason. See SOP §6.4."
+
+
 def test_body_without_the_section_has_no_note() -> None:
     assert staff_note("## Summary\n\nJust a fix.\n") is None
 
@@ -71,6 +86,9 @@ def test_format_notes_writes_one_bullet_each() -> None:
 
 def test_format_notes_says_so_when_there_is_nothing() -> None:
     assert format_notes([]) == NO_NOTES
+
+
+GH_BODY_ONLY = ["--json", "body", "--jq", ".body"]
 
 
 class FakeRunner:
@@ -100,6 +118,19 @@ def test_main_prints_the_notes_for_the_given_range(
         ["gh", "pr", "view", "12"],
         ["gh", "pr", "view", "13"],
     ]
+    # gh prints JSON unless asked for the bare body, which the fake returns.
+    assert all(command[4:] == GH_BODY_ONLY for command in run.commands[1:])
+
+
+def test_main_with_no_pull_requests_says_there_is_nothing(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    def run(command: Sequence[str]) -> str:
+        return "chore: pushed straight to main\n"
+
+    main(["2026.10.1..abc123"], run=run)
+
+    assert capsys.readouterr().out == NO_NOTES + "\n"
 
 
 def test_main_needs_exactly_one_range() -> None:

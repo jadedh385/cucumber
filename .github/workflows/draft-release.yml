@@ -24,6 +24,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: main # releases are always cut from main, whatever branch started the run
           fetch-depth: 0
           persist-credentials: false
 
@@ -34,7 +35,7 @@ jobs:
       - name: Draft the release
         run: |
           set -euo pipefail
-          SHA="$(git rev-parse HEAD)"   # everything below uses this commit
+          SHA="$(git rev-parse HEAD)"   # main's commit now; everything below uses it
           VERSION="$(uv run --no-dev python -m scripts.next_version)"
           LAST_TAG="$(git describe --tags --abbrev=0 --match '[0-9][0-9][0-9][0-9].[0-9][0-9].*' "$SHA" 2>/dev/null || true)"
           if [ -n "$LAST_TAG" ]; then RANGE="$LAST_TAG..$SHA"; else RANGE="$SHA"; fi
