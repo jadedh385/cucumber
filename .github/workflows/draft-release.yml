@@ -1,0 +1,64 @@
+# Draft the next GitHub Release (docs/roadmap/release-process.md, U0.3 AC14).
+# Started by hand: Actions -> Draft release -> Run workflow.
+# To abandon a draft: gh release delete <version> --cleanup-tag --yes
+name: Draft release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: read
+
+concurrency:
+  group: draft-release
+  cancel-in-progress: false
+
+jobs:
+  draft:
+    name: Draft the next release
+    # The workflow file itself comes from the branch it is started on, so a
+    # run started from any other branch does nothing.
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main # releases are always cut from main, whatever branch started the run
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+
+      # PR text only ever goes into files read by scripts, never into ${{ }}
+      # inside a run step, so a crafted pull request can't run commands.
+      - name: Draft the release
+        run: |
+          set -euo pipefail
+          SHA="$(git rev-parse HEAD)"   # main's commit now; everything below uses it
+          VERSION="$(uv run --no-dev python -m scripts.next_version)"
+          # Since the last *published* release, so an abandoned draft's changes
+          # are still included next time.
+          LAST_TAG="$(gh release list --exclude-drafts --limit 1 --json tagName --jq '.[0].tagName // empty')"
+          if [ -n "$LAST_TAG" ]; then RANGE="$LAST_TAG..$SHA"; else RANGE="$SHA"; fi
+          echo "Version $VERSION, commits $RANGE"
+
+          uv run --no-dev python -m scripts.staff_notes "$RANGE" > staff.md
+          if [ -n "$LAST_TAG" ]; then
+            uvx git-cliff==2.14.2 "$RANGE" --tag "$VERSION" --strip all > technical.md
+          else
+            uvx git-cliff==2.14.2 --tag "$VERSION" --strip all > technical.md
+          fi
+          {
+            echo "## For staff"; echo; cat staff.md; echo
+            echo "## Technical changes"; cat technical.md
+          } > notes.md
+
+          gh api "repos/$GITHUB_REPOSITORY/git/refs" \
+            -f ref="refs/tags/$VERSION" -f sha="$SHA" > /dev/null
+          gh release create "$VERSION" --draft --verify-tag \
+            --title "Cucumber $VERSION" --notes-file notes.md
+          echo "Draft created: $VERSION at $SHA" >> "$GITHUB_STEP_SUMMARY"

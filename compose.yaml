@@ -1,0 +1,23 @@
+# Local PostgreSQL 17 for development and tests. Not used in production.
+# Values come from .env (copy .env.example). The init script runs only on the
+# first start of an empty volume: `docker compose down -v` to start over.
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      DB_NAME: ${DB_NAME:-cucumber}
+      DB_OWNER_PASSWORD: ${DB_OWNER_PASSWORD:?set DB_OWNER_PASSWORD in .env}
+      DB_APP_PASSWORD: ${DB_APP_PASSWORD:?set DB_APP_PASSWORD in .env}
+    ports:
+      - "127.0.0.1:${DB_PORT:-5434}:5432"
+    volumes:
+      - cucumber-db:/var/lib/postgresql/data
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U postgres -d ${DB_NAME:-cucumber}"]
+      interval: 2s
+      retries: 15
+
+volumes:
+  cucumber-db:

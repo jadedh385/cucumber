@@ -60,7 +60,9 @@ flowchart LR
    that range, **creates the version tag at that commit**, and creates a
    **draft** GitHub Release for it. Drafts are visible only to the repo owner.
    To abandon a draft, delete it together with its tag
-   (`gh release delete <version> --cleanup-tag`).
+   (`gh release delete <version> --cleanup-tag`). A draft left in place still
+   uses up its number, but its changes reappear in the next draft, which counts
+   from the last *published* release. The workflow runs only from `main`.
 2. **Edit.** The Owner reads the draft and fixes the staff wording. Keep it
    short; the template is below.
 3. **Ship.** Take the verified backup, deploy **that tag** to the server (so

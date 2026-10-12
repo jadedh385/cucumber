@@ -1,0 +1,30 @@
+# git-cliff: turns commit titles into the "Technical changes" part of a
+# release (docs/roadmap/release-process.md). Only feat, fix and perf are
+# listed; other types are internal. Run as `uvx git-cliff==2.14.2`.
+
+[changelog]
+header = ""
+body = """
+{% for group, commits in commits | group_by(attribute="group") %}
+### {{ group | striptags | trim }}
+{% for commit in commits %}
+- {{ commit.message | split(pat="\n") | first | trim }}\
+{% endfor %}
+{% endfor %}
+"""
+footer = ""
+trim = true
+
+[git]
+conventional_commits = true
+filter_unconventional = true
+split_commits = false
+commit_parsers = [
+  { message = "^feat", group = "<!-- 0 -->Added" },
+  { message = "^fix", group = "<!-- 1 -->Fixed" },
+  { message = "^perf", group = "<!-- 2 -->Faster" },
+  { message = ".*", skip = true },
+]
+filter_commits = false
+tag_pattern = "^[0-9]{4}\\.[0-9]{2}\\.[0-9]+$"
+sort_commits = "oldest"

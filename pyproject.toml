@@ -1,0 +1,77 @@
+[project]
+name = "cucumber"
+version = "0.0.0"
+description = "Cucumber: plant lab inventory for SEC"
+requires-python = ">=3.13,<3.14"
+dependencies = [
+    "django>=5.2,<5.3",
+    "psycopg[binary]>=3.2",
+]
+
+[tool.uv]
+package = false
+
+[dependency-groups]
+dev = [
+    "django-stubs[compatible-mypy]>=6.1.2",
+    "mypy>=2.4.0",
+    "pytest>=9.1.1",
+    "pytest-cov>=7.1.0",
+    "pytest-django>=4.14.0",
+    "pytest-playwright>=0.10.0",
+    "ruff>=0.17.0",
+    "time-machine>=3.5.1",
+]
+
+# ---------------------------------------------------------------- lint (AC1)
+[tool.ruff]
+target-version = "py313"
+line-length = 88
+extend-exclude = ["spike"]
+
+[tool.ruff.lint]
+# E/W style, F mistakes, I import order, B likely bugs, UP modern Python,
+# S security (hard-coded passwords, unsafe calls), DJ Django rules,
+# T20 no leftover print() debugging.
+select = ["E", "W", "F", "I", "B", "UP", "S", "DJ", "T20"]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests use plain `assert` and start helper programs on purpose.
+"**/tests/**" = ["S101", "S603", "S607"]
+"e2e/**" = ["S101"]
+"conftest.py" = ["S101"]
+# The release scripts call git and gh, which is their whole job.
+"scripts/*.py" = ["S603", "S607", "T201"]  # T201: the scripts print their result
+
+# --------------------------------------------------------- type checks (AC2)
+[tool.mypy]
+python_version = "3.13"
+strict = true
+plugins = ["mypy_django_plugin.main"]
+exclude = ["^spike/"]
+
+[[tool.mypy.overrides]]
+module = ["*.migrations.*"]
+ignore_errors = true
+
+[tool.django-stubs]
+django_settings_module = "cucumber.settings"
+
+# ------------------------------------------------------- tests (AC3, AC4)
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "cucumber.settings"
+pythonpath = ["."]
+testpaths = ["cucumber", "scripts", "e2e"]
+python_files = ["test_*.py"]
+addopts = "--cov=cucumber --cov=scripts --cov-report=term-missing --strict-markers"
+
+[tool.coverage.run]
+branch = true
+omit = ["*/migrations/*", "*/tests/*", "cucumber/wsgi.py"]
+
+[tool.coverage.report]
+fail_under = 80
+# Script entry points run only from the command line; their logic is in main().
+exclude_also = ['if __name__ == "__main__":']
+show_missing = true
+skip_covered = true
