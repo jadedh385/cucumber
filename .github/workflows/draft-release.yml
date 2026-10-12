@@ -17,6 +17,9 @@ concurrency:
 jobs:
   draft:
     name: Draft the next release
+    # The workflow file itself comes from the branch it is started on, so a
+    # run started from any other branch does nothing.
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
@@ -37,7 +40,9 @@ jobs:
           set -euo pipefail
           SHA="$(git rev-parse HEAD)"   # main's commit now; everything below uses it
           VERSION="$(uv run --no-dev python -m scripts.next_version)"
-          LAST_TAG="$(git describe --tags --abbrev=0 --match '[0-9][0-9][0-9][0-9].[0-9][0-9].*' "$SHA" 2>/dev/null || true)"
+          # Since the last *published* release, so an abandoned draft's changes
+          # are still included next time.
+          LAST_TAG="$(gh release list --exclude-drafts --limit 1 --json tagName --jq '.[0].tagName // empty')"
           if [ -n "$LAST_TAG" ]; then RANGE="$LAST_TAG..$SHA"; else RANGE="$SHA"; fi
           echo "Version $VERSION, commits $RANGE"
 

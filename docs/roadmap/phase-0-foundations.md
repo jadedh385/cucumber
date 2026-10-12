@@ -74,6 +74,12 @@ exits · *Gate focus* = unit-specific checks on top of [the standard gates](gate
   note to Discord ([release process](release-process.md)).
 - **Acceptance:** one command deploys to staging; app refuses to start with a
   missing secret; flags can toggle a feature without a redeploy.
+- **From the U0.3 G4 review:** production security settings (`SECURE_PROXY_SSL_HEADER`
+  for Cloudflare, `SESSION_COOKIE_SECURE`, `CSRF_COOKIE_SECURE`, HSTS,
+  `CSRF_TRUSTED_ORIGINS`, a `LOGGING` config) with `manage.py check --deploy`
+  clean; the server sets `DB_USER=cucumber_app` and never `DJANGO_DEBUG=1`.
+  Collaborators stay Owner + Claude only: the free plan can't protect tags or
+  restrict who runs the *Draft release* workflow.
 - **Gate focus:** G4 security review (secrets, exposed ports) · G5 fresh-host deploy test,
   including a restart test (the app comes back after a reboot and the FileVault password).
 
@@ -88,6 +94,9 @@ exits · *Gate focus* = unit-specific checks on top of [the standard gates](gate
   `?next=//evil.example` redirect refused, and CSRF with `enforce_csrf_checks`
   (the default test client skips CSRF). An HTMX request with an expired session
   gets **401 + `HX-Redirect`** to login, never a login page swapped into the form.
+- **From the U0.3 G4 review:** set `LOGIN_REDIRECT_URL` (today a login lands on
+  Django's `/accounts/profile/`, a 404); replace U0.3's minimal login template;
+  login rate limiting. Password rules (Django's four validators) are already on.
 - **Gate focus:** G4 **security review mandatory** · G2 tests for lockout and session expiry.
 
 ### U0.6 · Roles & permissions

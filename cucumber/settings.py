@@ -43,6 +43,10 @@ ALLOWED_HOSTS = [
     for host in required("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
     if host.strip()
 ]
+if not DEBUG and (not ALLOWED_HOSTS or "*" in ALLOWED_HOSTS):
+    raise ImproperlyConfigured(
+        "DJANGO_ALLOWED_HOSTS must list real host names when debug is off, not '*'."
+    )
 
 INSTALLED_APPS = [
     "django.contrib.auth",
@@ -87,12 +91,13 @@ TEMPLATES = [
 WSGI_APPLICATION = "cucumber.wsgi.application"
 
 # Django connects as DB_USER. Migrations and tests use `cucumber_owner`; the
-# running app will use `cucumber_app` (U0.2 design §4, set up in U0.4).
+# running app will use `cucumber_app` (U0.2 design §4, set up in U0.4). With
+# debug off it has no default, so a server can't fall back to the owner.
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
         "NAME": env("DB_NAME", "cucumber"),
-        "USER": env("DB_USER", "cucumber_owner"),
+        "USER": required("DB_USER", "cucumber_owner"),
         "PASSWORD": required("DB_PASSWORD", ""),
         "HOST": env("DB_HOST", "127.0.0.1"),
         "PORT": env("DB_PORT", "5434"),
@@ -100,6 +105,17 @@ DATABASES = {
 }
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# Staff passwords: not too short, too common, all digits, or like the user name.
+AUTH_PASSWORD_VALIDATORS = [
+    {"NAME": f"django.contrib.auth.password_validation.{name}"}
+    for name in [
+        "UserAttributeSimilarityValidator",
+        "MinimumLengthValidator",
+        "CommonPasswordValidator",
+        "NumericPasswordValidator",
+    ]
+]
 
 # Where CSS and images are served from. Django's test server needs it too.
 STATIC_URL = "static/"

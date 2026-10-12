@@ -46,6 +46,7 @@ def test_accepts_type_colon_description(title: str) -> None:
         "feature: wrong type name",
         "feat:no space after the colon",
         "feat: ",
+        "feat:    ",
         "Feat: capital type",
         "wip",
     ],

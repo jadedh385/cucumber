@@ -30,7 +30,7 @@ def pr_numbers(log: str) -> list[int]:
 
 def _section_lines(body: str) -> list[str] | None:
     """The lines under `## Staff note`, up to the next heading; None if absent."""
-    lines = body.splitlines()
+    lines = HTML_COMMENT.sub(" ", body).splitlines()
     for index, line in enumerate(lines):
         if STAFF_NOTE_HEADING.fullmatch(line.strip()):
             section = lines[index + 1 :]
@@ -44,7 +44,7 @@ def staff_note(body: str) -> str | None:
     lines = _section_lines(body)
     if lines is None:
         return None
-    text = " ".join(HTML_COMMENT.sub(" ", "\n".join(lines)).split())
+    text = " ".join(" ".join(lines).split())
     return None if text.lower() in NOTHING_TO_SAY else text
 
 

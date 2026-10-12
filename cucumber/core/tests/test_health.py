@@ -25,6 +25,7 @@ def test_health_page_says_ok(client: Client) -> None:
     assert response.status_code == 200
     assert response.content == b"ok"
     assert response["Content-Type"].startswith("text/plain")
+    assert "no-store" in response["Cache-Control"]
 
 
 def test_health_page_returns_503_when_database_is_down(

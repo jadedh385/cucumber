@@ -11,10 +11,16 @@ import sys
 import pytest
 from django.conf import settings
 
-REQUIRED_WHEN_DEBUG_OFF = ["DJANGO_SECRET_KEY", "DJANGO_ALLOWED_HOSTS", "DB_PASSWORD"]
+REQUIRED_WHEN_DEBUG_OFF = [
+    "DJANGO_SECRET_KEY",
+    "DJANGO_ALLOWED_HOSTS",
+    "DB_USER",
+    "DB_PASSWORD",
+]
 COMPLETE = {
     "DJANGO_SECRET_KEY": "test-only-not-a-secret",
     "DJANGO_ALLOWED_HOSTS": "localhost",
+    "DB_USER": "cucumber_app",
     "DB_PASSWORD": "test-only-not-a-secret",
 }
 PRINT_DEBUG = "import cucumber.settings as s; print(s.DEBUG)"
@@ -76,3 +82,19 @@ def test_blank_value_counts_as_missing(blank: str) -> None:
 
     assert result.returncode != 0
     assert blank in error_line(result)
+
+
+@pytest.mark.parametrize("hosts", [",", " , ", "*", "localhost,*"])
+def test_refuses_hosts_that_are_empty_or_wildcard(hosts: str) -> None:
+    result = load_settings({**COMPLETE, "DJANGO_ALLOWED_HOSTS": hosts})
+
+    assert result.returncode != 0
+    assert "DJANGO_ALLOWED_HOSTS" in error_line(result)
+
+
+def test_weak_staff_passwords_are_refused() -> None:
+    from django.contrib.auth.password_validation import validate_password
+    from django.core.exceptions import ValidationError
+
+    with pytest.raises(ValidationError):
+        validate_password("1234")

@@ -31,8 +31,9 @@ extend-exclude = ["spike"]
 
 [tool.ruff.lint]
 # E/W style, F mistakes, I import order, B likely bugs, UP modern Python,
-# S security (hard-coded passwords, unsafe calls), DJ Django rules.
-select = ["E", "W", "F", "I", "B", "UP", "S", "DJ"]
+# S security (hard-coded passwords, unsafe calls), DJ Django rules,
+# T20 no leftover print() debugging.
+select = ["E", "W", "F", "I", "B", "UP", "S", "DJ", "T20"]
 
 [tool.ruff.lint.per-file-ignores]
 # Tests use plain `assert` and start helper programs on purpose.
@@ -40,7 +41,7 @@ select = ["E", "W", "F", "I", "B", "UP", "S", "DJ"]
 "e2e/**" = ["S101"]
 "conftest.py" = ["S101"]
 # The release scripts call git and gh, which is their whole job.
-"scripts/*.py" = ["S603", "S607"]
+"scripts/*.py" = ["S603", "S607", "T201"]  # T201: the scripts print their result
 
 # --------------------------------------------------------- type checks (AC2)
 [tool.mypy]

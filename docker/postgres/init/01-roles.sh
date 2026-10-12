@@ -18,7 +18,12 @@ psql -v ON_ERROR_STOP=1 --dbname postgres \
   -v owner_password="$DB_OWNER_PASSWORD" \
   -v app_password="$DB_APP_PASSWORD" \
   -v db_name="$DB_NAME" <<'SQL'
-CREATE ROLE cucumber_owner LOGIN CREATEDB PASSWORD :'owner_password';
-CREATE ROLE cucumber_app LOGIN PASSWORD :'app_password';
+CREATE ROLE cucumber_owner LOGIN CREATEDB NOSUPERUSER NOCREATEROLE
+  PASSWORD :'owner_password';
+CREATE ROLE cucumber_app LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT
+  PASSWORD :'app_password';
 CREATE DATABASE :"db_name" OWNER cucumber_owner;
+-- Only Cucumber's own roles may connect to its database.
+REVOKE ALL ON DATABASE :"db_name" FROM PUBLIC;
+GRANT CONNECT ON DATABASE :"db_name" TO cucumber_owner, cucumber_app;
 SQL

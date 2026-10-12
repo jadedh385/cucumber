@@ -65,6 +65,14 @@ def test_comment_inside_the_note_is_dropped() -> None:
     assert staff_note(body) == "Losses need a reason. See SOP §6.4."
 
 
+def test_heading_inside_a_comment_does_not_end_the_note() -> None:
+    body = (
+        "## Staff note\n\n<!--\n## Example\nLosses need a reason.\n-->\n\n"
+        "Staff can now log in.\n\n## Test plan\n"
+    )
+    assert staff_note(body) == "Staff can now log in."
+
+
 def test_body_without_the_section_has_no_note() -> None:
     assert staff_note("## Summary\n\nJust a fix.\n") is None
 

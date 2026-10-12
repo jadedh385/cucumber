@@ -19,7 +19,7 @@ jobs:
         env:
           # The title arrives as data in a variable, never pasted into the script.
           TITLE: ${{ github.event.pull_request.title }}
-          PATTERN: '^(feat|fix|perf|refactor|docs|test|chore|ci)(\(.+\))?!?: .+'
+          PATTERN: '^(feat|fix|perf|refactor|docs|test|chore|ci)(\(.+\))?!?: [^ ].*'
         run: |
           if [[ "$TITLE" =~ $PATTERN ]]; then
             echo "Title OK: $TITLE"
