@@ -159,10 +159,11 @@ def test_a_quarantine_child_can_be_quarantined(
     ],
 )
 def test_batch_values_come_from_their_lists(
-    plant: int, user: int, column: str, value: str, rule: str
+    plant: int, user: int, batch: int, column: str, value: str, rule: str
 ) -> None:
+    """The parent is set so that only the list rule can refuse the row."""
     with refused_by(rule):
-        make_batch(plant, user, **{column: value})
+        make_batch(plant, user, parent_batch_id=batch, **{column: value})
 
 
 def test_batch_number_is_unique_per_plant(plant: int, user: int) -> None:

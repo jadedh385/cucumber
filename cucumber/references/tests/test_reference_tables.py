@@ -7,6 +7,7 @@ core/tests/test_protection.py; here are the per-list checks and the seeds.
 import pytest
 
 from cucumber.core.tests.rows import (
+    as_int,
     fetch_all,
     fetch_one,
     insert,
@@ -96,8 +97,9 @@ def new_stage(code: str, sort_order: int | None) -> dict[str, object]:
 
 def test_two_stages_cannot_share_a_sort_order() -> None:
     """AC21."""
+    taken = as_int(fetch_one("SELECT sort_order FROM stages WHERE code = 'P2'")[0])
     with refused_by("stages_sort_order_unique"):
-        insert("stages", new_stage("X1", 3), returning="code")
+        insert("stages", new_stage("X1", taken), returning="code")
 
 
 def test_an_active_stage_needs_a_sort_order() -> None:

@@ -6,11 +6,14 @@ AC2–AC4a, AC4c–AC4e, AC5–AC5b; AC6 (no delete) is in core/tests/test_prote
 import pytest
 
 from cucumber.core.tests.rows import (
+    as_int,
     fetch_one,
     give_sku,
+    insert,
     issue_sku,
     make_plant,
     make_vendor,
+    plant_values,
     refused_by,
     run,
     update,
@@ -76,7 +79,8 @@ def test_ac4_register_prefix_must_match_the_genus(plant: int, user: int) -> None
 def test_sku_is_three_capitals_and_three_digits(
     plant: int, user: int, sku: str
 ) -> None:
-    issue_sku(plant, sku, user)
+    """Checked on the plant row; the link to `skus` is only checked at the end
+    of the statement, so no register row is needed (and none is written)."""
     with refused_by("plant_sku_format"):
         update("plants", plant, {"sku": sku})
 
@@ -101,6 +105,27 @@ def test_ac4a_sku_changes_together_with_the_genus(plant: int, user: int) -> None
     issue_sku(plant, "ANT001", user)
     update("plants", plant, {"genus_code": "ANT", "sku": "ANT001"})
     assert plant_row(plant, "genus_code, sku") == ("ANT", "ANT001")
+
+
+def test_a_genus_change_must_bring_a_new_sku(plant: int, user: int) -> None:
+    """Q1: changing the genus but keeping the old SKU breaks the prefix rule."""
+    give_sku(plant, "PHL005", user)
+    with refused_by("plant_sku_matches_genus"):
+        update("plants", plant, {"genus_code": "HYA"})
+
+
+def test_a_plant_with_no_sku_can_change_genus(plant: int) -> None:
+    """Design §2.2: no SKU, so nothing else has to change."""
+    update("plants", plant, {"genus_code": "HYA"})
+    assert plant_row(plant, "genus_code, sku") == ("HYA", None)
+
+
+def test_notes_default_to_empty(user: int) -> None:
+    """Design §2.2: `notes` has a database default of ''."""
+    values = plant_values(user)
+    del values["notes"]
+    plant = as_int(insert("plants", values))
+    assert plant_row(plant, "notes") == ("",)
 
 
 def test_ac4a_a_retired_plant_keeps_its_sku(plant: int, user: int) -> None:
@@ -158,6 +183,9 @@ def test_ac5_purchase_without_zoho_link_is_accepted_and_listed(user: int) -> Non
     missing_ref = make_plant(
         user, full_name="Micans", source="purchase", vendor_id=vendor
     )
+    missing_vendor = make_plant(
+        user, full_name="Mamei", source="purchase", zoho_ref="EXP-0002"
+    )
     complete = make_plant(
         user, full_name="Gloriosum", source="purchase", vendor_id=vendor,
         zoho_ref="EXP-0001",
@@ -169,7 +197,7 @@ def test_ac5_purchase_without_zoho_link_is_accepted_and_listed(user: int) -> Non
 
     listed = {plant.pk for plant in zoho_link_missing()}
 
-    assert listed == {missing_both, missing_ref}
+    assert listed == {missing_both, missing_ref, missing_vendor}
     assert not listed & {complete, voided, gift}
 
 

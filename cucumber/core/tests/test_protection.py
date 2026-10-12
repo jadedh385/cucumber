@@ -28,7 +28,7 @@ from cucumber.core.tests.rows import (
     refused_for_app,
     run,
 )
-from cucumber.core.tests.test_schema import (
+from cucumber.core.tests.schema_spec import (
     INSERT_ONLY_TABLES,
     NO_DELETE_TABLES,
     REFERENCE_TABLES,
@@ -81,7 +81,16 @@ RENAMES = {
 
 @pytest.fixture
 def one_row_everywhere(user: int, reviewer: int, plant: int) -> None:
-    """At least one row in every protected table, so row triggers fire."""
+    """At least one row in every protected table, so row triggers fire.
+
+    Also proves these tests run as the tables' owner, as AC13 requires.
+    """
+    owners = fetch_all(
+        "SELECT DISTINCT tableowner = current_user FROM pg_tables"
+        " WHERE schemaname = 'public' AND tablename = ANY(%s)",
+        [[*INSERT_ONLY_TABLES, *NO_DELETE_TABLES]],
+    )
+    assert owners == [(True,)], "tests must run as the owner of the tables"
     give_sku(plant, "PHL001", user)
     status_change = {
         "plant_id": plant,
@@ -151,27 +160,25 @@ def test_reference_codes_cannot_be_renamed(table: str) -> None:
 
 
 # ------------------------------------------------ the app user is not allowed
+#
+# A few live refusals for the ACs that name the app user. The grants matrix
+# below covers every other table. Kept few on purpose: each `app_db` test
+# flushes the database afterwards, seed rows included (see `app_db`).
 
-HISTORY_STATEMENTS = ["UPDATE {t} SET {c} = {c}", "DELETE FROM {t}", "TRUNCATE {t}"]
+APP_REFUSALS = [
+    "DELETE FROM plants",  # AC6
+    "UPDATE events SET note = note",  # AC13
+    "DELETE FROM events",  # AC13
+    "TRUNCATE events",
+    "UPDATE event_reviews SET note = note",  # AC19
+    "DELETE FROM event_reviews",  # AC19
+]
 
 
-@pytest.mark.parametrize("table", INSERT_ONLY_TABLES)
-@pytest.mark.parametrize("statement", HISTORY_STATEMENTS)
-def test_app_user_cannot_change_history(
-    app_db: AppConnection, table: str, statement: str
-) -> None:
-    """AC13, AC19: refused by grants, before any trigger runs."""
-    column = quote(UNCHANGED_COLUMN[table])
-    refused_for_app(app_db, statement.format(t=quote(table), c=column))
-
-
-@pytest.mark.parametrize("table", NO_DELETE_TABLES)
-@pytest.mark.parametrize("statement", ["DELETE FROM {t}", "TRUNCATE {t}"])
-def test_app_user_cannot_delete_plants_batches_or_lists(
-    app_db: AppConnection, table: str, statement: str
-) -> None:
-    """AC6: a DELETE on plants as the app's DB user fails."""
-    refused_for_app(app_db, statement.format(t=quote(table)))
+@pytest.mark.parametrize("statement", APP_REFUSALS)
+def test_app_user_is_refused(app_db: AppConnection, statement: str) -> None:
+    """AC6, AC13, AC19: refused by grants, before any trigger runs."""
+    refused_for_app(app_db, statement)
 
 
 # -------------------------------------------------------------- grants matrix

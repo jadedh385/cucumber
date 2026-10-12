@@ -3,7 +3,6 @@
 AC14–AC16c, AC18; append-only (AC13, AC19) is in core/tests/test_protection.py.
 """
 
-from collections.abc import Iterator
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
@@ -210,16 +209,19 @@ def test_a_fix_stays_on_the_batch_of_the_event_it_fixes(
 
 
 @pytest.fixture
-def recorded_at_from_test() -> Iterator[None]:
+def recorded_at_from_test() -> None:
     """Let a test choose `recorded_at`, to pin "now" to a Bangkok time.
 
     PostgreSQL's clock can't be frozen from Python, so this switches off the
     trigger that stamps `now()`, inside the test's own transaction (rolled
-    back afterwards). The check constraints under test still run.
+    back afterwards, which also switches the trigger back on). The check
+    constraints under test still run.
+
+    It must run before any event is inserted in the test: PostgreSQL refuses
+    to alter a table with pending trigger events. `usefixtures` fixtures run
+    before the ones a test names as arguments (such as `original`).
     """
     run("ALTER TABLE events DISABLE TRIGGER events_recorded_at_now")
-    yield
-    run("ALTER TABLE events ENABLE TRIGGER events_recorded_at_now")
 
 
 def bangkok(month: int, day: int, hour: int, minute: int = 0) -> datetime:
@@ -315,6 +317,18 @@ def test_recorded_at_is_always_the_real_save_time(batch: int, user: int) -> None
     )
     row = fetch_one("SELECT recorded_at = now() FROM events WHERE id = %s", [event])
     assert row == (True,)
+
+
+def test_quantities_note_and_entry_route_have_defaults(batch: int, user: int) -> None:
+    """Design §2.4: `qty_in`, `qty_out` default 0, `note` '', `entered_via` 'form'."""
+    values = event_values(batch, user, "count", counted_qty=1)
+    for column in ["qty_in", "qty_out", "note", "entered_via"]:
+        del values[column]
+    event = insert("events", values)
+    row = fetch_one(
+        "SELECT qty_in, qty_out, note, entered_via FROM events WHERE id = %s", [event]
+    )
+    assert row == (0, 0, "", "form")
 
 
 def test_recorded_at_defaults_to_now(batch: int, user: int) -> None:
