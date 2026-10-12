@@ -84,7 +84,14 @@ def insert_event(
     occurred_at: datetime,
     **values: Any,
 ) -> int:
-    """Insert one event; `recorded_by` is always the person saving it."""
+    """Insert one event; `recorded_by` is always the person saving it.
+
+    A negative quantity is refused here, by the database's own rule name: the
+    database checks each action's shape first (rules run in name order), which
+    would give staff the Internal message instead (U0.2a G5).
+    """
+    if (values.get("qty_in") or 0) < 0 or (values.get("qty_out") or 0) < 0:
+        raise refuse("event_qty_not_negative")
     event = Event.objects.create(
         operation_id=operation_id,
         recorded_by=recorded_by,
