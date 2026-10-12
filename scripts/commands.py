@@ -11,7 +11,3 @@ def run_command(command: Sequence[str]) -> str:
     return subprocess.run(
         list(command), check=True, capture_output=True, text=True
     ).stdout
-
-
-def answer() -> int:
-    return "forty-two"
