@@ -10,5 +10,5 @@ fi
 
 echo "==> Format (ruff format)";  uv run ruff format --check .
 echo "==> Lint (ruff check)";     uv run ruff check .
-echo "==> Types (mypy)";          uv run mypy cucumber scripts e2e conftest.py
+echo "==> Types (mypy)";          uv run mypy cucumber scripts e2e uat conftest.py
 echo "==> Tests and coverage (pytest)"; uv run pytest
