@@ -74,6 +74,7 @@ exits · *Gate focus* = unit-specific checks on top of [the standard gates](gate
   note to Discord ([release process](release-process.md)).
 - **Acceptance:** one command deploys to staging; app refuses to start with a
   missing secret; flags can toggle a feature without a redeploy.
+- **From the U0.2b G4 review:** set a PostgreSQL `lock_timeout` for the app (a save that waits minutes for a lock can fail the 5-minute future-date check); if a connection pooler (PgBouncer, transaction mode) is used, `check_projections` must not stream with server-side cursors (`.iterator()`).
 - **From the U0.3 G4 review:** production security settings (`SECURE_PROXY_SSL_HEADER`
   for Cloudflare, `SESSION_COOKIE_SECURE`, `CSRF_COOKIE_SECURE`, HSTS,
   `CSRF_TRUSTED_ORIGINS`, a `LOGGING` config) with `manage.py check --deploy`
@@ -136,6 +137,8 @@ exits · *Gate focus* = unit-specific checks on top of [the standard gates](gate
   within 10 minutes of `recorded_at`; a Tech's `staff_id` must be themselves
   (N7); a deactivated user can't save anything. Until U0.6 the services
   trust their caller (design §3.1); no screen reaches them before then.
+  Also: a resent `operation_id` returns the original result to anyone;
+  check it is the same `recorded_by` (U0.2b G4 security L3).
 - **Gate focus:** G2 role × endpoint test matrix generated, not hand-written · G4 security review.
 
 ### U0.7 · Audit trail & append-only event store
