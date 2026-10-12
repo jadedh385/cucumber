@@ -12,7 +12,7 @@ Mark each cell with the sign-off date (e.g. `10-14`) when the gate passes.
 | U0.1 | Decisions & stack | M | D-01, D-10, D-17 | 10-11 | 10-11 | 10-11 | 10-11 | 10-11 | ▶ | · |
 | U0.2a | Domain model: schema | M | D-02, D-05, D-07, D-15; U0.3 | 10-11 | 10-11 | · | · | · | · | · |
 | U0.2b | Domain model: event core services | M | U0.2a | 10-11 | 10-11 | · | · | · | · | · |
-| U0.3 | Repo, CI, test harness | M | | 10-11 | 10-11 | · | · | · | · | · |
+| U0.3 | Repo, CI, test harness | M | | 10-11 | 10-11 | 10-12 | ▶ | · | · | · |
 | U0.4 | Environments & deploy | M | D-10 | · | · | · | · | · | · | · |
 | U0.5 | Authentication | M | | · | · | · | · | · | · | · |
 | U0.6 | Roles & permissions | M | D-03 | · | · | · | · | · | · | · |
@@ -116,4 +116,5 @@ Record every failed gate and every sign-off with notes.
 | 2026-10-11 | U0.1 / G5 | In progress | Spike runs on the self-hosted MacBook; iPhone 13 and Android (vivo Y3s) pass after a double-tap fix (issue #4); restart test passed. Left: check behind Cloudflare Tunnel + Access, waits for the domain | Jade |
 | 2026-10-11 | U0.3 / G0 | Passed | Spec signed off; Q1 stay on the free plan with a merge rule, Q2 squash-only merges | Jade |
 | 2026-10-11 | U0.3 / G1 | Passed | Architect review pass with fixes; H1–H7 and M1–M8 applied (release tag at draft time, staff notes from squash commits, separate pr-title workflow, CI env values, app_db fixture teardown) | Jade |
+| 2026-10-12 | U0.3 / G2 | Passed | Harness built and tests for every G2 acceptance criterion written against stubs (PR #7). CI run 38190854098: format, lint, types clean; 45 tests red for the right reason (NotImplementedError, missing apps, missing login template, settings not yet failing closed), 44 green harness tests (PostgreSQL 17, both roles, app_db as cucumber_app, env files, PR-title rule). Test review pass with fixes, all HIGH/MEDIUM applied. AC1–AC4 throwaway PR moved to after G3 (needs a green baseline). Repo squash-only confirmed via `gh api` (AC6a) | Claude (developer) + reviewer (pr-test-analyzer agent) |
 | 2026-10-11 | U0.1 / G0 | Passed | D-01, D-10, D-17 Resolved; hosting (Singapore VPS) and file storage (local disk) decided; D-18 concept recorded, details at U4.8 G0. G1 = VPS provider + UI kit spike | Jade |
