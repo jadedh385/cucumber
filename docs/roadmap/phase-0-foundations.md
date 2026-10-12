@@ -74,6 +74,9 @@ exits · *Gate focus* = unit-specific checks on top of [the standard gates](gate
   note to Discord ([release process](release-process.md)).
 - **Acceptance:** one command deploys to staging; app refuses to start with a
   missing secret; flags can toggle a feature without a redeploy.
+- **From U0.2b G5 (Owner, 2026-10-12):** once staging exists, deploy U0.2b there,
+  run the full E2E suite, and re-run the Owner walk-through `uat/u0_2b.sh`.
+- **From the U0.2b G4 review:** set a PostgreSQL `lock_timeout` for the app (a save that waits minutes for a lock can fail the 5-minute future-date check); if a connection pooler (PgBouncer, transaction mode) is used, `check_projections` must not stream with server-side cursors (`.iterator()`).
 - **From the U0.3 G4 review:** production security settings (`SECURE_PROXY_SSL_HEADER`
   for Cloudflare, `SESSION_COOKIE_SECURE`, `CSRF_COOKIE_SECURE`, HSTS,
   `CSRF_TRUSTED_ORIGINS`, a `LOGGING` config) with `manage.py check --deploy`
@@ -125,6 +128,19 @@ exits · *Gate focus* = unit-specific checks on top of [the standard gates](gate
 - **Acceptance:** every endpoint has a permission test for each role (allowed and denied);
   a Supervisor can't review or correct an event they did or saved (D-03).
   Rows marked **?** are decided at U0.6 G1 (added by U0.2 architect review M6).
+- **Granting and removing roles** (Owner 2026-10-12): the Admin gives, changes
+  or removes a user's role; the change applies on the user's next request
+  (no stale session keeps the old role); every change is recorded (who, when,
+  old role → new role) in the audit trail (U0.7); the last Admin can't be
+  removed or deactivated. Tested allowed and denied like any endpoint.
+- **Role checks inside the event services** (U0.2b G4 security review, H1/H2,
+  Owner 2026-10-12): the services check the caller, not only the views. Void
+  and Correction only for roles allowed above; Undo only by `recorded_by`
+  within 10 minutes of `recorded_at`; a Tech's `staff_id` must be themselves
+  (N7); a deactivated user can't save anything. Until U0.6 the services
+  trust their caller (design §3.1); no screen reaches them before then.
+  Also: a resent `operation_id` returns the original result to anyone;
+  check it is the same `recorded_by` (U0.2b G4 security L3).
 - **Gate focus:** G2 role × endpoint test matrix generated, not hand-written · G4 security review.
 
 ### U0.7 · Audit trail & append-only event store
@@ -152,7 +168,8 @@ exits · *Gate focus* = unit-specific checks on top of [the standard gates](gate
 - **Source:** SOP §3 (stages, media codes, locations, sources)
 - **Scope:** Owner-editable lists: stages (codes locked, labels editable),
   media codes, locations (`Lab`, `Nursery` per D-14), genus codes, event actions
-  (fixed). Items deactivate, never delete.
+  (fixed). Items deactivate, never delete. Container types and counting units
+  may join these lists, depending on D-22.
 - **Acceptance:** stage codes `P0–P4, A1, T1, C0` can't be renamed (events
   reference them); each stage has a sort order, with A1 between P2 and P4 (D-06);
   deactivated item hidden from dropdowns, still shown on history.

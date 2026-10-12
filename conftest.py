@@ -10,8 +10,9 @@ from cucumber.env import env
 
 APP_ROLE = "cucumber_app"
 
-# Row builders and fixtures for the schema tests (U0.2a).
-pytest_plugins = ["cucumber.core.tests.rows"]
+# Row builders for the schema tests (U0.2a); staff and stock for the
+# service tests (U0.2b).
+pytest_plugins = ["cucumber.core.tests.rows", "cucumber.core.tests.stock"]
 
 
 @pytest.fixture

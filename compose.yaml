@@ -1,3 +1,4 @@
+name: inventory
 # Local PostgreSQL 17 for development and tests. Not used in production.
 # Values come from .env (copy .env.example). The init script runs only on the
 # first start of an empty volume: `docker compose down -v` to start over.

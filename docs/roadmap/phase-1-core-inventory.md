@@ -29,7 +29,7 @@ subculture) — depth features follow in Phase 2.
 - **Gate focus:** G2 rule-1 and rule-2 tests per role.
 
 ### U1.3 · Batches
-- **Size:** M · **Deps:** U1.1 · **Decisions:** D-02, D-14, D-15
+- **Size:** M · **Deps:** U1.1 · **Decisions:** D-02, D-14, D-15, **D-22 (decided here, at G0)**
 - **Source:** SOP §4 `batches`, SOP-3
 - **Scope:** batches in `Lab` (stage required) or `Nursery` (stage optional);
   any number of open batches per plant per location (U0.2 Q7). Optional
@@ -94,6 +94,9 @@ subculture) — depth features follow in Phase 2.
   appear only in the Owner's queue and can't be reviewed by that Supervisor;
   unreviewed events still count toward totals.
 - **Gate focus:** G5 Owner does a weekly review on a week of real data.
+- **From U0.2b G5 (timing at 10×):** the queue with 7,000 waiting took 1.6 s, mostly
+  the "dated before a count" flag. Show the queue a page at a time and work out
+  flags only for the page shown ([timing note](units/u0.2b-g5-verify.md)).
 
 ### U1.9 · Zoho Books reference link
 - **Size:** S · **Deps:** U1.1 · **Decisions:** T-4
