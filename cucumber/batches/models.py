@@ -37,17 +37,14 @@ class BatchStatus(models.TextChoices):
 
 
 class Batch(models.Model):
-    Origin = BatchOrigin
-
-    Status = BatchStatus
-
     plant = models.ForeignKey(Plant, on_delete=models.PROTECT, related_name="batches")
     plant_seq = models.IntegerField()  # the Bnnn in PHL001 · B003 (U0.8)
     parent_batch = models.ForeignKey(
         "self", on_delete=models.PROTECT, null=True, related_name="children"
     )
-    origin = models.TextField(choices=Origin.choices)
-    created_operation_id = models.UUIDField()  # Q8: found by an operation void
+    origin = models.TextField(choices=BatchOrigin.choices)
+    # Q8: an operation-wide void finds the batches its operation created.
+    created_operation_id = models.UUIDField(db_index=True)
     location = models.ForeignKey(
         Location, on_delete=models.PROTECT, db_column="location_code", related_name="+"
     )
@@ -59,7 +56,7 @@ class Batch(models.Model):
         related_name="+",
     )
     quarantined = models.BooleanField(db_default=False)
-    status = models.TextField(choices=Status.choices, db_default=Status.OPEN)
+    status = models.TextField(choices=BatchStatus.choices, db_default=BatchStatus.OPEN)
     live_count = models.IntegerField(db_default=0)
     created_at = models.DateTimeField(db_default=TransactionNow())
     created_by = models.ForeignKey(

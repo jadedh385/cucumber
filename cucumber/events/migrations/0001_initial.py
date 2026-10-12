@@ -172,7 +172,7 @@ class Migration(migrations.Migration):
                     models.ForeignKey(
                         null=True,
                         on_delete=django.db.models.deletion.PROTECT,
-                        related_name="voids",
+                        related_name="voided_by",
                         to="events.event",
                     ),
                 ),

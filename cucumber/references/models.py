@@ -96,11 +96,9 @@ class ReasonList(models.TextChoices):
 class Reason(models.Model):
     """A reason staff pick for a Void, a Correction or a Loss (rule 8, Q4)."""
 
-    AppliesTo = ReasonList
-
     code = models.TextField(primary_key=True)
     label = models.TextField()
-    applies_to = models.TextField(choices=AppliesTo.choices)
+    applies_to = models.TextField(choices=ReasonList.choices)
     active = models.BooleanField(db_default=True)
 
     class Meta:

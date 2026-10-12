@@ -56,10 +56,6 @@ class PlantSource(models.TextChoices):
 
 
 class Plant(models.Model):
-    Status = PlantStatus
-
-    Source = PlantSource
-
     genus = models.ForeignKey(
         Genus, on_delete=models.PROTECT, db_column="genus_code", related_name="plants"
     )
@@ -74,8 +70,8 @@ class Plant(models.Model):
         db_column="sku",
         related_name="+",
     )
-    status = models.TextField(choices=Status.choices)
-    source = models.TextField(choices=Source.choices, null=True)
+    status = models.TextField(choices=PlantStatus.choices)
+    source = models.TextField(choices=PlantSource.choices, null=True)
     source_note = models.TextField(null=True)
     vendor = models.ForeignKey(
         Vendor, on_delete=models.PROTECT, null=True, related_name="plants"

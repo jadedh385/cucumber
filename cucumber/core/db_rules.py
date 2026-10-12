@@ -7,6 +7,11 @@ service can look up its message in design §7.1. The error code is
 
 Functions shared by many tables are created once (core migration 0002);
 each app's migration attaches them to its own tables.
+
+Migrations import this module, so once a migration has run in production
+(from R1), never change what an existing helper produces: that would make a
+fresh database differ from production. Change a rule with a new migration
+(`CREATE OR REPLACE FUNCTION`, or a new trigger) instead (G4 review, M2).
 """
 
 from dataclasses import dataclass

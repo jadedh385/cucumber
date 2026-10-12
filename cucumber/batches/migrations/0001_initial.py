@@ -42,7 +42,7 @@ class Migration(migrations.Migration):
                         ]
                     ),
                 ),
-                ("created_operation_id", models.UUIDField()),
+                ("created_operation_id", models.UUIDField(db_index=True)),
                 ("quarantined", models.BooleanField(db_default=False)),
                 (
                     "status",

@@ -221,7 +221,7 @@ class Event(models.Model):
         related_name="+",
     )
     voids_event = models.ForeignKey(
-        "self", on_delete=models.PROTECT, null=True, related_name="voids"
+        "self", on_delete=models.PROTECT, null=True, related_name="voided_by"
     )
     corrects_event = models.ForeignKey(
         "self", on_delete=models.PROTECT, null=True, related_name="corrections"

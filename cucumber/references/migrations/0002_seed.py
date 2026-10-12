@@ -61,9 +61,24 @@ def seed(apps: Apps, schema_editor: BaseDatabaseSchemaEditor) -> None:
 
 
 def unseed(apps: Apps, schema_editor: BaseDatabaseSchemaEditor) -> None:
-    """Only before go-live: the no-delete triggers (0003) are gone by now."""
-    for model in ["Reason", "Genus", "MediaCode", "Location", "Stage"]:
-        apps.get_model("references", model).objects.all().delete()
+    """Remove only the seeded rows; anything the Admin added stays.
+
+    Runs only after core 0004 has checked there is no plant data, and after
+    the no-delete triggers (0003) are gone.
+    """
+    get = apps.get_model
+    reason_codes = [
+        reason_code(applies_to, label)
+        for applies_to, labels in REASONS.items()
+        for label in labels
+    ]
+    get("references", "Reason").objects.filter(code__in=reason_codes).delete()
+    get("references", "Genus").objects.filter(code__in=[c for c, _ in GENERA]).delete()
+    get("references", "MediaCode").objects.filter(code__in=MEDIA_CODES).delete()
+    get("references", "Location").objects.filter(
+        code__in=[c for c, _ in LOCATIONS]
+    ).delete()
+    get("references", "Stage").objects.filter(code__in=[c for c, _ in STAGES]).delete()
 
 
 class Migration(migrations.Migration):
