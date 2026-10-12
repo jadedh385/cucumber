@@ -1,5 +1,4 @@
 """Rules for the core app. Views call these; they never hold rules themselves."""
-import os
 
 import logging
 
