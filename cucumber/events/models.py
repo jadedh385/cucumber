@@ -7,6 +7,7 @@ and the same-batch links for voids and corrections are in migration 0002.
 
 import uuid
 from datetime import timedelta
+from typing import Any
 
 from django.conf import settings
 from django.db import models
@@ -27,7 +28,7 @@ from django.db.models.lookups import GreaterThanOrEqual
 
 from cucumber.batches.models import Batch
 from cucumber.core.expressions import TransactionNow
-from cucumber.events.projection import Effective
+from cucumber.events.projection import Effective, in_order
 from cucumber.references.models import MediaCode, Reason, Stage
 
 BANGKOK = "Asia/Bangkok"
@@ -178,6 +179,31 @@ def event_constraints() -> list[BaseConstraint]:
     ]
 
 
+# The values a Correction restates (design §3.1), as `values()` names them.
+CORRECTABLE = (
+    "occurred_at",
+    "qty_in",
+    "qty_out",
+    "counted_qty",
+    "media_code_id",
+    "stage_to_id",
+)
+
+
+def as_effective(original: dict[str, Any], values: dict[str, Any]) -> Effective:
+    """The original's id and action with `values` (its own or a correction's)."""
+    return Effective(
+        id=original["id"],
+        action=original["action"],
+        occurred_at=values["occurred_at"],
+        qty_in=values["qty_in"],
+        qty_out=values["qty_out"],
+        counted_qty=values["counted_qty"],
+        media_code=values["media_code_id"],
+        stage_to=values["stage_to_id"],
+    )
+
+
 class EventManager(models.Manager["Event"]):
     def effective_events(self, batch_id: int) -> list[Effective]:
         """The batch's events as they count now, in (`occurred_at`, `id`) order.
@@ -187,7 +213,23 @@ class EventManager(models.Manager["Event"]):
         The projection, `check_projections` and reports all use this one
         function (design §3.1, architect review M7).
         """
-        raise NotImplementedError("U0.2b G3")
+        rows = (
+            self.filter(batch_id=batch_id, voided_by__isnull=True)
+            .exclude(action=Action.VOID)
+            .order_by("id")
+            .values("id", "action", "corrects_event_id", *CORRECTABLE)
+        )
+        originals = []
+        newest_fix: dict[int, dict[str, Any]] = {}
+        for row in rows:
+            if row["action"] == Action.CORRECTION:
+                newest_fix[row["corrects_event_id"]] = row  # ascending id: last wins
+            else:
+                originals.append(row)
+        effective = [
+            as_effective(row, newest_fix.get(row["id"], row)) for row in originals
+        ]
+        return in_order(effective)
 
 
 class Event(models.Model):

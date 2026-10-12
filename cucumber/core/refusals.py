@@ -4,10 +4,73 @@ Database refusals and service guards both carry a stable rule name. The
 service looks the name up in design §7.1 for the message staff see.
 """
 
-from collections.abc import Sequence
+import logging
+from collections.abc import Iterator, Sequence
+from contextlib import contextmanager
+
+import psycopg
+from django.db import DatabaseError
+
+logger = logging.getLogger(__name__)
 
 # Shown for every rule marked "Internal" in design §7.1, and any unknown name.
 INTERNAL_MESSAGE = "Something went wrong; nothing was saved. Please tell the Admin."
+
+# The name a refusal has when the database gives none.
+UNNAMED_RULE = "unnamed"
+
+# Design §7.1: every rule staff can meet. Any name not here is Internal.
+MESSAGES: dict[str, str] = {
+    # Plants
+    "plant_portfolio_needs_sku": "A Portfolio plant needs an SKU.",
+    "plant_sku_format": "An SKU is 3 capital letters and 3 digits, e.g. PHL005.",
+    "plant_sku_matches_genus": (
+        "The SKU's first 3 letters must match the plant's genus."
+    ),
+    "plant_source_required": "Choose where the plant came from.",
+    "plant_portfolio_needs_zoho_link": (
+        "Add the vendor and Zoho reference before this plant can join the Portfolio."
+    ),
+    "plant_vendor_only_if_purchased": (
+        "Vendor and Zoho reference apply only to purchased plants."
+    ),
+    "plant_min_saleable_positive": "Minimum saleable quantity must be at least 1.",
+    "plant_name_valid": 'Enter a plant name, without "?" marks.',
+    "plant_name_unique_in_genus": (
+        "A plant with this name already exists in this genus."
+    ),
+    # Batches
+    "batch_lab_needs_stage": "Batches in the Lab need a stage.",
+    "batch_count_not_negative": (
+        "This would take the batch below zero. Check the numbers."
+    ),
+    "batch_closed_needs_zero": (
+        "A batch can only be closed or voided when it has 0 units."
+    ),
+    # Events and reviews
+    "event_qty_not_negative": "Quantities can't be negative.",
+    "event_counted_not_negative": "A count can't be negative.",
+    "event_reason_required": "Choose a reason.",
+    "event_not_in_future": "The date can't be in the future.",
+    "event_within_7_days": (
+        "You can pick a date up to 7 days back. For older work, log it today with"
+        " the real date in the note; a reviewer will fix the date."
+    ),
+    "event_void_once": "This entry has already been voided.",
+    "event_review_once": "This entry has already been reviewed.",
+    "operations_pkey": "Already saved.",
+    # Service guards (U0.2b)
+    "batch_not_open": (
+        "This batch is closed. Only voiding its Close can be logged on it."
+    ),
+    "void_has_later_events": "Void the later entries on the batches this made first.",
+    "void_of_void": "A void can't be voided. Log the entry again instead.",
+    "split_needs_note": "Say why these units are split off.",
+    "review_not_allowed": (
+        "You can't review this entry; it waits for another reviewer."
+    ),
+    "admin_only": "Only the Admin can do this.",
+}
 
 
 class Refused(Exception):
@@ -26,4 +89,37 @@ class Refused(Exception):
 
 def message_for(rule: str) -> str:
     """The message staff see for `rule` (design §7.1); Internal if not listed."""
-    raise NotImplementedError("U0.2b G3")
+    return MESSAGES.get(rule, INTERNAL_MESSAGE)
+
+
+def refuse(rule: str, event_ids: Sequence[int] = ()) -> Refused:
+    """A `Refused` for `rule`, with its §7.1 message; the caller raises it."""
+    return Refused(rule, message_for(rule), event_ids)
+
+
+def rule_of(error: DatabaseError) -> str:
+    """The constraint, index or trigger name the database refused with.
+
+    Triggers report theirs with `RAISE … USING CONSTRAINT` (design §7.1).
+    """
+    cause = error.__cause__
+    if isinstance(cause, psycopg.Error) and cause.diag.constraint_name:
+        return cause.diag.constraint_name
+    return UNNAMED_RULE
+
+
+@contextmanager
+def database_refusals() -> Iterator[None]:
+    """Turn a database refusal inside into `Refused`, by its rule name.
+
+    Wrap the whole `transaction.atomic()` block: Django's one-column foreign
+    keys are deferred and refuse only at commit (design §3.4). A refusal with
+    the Internal message is logged in full for the Admin.
+    """
+    try:
+        yield
+    except DatabaseError as error:
+        rule = rule_of(error)
+        if rule not in MESSAGES:
+            logger.exception("Save refused by the database (%s)", rule)
+        raise refuse(rule) from error

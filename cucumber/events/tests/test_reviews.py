@@ -321,8 +321,10 @@ def test_ac16g_an_entry_dated_before_a_count_already_saved_is_flagged(
 
 
 def test_an_entry_dated_more_than_24_hours_back_is_flagged_late(
-    stock: int, tech: User, admin: User
+    plant: int, tech: User, admin: User
 ) -> None:
+    # Taken in before the late entry's date, so its own date stays above zero.
+    stock = intake_into_new_batch(admin, plant, 10, occurred_at=days_ago(3, 9))
     late = log(tech, stock, "out", qty_out=1, occurred_at=days_ago(2, 9))
     on_time = log(tech, stock, "out", qty_out=1)
 
