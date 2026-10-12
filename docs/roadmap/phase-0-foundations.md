@@ -74,6 +74,8 @@ exits · *Gate focus* = unit-specific checks on top of [the standard gates](gate
   note to Discord ([release process](release-process.md)).
 - **Acceptance:** one command deploys to staging; app refuses to start with a
   missing secret; flags can toggle a feature without a redeploy.
+- **From U0.2b G5 (Owner, 2026-10-12):** once staging exists, deploy U0.2b there,
+  run the full E2E suite, and re-run the Owner walk-through `uat/u0_2b.sh`.
 - **From the U0.2b G4 review:** set a PostgreSQL `lock_timeout` for the app (a save that waits minutes for a lock can fail the 5-minute future-date check); if a connection pooler (PgBouncer, transaction mode) is used, `check_projections` must not stream with server-side cursors (`.iterator()`).
 - **From the U0.3 G4 review:** production security settings (`SECURE_PROXY_SSL_HEADER`
   for Cloudflare, `SESSION_COOKIE_SECURE`, `CSRF_COOKIE_SECURE`, HSTS,
