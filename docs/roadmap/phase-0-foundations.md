@@ -125,6 +125,17 @@ exits · *Gate focus* = unit-specific checks on top of [the standard gates](gate
 - **Acceptance:** every endpoint has a permission test for each role (allowed and denied);
   a Supervisor can't review or correct an event they did or saved (D-03).
   Rows marked **?** are decided at U0.6 G1 (added by U0.2 architect review M6).
+- **Granting and removing roles** (Owner 2026-10-12): the Admin gives, changes
+  or removes a user's role; the change applies on the user's next request
+  (no stale session keeps the old role); every change is recorded (who, when,
+  old role → new role) in the audit trail (U0.7); the last Admin can't be
+  removed or deactivated. Tested allowed and denied like any endpoint.
+- **Role checks inside the event services** (U0.2b G4 security review, H1/H2,
+  Owner 2026-10-12): the services check the caller, not only the views. Void
+  and Correction only for roles allowed above; Undo only by `recorded_by`
+  within 10 minutes of `recorded_at`; a Tech's `staff_id` must be themselves
+  (N7); a deactivated user can't save anything. Until U0.6 the services
+  trust their caller (design §3.1); no screen reaches them before then.
 - **Gate focus:** G2 role × endpoint test matrix generated, not hand-written · G4 security review.
 
 ### U0.7 · Audit trail & append-only event store
