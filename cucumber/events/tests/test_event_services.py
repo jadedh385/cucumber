@@ -167,6 +167,33 @@ def test_an_event_that_takes_the_batch_below_zero_is_refused(
     assert not Event.objects.filter(batch_id=batch, action="out").exists()
 
 
+@pytest.mark.parametrize(
+    ("action", "values"),
+    [
+        ("loss", {"qty_out": -2, "reason_code": "loss_rot"}),
+        ("out", {"qty_out": -1}),
+        ("contamination", {"qty_out": -1}),
+        ("intake", {"qty_in": -3}),
+        ("loss", {"qty_out": 1, "qty_in": -1, "reason_code": "loss_rot"}),
+    ],
+    ids=["loss", "out", "contamination", "intake", "loss-with-negative-in"],
+)
+def test_a_negative_quantity_gets_its_own_message(
+    plant: int, tech: User, action: str, values: dict[str, object]
+) -> None:
+    """U0.2a G5: the database checks each action's shape before the sign (its
+    rules run in name order), so a negative loss would show the Internal
+    message. The service refuses it by name first."""
+    batch = intake_into_new_batch(tech, plant, 5)
+    with pytest.raises(Refused) as caught:
+        log(tech, batch, action, **values)
+    assert (caught.value.rule, caught.value.message) == (
+        "event_qty_not_negative",
+        "Quantities can't be negative.",
+    )
+    assert live_count(batch) == 5
+
+
 def test_a_refused_save_leaves_no_operation_so_the_form_can_be_sent_again(
     plant: int, tech: User
 ) -> None:
