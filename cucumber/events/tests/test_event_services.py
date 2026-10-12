@@ -10,6 +10,8 @@ from typing import NamedTuple
 
 import pytest
 from django.contrib.auth.models import User
+from django.db import connection
+from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 
 from cucumber.batches.models import Batch
@@ -74,6 +76,44 @@ def test_a_reason_from_another_list_is_refused(plant: int, tech: User) -> None:
     batch = intake_into_new_batch(tech, plant, 10)
     with refused("event_reason_matches_action"):
         log(tech, batch, "loss", qty_out=1, reason_code="void_wrong_batch")
+
+
+@pytest.mark.parametrize(
+    ("values", "rule"),
+    [
+        ({"occurred_at": days_ago(8, 12)}, "event_within_7_days"),
+        ({"occurred_at": timezone.now() + timedelta(hours=1)}, "event_not_in_future"),
+        ({"reason_code": None}, "event_reason_required"),
+    ],
+    ids=["8-days-back", "future", "no-reason"],
+)
+def test_a_database_refusal_comes_back_by_its_rule_name(
+    plant: int, tech: User, values: dict[str, object], rule: str
+) -> None:
+    batch = intake_into_new_batch(tech, plant, 10)
+    with refused(rule):
+        log(tech, batch, "loss", qty_out=1, **{"reason_code": "loss_rot", **values})
+    assert live_count(batch) == 10
+
+
+def test_batches_are_locked_without_blocking_foreign_key_checks(
+    plant: int, tech: User
+) -> None:
+    """Design §3.4: `FOR NO KEY UPDATE`; plain `FOR UPDATE` blocks event inserts."""
+    batch = intake_into_new_batch(tech, plant, 10)
+    with CaptureQueriesContext(connection) as queries:
+        log(tech, batch, "out", qty_out=1)
+    sql = [query["sql"].upper() for query in queries.captured_queries]
+    assert any("FOR NO KEY UPDATE" in statement for statement in sql)
+    assert not any("FOR UPDATE" in statement for statement in sql)
+
+
+def test_the_stage_follows_its_events(plant: int, tech: User) -> None:
+    batch = new_lab_batch(tech, plant, 10, stage="P1")
+    change = log(tech, batch, "stage_change", stage_to="P2")
+    assert batch_of(batch).stage_id == "P2"
+    void(tech, change, "void_wrong_batch")
+    assert batch_of(batch).stage_id == "P1"
 
 
 # ------------------------------------------------- the count wins (H2, Q5)
@@ -219,6 +259,9 @@ def closed(emptied: Emptied, tech: User) -> Emptied:
         ("count", {"counted_qty": 0}),
         ("stage_change", {"stage_to": "P1"}),
         ("close", {}),
+        # At 0 these would also go below zero: the closed batch is named first.
+        ("out", {"qty_out": 1}),
+        ("loss", {"qty_out": 1, "reason_code": "loss_rot"}),
     ],
 )
 def test_ac12c_nothing_new_is_logged_on_a_closed_batch(

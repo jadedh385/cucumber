@@ -24,7 +24,7 @@ from cucumber.core.tests.stock import (
     subculture_entries,
 )
 from cucumber.events.models import Event
-from cucumber.events.services import Saved, correct, split, void
+from cucumber.events.services import Saved, correct, count_difference, split, void
 
 pytestmark = pytest.mark.django_db
 
@@ -171,7 +171,7 @@ def test_q5_a_reviewer_s_date_fix_may_go_back_more_than_7_days(
 
 def test_a_second_correction_keeps_the_first_one_s_fix(plant: int, tech: User) -> None:
     batch = new_lab_batch(tech, plant, 10)
-    added = log(tech, batch, "intake", qty_in=5, media_code="M001")
+    added = log(tech, batch, "intake", qty_in=5, stage_to="P2", media_code="M001")
     correct(tech, added, "correction_wrong_media_code", media_code="M002")
     correct(tech, added, "correction_wrong_quantity", qty_in=4)
     effective = next(e for e in Event.objects.effective_events(batch) if e.id == added)
@@ -204,3 +204,99 @@ def test_ac16f_correcting_a_split_corrects_both_sides(
     }
     assert {f.operation_id for f in fixes} == {result.operation_id}
     assert (live_count(parent), live_count(child)) == (70, 30)
+
+
+def test_a_quantity_correction_of_a_subculture_leaves_its_children(
+    subcultured: Subcultured, tech: User
+) -> None:
+    used = subcultured.saved.event_ids[0]
+    result = correct(tech, used, "correction_wrong_quantity", qty_out=2)
+    assert len(result.event_ids) == 1
+    assert live_count(subcultured.parent) == 8
+    assert [live_count(child) for child in subcultured.children] == [4, 4, 4]
+
+
+def test_a_paired_correction_that_takes_the_child_below_zero_is_refused(
+    plant: int, tech: User
+) -> None:
+    parent = intake_into_new_batch(tech, plant, 100)
+    saved = split(uuid.uuid4(), tech, parent, 40, note="pre-order")
+    [child] = saved.batch_ids
+    log(tech, child, "out", qty_out=35)
+    moved_out = Event.objects.get(operation_id=saved.operation_id, action="split")
+    with refused("batch_count_not_negative"):
+        correct(tech, moved_out.pk, "correction_wrong_quantity", qty_out=30)
+    assert (live_count(parent), live_count(child)) == (60, 5)
+
+
+# ------------------------------------- fixes to events before a count (§3.1)
+
+
+class Counted(NamedTuple):
+    batch: int
+    count_event: int
+    loss: int
+
+
+@pytest.fixture
+def loss_before_count(plant: int, tech: User) -> Counted:
+    """AC16g: 100 Monday, a count of 98 Wednesday, then a loss of 5 dated Tuesday."""
+    batch = intake_into_new_batch(tech, plant, 100, occurred_at=days_ago(3, 9))
+    count = log(tech, batch, "count", counted_qty=98, occurred_at=days_ago(1, 9))
+    loss = log(
+        tech,
+        batch,
+        "loss",
+        qty_out=5,
+        reason_code="loss_rot",
+        occurred_at=days_ago(2, 9),
+    )
+    return Counted(batch, count, loss)
+
+
+def test_voiding_an_event_before_a_count_changes_only_the_difference(
+    loss_before_count: Counted, tech: User
+) -> None:
+    void(tech, loss_before_count.loss, "void_wrong_batch")
+    assert live_count(loss_before_count.batch) == 98
+    assert count_difference(loss_before_count.count_event) == -2
+
+
+def test_correcting_an_event_before_a_count_changes_only_the_difference(
+    loss_before_count: Counted, tech: User
+) -> None:
+    correct(tech, loss_before_count.loss, "correction_wrong_quantity", qty_out=2)
+    assert live_count(loss_before_count.batch) == 98
+    assert count_difference(loss_before_count.count_event) == 0
+
+
+def test_correcting_a_count_sets_the_total(plant: int, tech: User) -> None:
+    batch = intake_into_new_batch(tech, plant, 10)
+    count = log(tech, batch, "count", counted_qty=8)
+    correct(tech, count, "correction_wrong_quantity", counted_qty=9)
+    assert live_count(batch) == 9
+    assert count_difference(count) == -1
+
+
+def test_a_correction_that_takes_the_batch_below_zero_is_refused(
+    plant: int, tech: User
+) -> None:
+    batch = intake_into_new_batch(tech, plant, 5)
+    out = log(tech, batch, "out", qty_out=3)
+    with refused("batch_count_not_negative"):
+        correct(tech, out, "correction_wrong_quantity", qty_out=6)
+    assert live_count(batch) == 2
+
+
+def test_corrections_point_at_the_original_never_at_a_fix(
+    plant: int, tech: User
+) -> None:
+    batch = intake_into_new_batch(tech, plant, 10)
+    out = log(tech, batch, "out", qty_out=3)
+    fix = correct(tech, out, "correction_wrong_quantity", qty_out=2).event_ids[0]
+    with refused("event_not_correctable"):
+        correct(tech, fix, "correction_wrong_quantity", qty_out=1)
+    other = log(tech, batch, "out", qty_out=1)
+    the_void = void(tech, other, "void_wrong_batch").event_ids[0]
+    with refused("event_not_correctable"):
+        correct(tech, the_void, "correction_wrong_quantity", qty_out=1)

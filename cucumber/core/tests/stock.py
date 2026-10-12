@@ -24,6 +24,7 @@ from django.utils import timezone
 
 from cucumber.batches.models import Batch
 from cucumber.core.refusals import Refused
+from cucumber.core.tests.rows import run
 from cucumber.events.services import NewBatch, NewEvent, Saved, save_operation
 
 BANGKOK = ZoneInfo("Asia/Bangkok")
@@ -157,6 +158,31 @@ def batch_of(batch_id: int) -> Batch:
 
 def live_count(batch_id: int) -> int:
     return batch_of(batch_id).live_count
+
+
+# --------------------------------------------------------- committing tests
+
+
+def restore_reference_rows() -> None:
+    """Seed rows the committing tests use, if missing.
+
+    Tests marked `django_db(transaction=True)` commit, and pytest-django
+    empties the whole database after each, seed rows included.
+    """
+    run("""
+        INSERT INTO genera (code, name, active) VALUES ('PHL', 'Philodendron', true)
+            ON CONFLICT DO NOTHING;
+        INSERT INTO locations (code, label, active)
+            VALUES ('lab', 'Lab', true), ('nursery', 'Nursery', true)
+            ON CONFLICT DO NOTHING;
+        INSERT INTO stages (code, label, sort_order, active)
+            VALUES ('P2', 'P2', 3, true) ON CONFLICT DO NOTHING;
+        INSERT INTO media_codes (code, label, active) VALUES ('M001', 'M001', true)
+            ON CONFLICT DO NOTHING;
+        INSERT INTO reasons (code, label, applies_to, active)
+            VALUES ('void_wrong_batch', 'Wrong batch', 'void', true)
+            ON CONFLICT DO NOTHING;
+    """)
 
 
 # ------------------------------------------------------------------ refusals

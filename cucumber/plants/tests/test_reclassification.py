@@ -75,6 +75,8 @@ def test_ac4b_no_other_plant_can_ever_get_the_old_sku(
     other = make_plant(user, full_name="Other")
     with refused_by("skus_pkey"):
         issue_sku(other, "PHL005", user)
+    former = Sku.objects.get(pk="PHL005")
+    assert (former.plant_id, former.genus_id) == (phl005, "PHL")
 
 
 def test_the_new_sku_is_the_next_one_issued_for_the_genus(
@@ -113,3 +115,13 @@ def test_only_the_admin_can_reclassify(phl005: int, ant: str, supervisor: User) 
         reclassify_genus(supervisor, phl005, ant)
     stored = Plant.objects.get(pk=phl005)
     assert (stored.genus_id, stored.sku_id) == ("PHL", "PHL005")
+
+
+def test_a_plant_cannot_move_into_a_genus_that_has_its_name(
+    phl005: int, ant: str, admin: User, user: int
+) -> None:
+    make_plant(user, genus_code="ANT", full_name="glorious")
+    with refused("plant_name_unique_in_genus"):
+        reclassify_genus(admin, phl005, ant)
+    assert Plant.objects.get(pk=phl005).sku_id == "PHL005"
+    assert not Sku.objects.filter(genus_id="ANT", plant_id=phl005).exists()

@@ -2,7 +2,10 @@
 
 import pytest
 
-from cucumber.core.refusals import INTERNAL_MESSAGE, message_for
+from cucumber.core.refusals import message_for
+
+# Design §7.1, written out so a wrong constant in the code is caught.
+INTERNAL = "Something went wrong; nothing was saved. Please tell the Admin."
 
 WITHIN_7_DAYS = (
     "You can pick a date up to 7 days back. For older work, log it today with"
@@ -52,4 +55,4 @@ def test_each_rule_shows_its_design_message(rule: str, message: str) -> None:
     ],
 )
 def test_internal_and_unknown_rules_show_the_internal_message(rule: str) -> None:
-    assert message_for(rule) == INTERNAL_MESSAGE
+    assert message_for(rule) == INTERNAL

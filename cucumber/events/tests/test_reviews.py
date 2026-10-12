@@ -19,7 +19,12 @@ from cucumber.core.tests.stock import (
     subculture_entries,
 )
 from cucumber.events.models import Event, EventReview
-from cucumber.events.reviews import DATED_BEFORE_COUNT, review, review_queue
+from cucumber.events.reviews import (
+    DATED_BEFORE_COUNT,
+    ENTERED_LATE,
+    review,
+    review_queue,
+)
 from cucumber.events.services import correct, void
 
 pytestmark = pytest.mark.django_db
@@ -221,13 +226,79 @@ def test_the_admin_s_own_fix_is_reviewed_as_it_is_saved(
     assert {out, fix_id}.isdisjoint(queued(admin))
 
 
+# ------------------------------- more fixes and Admin saves (Q3, rule 10)
+
+
+def test_a_reviewer_s_fix_of_an_entry_they_already_reviewed_keeps_one_review(
+    stock: int, tech: User, supervisor: User
+) -> None:
+    out = log(tech, stock, "out", qty_out=3)
+    review(supervisor, Event.objects.get(pk=out).operation_id)
+    correct(supervisor, out, "correction_wrong_quantity", qty_out=2)
+    assert reviewers_of(out) == [supervisor.pk]
+
+
+def test_the_admin_s_fix_of_their_own_entry_keeps_one_review(
+    stock: int, admin: User
+) -> None:
+    out = log(admin, stock, "out", qty_out=3)
+    fix = correct(admin, out, "correction_wrong_quantity", qty_out=2)
+    assert reviewers_of(out) == [admin.pk]
+    assert reviewers_of(fix.event_ids[0]) == [admin.pk]
+
+
+@pytest.mark.parametrize("saved_by", ["supervisor", "other_supervisor"])
+def test_a_supervisor_s_fix_doesn_t_review_an_entry_they_may_not_review(
+    stock: int,
+    tech: User,
+    supervisor: User,
+    request: pytest.FixtureRequest,
+    saved_by: str,
+) -> None:
+    """Saved by a Supervisor (for a Tech, or their own): only the Admin reviews."""
+    saver: User = request.getfixturevalue(saved_by)
+    out = log(saver, stock, "out", qty_out=3, staff_id=tech.pk)
+    correct(supervisor, out, "correction_wrong_quantity", qty_out=2)
+    assert reviewers_of(out) == []
+
+
+def test_every_event_of_an_admin_operation_is_reviewed_as_it_is_saved(
+    plant: int, admin: User
+) -> None:
+    parent = new_lab_batch(admin, plant, 10)
+    saved = save(admin, *subculture_entries(parent, plant))
+    for event_id in saved.event_ids:
+        assert reviewers_of(event_id) == [admin.pk]
+
+
+def test_the_admin_s_void_is_reviewed_as_it_is_saved(
+    stock: int, tech: User, admin: User
+) -> None:
+    out = log(tech, stock, "out", qty_out=1)
+    [void_id] = void(admin, out, "void_duplicate_entry").event_ids
+    assert reviewers_of(void_id) == [admin.pk]
+    assert void_id not in queued(admin)
+
+
+def test_reviewing_an_operation_twice_writes_no_second_review(
+    stock: int, tech: User, supervisor: User, admin: User
+) -> None:
+    out = log(tech, stock, "out", qty_out=1)
+    operation_id = Event.objects.get(pk=out).operation_id
+    review(supervisor, operation_id)
+    review(admin, operation_id)
+    assert reviewers_of(out) == [supervisor.pk]
+
+
 # ------------------------------------------- dated before a count (AC16g)
 
 
-def test_ac16g_an_entry_dated_before_a_count_is_flagged(
+def test_ac16g_an_entry_dated_before_a_count_already_saved_is_flagged(
     plant: int, admin: User, tech: User
 ) -> None:
     batch = intake_into_new_batch(admin, plant, 100, occurred_at=days_ago(3, 9))
+    # Normal order: this entry is saved first, the count comes later.
+    earlier = log(tech, batch, "intake", qty_in=2, occurred_at=days_ago(3, 12))
     log(admin, batch, "count", counted_qty=98, occurred_at=days_ago(1, 9))
     before = log(
         tech,
@@ -243,3 +314,19 @@ def test_ac16g_an_entry_dated_before_a_count_is_flagged(
 
     assert DATED_BEFORE_COUNT in flags[(before,)]
     assert DATED_BEFORE_COUNT not in flags[(after,)]
+    assert DATED_BEFORE_COUNT not in flags[(earlier,)]
+
+
+# ------------------------------------------------ entered late (Q5, §3.1)
+
+
+def test_an_entry_dated_more_than_24_hours_back_is_flagged_late(
+    stock: int, tech: User, admin: User
+) -> None:
+    late = log(tech, stock, "out", qty_out=1, occurred_at=days_ago(2, 9))
+    on_time = log(tech, stock, "out", qty_out=1)
+
+    flags = {item.event_ids: item.flags for item in review_queue(admin)}
+
+    assert ENTERED_LATE in flags[(late,)]
+    assert ENTERED_LATE not in flags[(on_time,)]

@@ -15,8 +15,13 @@ from dataclasses import dataclass
 
 from django.contrib.auth.models import User
 
-# Queue flag: an event dated before the batch's latest count (design §3.1).
+# Queue flags (design §3.1). Dated before a count: an effective count saved
+# before this event (a lower id) is dated after it, so the event changed that
+# count's difference instead of the total. A normal entry that a later count
+# follows isn't flagged.
 DATED_BEFORE_COUNT = "dated_before_count"
+# Entered late: `occurred_at` more than 24 hours before `recorded_at` (Q5).
+ENTERED_LATE = "entered_late"
 
 
 @dataclass(frozen=True)
