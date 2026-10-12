@@ -9,6 +9,11 @@ updates:
     commit-message:
       prefix: "chore"
       include: "scope"
+    # Django stays on the 5.2 LTS line (ADR-0001): only 5.2.x security and bug
+    # fixes are proposed. Moving to a newer Django is an Owner decision.
+    ignore:
+      - dependency-name: "django"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
     groups:
       python-packages:
         patterns: ["*"]
