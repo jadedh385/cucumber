@@ -29,7 +29,7 @@ subculture) — depth features follow in Phase 2.
 - **Gate focus:** G2 rule-1 and rule-2 tests per role.
 
 ### U1.3 · Batches
-- **Size:** M · **Deps:** U1.1 · **Decisions:** D-02, D-14, D-15
+- **Size:** M · **Deps:** U1.1 · **Decisions:** D-02, D-14, D-15, **D-22 (decided here, at G0)**
 - **Source:** SOP §4 `batches`, SOP-3
 - **Scope:** batches in `Lab` (stage required) or `Nursery` (stage optional);
   any number of open batches per plant per location (U0.2 Q7). Optional

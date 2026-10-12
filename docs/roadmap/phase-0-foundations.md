@@ -166,7 +166,8 @@ exits · *Gate focus* = unit-specific checks on top of [the standard gates](gate
 - **Source:** SOP §3 (stages, media codes, locations, sources)
 - **Scope:** Owner-editable lists: stages (codes locked, labels editable),
   media codes, locations (`Lab`, `Nursery` per D-14), genus codes, event actions
-  (fixed). Items deactivate, never delete.
+  (fixed). Items deactivate, never delete. Container types and counting units
+  may join these lists, depending on D-22.
 - **Acceptance:** stage codes `P0–P4, A1, T1, C0` can't be renamed (events
   reference them); each stage has a sort order, with A1 between P2 and P4 (D-06);
   deactivated item hidden from dropdowns, still shown on history.

@@ -9,7 +9,7 @@ data entry (SOP §8).
 ---
 
 ### U5.1 · Metrics engine
-- **Size:** L · **Deps:** U1.4, U1.5, U1.6
+- **Size:** L · **Deps:** U1.4, U1.5, U1.6 · **Decisions:** **D-24 (decided here, at G0)**
 - **Source:** SOP §8 Metrics
 - **Scope:** multiplication factor per SKU per cycle; contamination rate by SKU /
   media / staff / week; media effectiveness; days in stage; stage conversion;
@@ -20,7 +20,7 @@ data entry (SOP §8).
   G4 query performance review.
 
 ### U5.2 · Availability calculation
-- **Size:** S · **Deps:** U1.2, U1.4 · **Decisions:** T-2, D-06
+- **Size:** S · **Deps:** U1.2, U1.4 · **Decisions:** T-2, D-06, **D-23 (decided here, at G0)**
 - **Source:** SOP §8 Availability, principle 6
 - **Scope:** per plant, `available_to_sell = Portfolio AND units ≥ min_saleable_qty`,
   where units = sum of `live_count` over its open, non-quarantined batches at
