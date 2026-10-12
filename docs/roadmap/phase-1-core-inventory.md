@@ -94,6 +94,9 @@ subculture) — depth features follow in Phase 2.
   appear only in the Owner's queue and can't be reviewed by that Supervisor;
   unreviewed events still count toward totals.
 - **Gate focus:** G5 Owner does a weekly review on a week of real data.
+- **From U0.2b G5 (timing at 10×):** the queue with 7,000 waiting took 1.6 s, mostly
+  the "dated before a count" flag. Show the queue a page at a time and work out
+  flags only for the page shown ([timing note](units/u0.2b-g5-verify.md)).
 
 ### U1.9 · Zoho Books reference link
 - **Size:** S · **Deps:** U1.1 · **Decisions:** T-4
