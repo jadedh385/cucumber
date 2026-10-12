@@ -1,7 +1,6 @@
 """Rules for the core app. Views call these; they never hold rules themselves."""
 
 import logging
-import os
 
 from django.db import DatabaseError
 from django.db.backends.base.base import BaseDatabaseWrapper
