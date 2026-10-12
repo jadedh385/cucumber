@@ -42,6 +42,11 @@ DESIGN_MESSAGES = {
     "split_qty_positive": "Split off at least 1 unit.",
     "staff_not_active": "Choose an active staff member for who did the work.",
     "plant_same_genus": "The plant is already in this genus.",
+    # Owner, U0.2b G5: staff see why, not the Internal message.
+    "event_correction_keeps_shape": (
+        "A correction can't change what kind of entry this is."
+        " Void it and log the right entry instead."
+    ),
 }
 
 
@@ -60,7 +65,6 @@ def test_each_rule_shows_its_design_message(rule: str, message: str) -> None:
         "event_not_found",
         "plant_not_found",
         "event_one_batch",
-        "event_correction_keeps_shape",
         "no_such_rule",
     ],
 )

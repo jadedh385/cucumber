@@ -73,6 +73,10 @@ MESSAGES: dict[str, str] = {
     "split_qty_positive": "Split off at least 1 unit.",
     "staff_not_active": "Choose an active staff member for who did the work.",
     "plant_same_genus": "The plant is already in this genus.",
+    "event_correction_keeps_shape": (
+        "A correction can't change what kind of entry this is."
+        " Void it and log the right entry instead."
+    ),
 }
 
 
