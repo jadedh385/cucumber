@@ -54,7 +54,10 @@ jobs:
           fi
           {
             echo "## For staff"; echo; cat staff.md; echo
-            echo "## Technical changes"; cat technical.md
+            # Leave the section out when nothing was added, fixed or made faster.
+            if grep -q '[^[:space:]]' technical.md; then
+              echo "## Technical changes"; cat technical.md
+            fi
           } > notes.md
 
           gh api "repos/$GITHUB_REPOSITORY/git/refs" \
