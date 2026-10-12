@@ -104,3 +104,20 @@ def test_a_wrong_closed_at_is_reported(plant: int, tech: User) -> None:
     close(uuid.uuid4(), tech, batch)
     update("batches", batch, {"closed_at": db_now() - timedelta(days=2)})
     assert f"Batch {batch}:" in check_finds_drift()
+
+
+def test_a_batch_marked_voided_while_its_events_still_count_is_reported(
+    plant: int, tech: User
+) -> None:
+    """The stored status alone doesn't excuse a batch (G4 security M3)."""
+    batch = intake_into_new_batch(tech, plant, 10)
+    update(
+        "batches",
+        batch,
+        {"status": "voided", "voided_at": db_now(), "live_count": 0},
+    )
+
+    found = check_finds_drift()
+
+    assert f"Batch {batch}" in found
+    assert "status: stored 'voided', events give 'open'" in found

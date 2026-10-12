@@ -300,3 +300,80 @@ def test_corrections_point_at_the_original_never_at_a_fix(
     the_void = void(tech, other, "void_wrong_batch").event_ids[0]
     with refused("event_not_correctable"):
         correct(tech, the_void, "correction_wrong_quantity", qty_out=1)
+
+
+# ------------------------------------------------- G4 review: bad requests
+
+
+def test_voiding_an_event_that_does_not_exist_is_refused(tech: User) -> None:
+    with refused("event_not_found"):
+        void(tech, 999_999, "void_wrong_batch")
+
+
+def test_correcting_an_event_that_does_not_exist_is_refused(
+    supervisor: User,
+) -> None:
+    with refused("event_not_found"):
+        correct(supervisor, 999_999, "correction_wrong_quantity", qty_out=1)
+
+
+def test_a_correction_cannot_turn_a_loss_into_a_gain(
+    plant: int, tech: User, supervisor: User
+) -> None:
+    """A correction can't change the action (design §3.1; G4 security H3)."""
+    batch = intake_into_new_batch(tech, plant, 10)
+    loss = log(tech, batch, "loss", qty_out=5, reason_code="loss_rot")
+    with refused("event_correction_keeps_shape"):
+        correct(supervisor, loss, "correction_wrong_quantity", qty_in=500, qty_out=0)
+    assert live_count(batch) == 5
+
+
+def test_a_correction_cannot_give_a_loss_a_stage(
+    plant: int, tech: User, supervisor: User
+) -> None:
+    batch = new_lab_batch(tech, plant, 10)
+    loss = log(tech, batch, "loss", qty_out=1, reason_code="loss_rot")
+    with refused("event_correction_keeps_shape"):
+        correct(supervisor, loss, "correction_wrong_quantity", stage_to="P2")
+
+
+def test_a_void_sent_twice_is_saved_once(plant: int, tech: User) -> None:
+    batch = intake_into_new_batch(tech, plant, 10)
+    out = log(tech, batch, "out", qty_out=2)
+    operation_id = uuid.uuid4()
+
+    first = void(tech, out, "void_wrong_batch", operation_id=operation_id)
+    second = void(tech, out, "void_wrong_batch", operation_id=operation_id)
+
+    assert (first.operation_id, first.already_saved) == (operation_id, False)
+    assert second.already_saved
+    assert second.event_ids == first.event_ids
+    assert Event.objects.filter(action="void").count() == 1
+
+
+def test_a_correction_sent_twice_is_saved_once(
+    plant: int, tech: User, supervisor: User
+) -> None:
+    batch = intake_into_new_batch(tech, plant, 10)
+    out = log(tech, batch, "out", qty_out=2)
+    operation_id = uuid.uuid4()
+
+    first = correct(
+        supervisor,
+        out,
+        "correction_wrong_quantity",
+        qty_out=3,
+        operation_id=operation_id,
+    )
+    second = correct(
+        supervisor,
+        out,
+        "correction_wrong_quantity",
+        qty_out=3,
+        operation_id=operation_id,
+    )
+
+    assert second.already_saved
+    assert second.event_ids == first.event_ids
+    assert Event.objects.filter(action="correction").count() == 1
+    assert live_count(batch) == 7

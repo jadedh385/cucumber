@@ -13,14 +13,16 @@ them, seed rows included, so they insert the reference rows they need.
 """
 
 import threading
+import time
 import uuid
 from collections.abc import Callable
 
 import pytest
-from django.db import connection
+from django.db import connection, transaction
 
+from cucumber.batches.models import Batch
 from cucumber.core.refusals import Refused
-from cucumber.core.tests.rows import make_plant
+from cucumber.core.tests.rows import make_plant, run
 from cucumber.core.tests.stock import (
     intake_into_new_batch,
     live_count,
@@ -31,11 +33,13 @@ from cucumber.core.tests.stock import (
     subculture_entries,
 )
 from cucumber.events.models import Event, Operation
-from cucumber.events.services import NewEvent, Saved, save_operation, void
+from cucumber.events.services import NewEvent, Saved, save_operation, split, void
 
 pytestmark = pytest.mark.django_db(transaction=True)
 
 THREAD_TIMEOUT_SECONDS = 30
+# Long enough that the split reaches its lock wait before the change commits.
+LOCK_HOLD_SECONDS = 1.0
 INTERNAL = "Something went wrong; nothing was saved. Please tell the Admin."
 
 
@@ -150,3 +154,34 @@ def test_a_foreign_key_refused_at_commit_is_reported_and_nothing_is_saved() -> N
     assert not Operation.objects.filter(pk=operation_id).exists()
     assert Event.objects.filter(batch_id=batch).count() == 1
     assert live_count(batch) == 5
+
+
+def test_a_split_takes_the_parent_s_stage_after_waiting_for_its_lock() -> None:
+    """A stage change saving at that moment isn't lost (G4 HIGH 2).
+
+    The first request holds the parent's lock while it moves P2 → P3; the
+    split waits for it, then copies the parent as it is after the change.
+    """
+    restore_reference_rows()
+    run("""INSERT INTO stages (code, label, sort_order, active)
+           VALUES ('P3', 'P3', 4, true) ON CONFLICT DO NOTHING""")
+    tech = make_staff("tech_1", "tech")
+    parent = new_lab_batch(tech, make_plant(tech.pk), 10)
+    locked = threading.Event()
+
+    def change_stage_slowly() -> None:
+        with transaction.atomic():
+            log(tech, parent, "stage_change", stage_to="P3")
+            locked.set()
+            time.sleep(LOCK_HOLD_SECONDS)
+
+    def split_after_the_lock_is_taken() -> Saved:
+        assert locked.wait(THREAD_TIMEOUT_SECONDS)
+        return split(uuid.uuid4(), tech, parent, 4, "too dense")
+
+    results = at_the_same_moment([change_stage_slowly, split_after_the_lock_is_taken])
+
+    saved = results[1]
+    assert isinstance(saved, Saved), results
+    [child] = saved.batch_ids
+    assert Batch.objects.get(pk=child).stage_id == "P3"

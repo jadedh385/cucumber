@@ -9,7 +9,7 @@ from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 
 import psycopg
-from django.db import DatabaseError
+from django.db import DatabaseError, IntegrityError
 
 logger = logging.getLogger(__name__)
 
@@ -70,6 +70,9 @@ MESSAGES: dict[str, str] = {
         "You can't review this entry; it waits for another reviewer."
     ),
     "admin_only": "Only the Admin can do this.",
+    "split_qty_positive": "Split off at least 1 unit.",
+    "staff_not_active": "Choose an active staff member for who did the work.",
+    "plant_same_genus": "The plant is already in this genus.",
 }
 
 
@@ -81,7 +84,8 @@ class Refused(Exception):
     """
 
     def __init__(self, rule: str, message: str, event_ids: Sequence[int] = ()) -> None:
-        super().__init__(f"{rule}: {message}")
+        # Only the message: a printed refusal never shows the rule name.
+        super().__init__(message)
         self.rule = rule
         self.message = message
         self.event_ids = tuple(event_ids)
@@ -115,11 +119,17 @@ def database_refusals() -> Iterator[None]:
     Wrap the whole `transaction.atomic()` block: Django's one-column foreign
     keys are deferred and refuse only at commit (design §3.4). A refusal with
     the Internal message is logged in full for the Admin.
+
+    A refusal is an integrity error or any error naming a rule. Anything
+    else (a lost connection, a deadlock, a bug) goes on as it is: at COMMIT
+    the save may have gone through, so "nothing was saved" would be wrong.
     """
     try:
         yield
     except DatabaseError as error:
         rule = rule_of(error)
+        if rule == UNNAMED_RULE and not isinstance(error, IntegrityError):
+            raise
         if rule not in MESSAGES:
             logger.exception("Save refused by the database (%s)", rule)
         raise refuse(rule) from error

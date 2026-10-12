@@ -6,6 +6,7 @@ and the same-batch links for voids and corrections are in migration 0002.
 """
 
 import uuid
+from collections.abc import Collection
 from datetime import timedelta
 from typing import Any
 
@@ -213,23 +214,34 @@ class EventManager(models.Manager["Event"]):
         The projection, `check_projections` and reports all use this one
         function (design §3.1, architect review M7).
         """
+        return self.effective_events_of([batch_id]).get(batch_id, [])
+
+    def effective_events_of(
+        self, batch_ids: Collection[int]
+    ) -> dict[int, list[Effective]]:
+        """`effective_events` for several batches in one query, by batch id."""
         rows = (
-            self.filter(batch_id=batch_id, voided_by__isnull=True)
+            self.filter(batch_id__in=batch_ids, voided_by__isnull=True)
             .exclude(action=Action.VOID)
             .order_by("id")
-            .values("id", "action", "corrects_event_id", *CORRECTABLE)
+            .values("id", "batch_id", "action", "corrects_event_id", *CORRECTABLE)
         )
-        originals = []
+        originals: dict[int, list[dict[str, Any]]] = {}
         newest_fix: dict[int, dict[str, Any]] = {}
         for row in rows:
             if row["action"] == Action.CORRECTION:
                 newest_fix[row["corrects_event_id"]] = row  # ascending id: last wins
             else:
-                originals.append(row)
-        effective = [
-            as_effective(row, newest_fix.get(row["id"], row)) for row in originals
-        ]
-        return in_order(effective)
+                originals.setdefault(row["batch_id"], []).append(row)
+        return {
+            batch_id: in_order(
+                [
+                    as_effective(row, newest_fix.get(row["id"], row))
+                    for row in batch_rows
+                ]
+            )
+            for batch_id, batch_rows in originals.items()
+        }
 
 
 class Event(models.Model):

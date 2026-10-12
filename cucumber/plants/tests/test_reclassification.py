@@ -125,3 +125,17 @@ def test_a_plant_cannot_move_into_a_genus_that_has_its_name(
         reclassify_genus(admin, phl005, ant)
     assert Plant.objects.get(pk=phl005).sku_id == "PHL005"
     assert not Sku.objects.filter(genus_id="ANT", plant_id=phl005).exists()
+
+
+def test_reclassifying_into_the_same_genus_is_refused(phl005: int, admin: User) -> None:
+    """No new SKU and no log line for a change that changes nothing (G4)."""
+    with refused("plant_same_genus"):
+        reclassify_genus(admin, phl005, "PHL")
+    assert Plant.objects.get(pk=phl005).sku_id == "PHL005"
+
+
+def test_reclassifying_a_plant_that_does_not_exist_is_refused(
+    ant: str, admin: User
+) -> None:
+    with refused("plant_not_found"):
+        reclassify_genus(admin, 999_999, ant)

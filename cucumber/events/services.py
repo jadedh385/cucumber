@@ -10,7 +10,7 @@ design §7.1 name, and nothing is written.
 """
 
 import uuid
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
@@ -72,6 +72,10 @@ class NewEvent:
     note: str = ""
 
 
+# Builds an operation's entries once its batches are locked (see `split`).
+EntriesFor = Callable[[], Sequence[NewEvent]]
+
+
 @dataclass(frozen=True)
 class Saved:
     """What a save wrote: its operation, events and new batches, in entry order.
@@ -106,12 +110,26 @@ class Restated:
 
 
 def save_operation(
-    operation_id: uuid.UUID, recorded_by: User, entries: Sequence[NewEvent]
+    operation_id: uuid.UUID,
+    recorded_by: User,
+    entries: Sequence[NewEvent] | EntriesFor,
 ) -> Saved:
-    """Save one user action: all its events, or none (design §3.3)."""
+    """Save one user action: all its events, or none (design §3.3).
+
+    `entries` may be a function that builds them after the operation row is
+    written, when they depend on a batch read under its lock (see `split`).
+    """
+    return save_once(
+        operation_id, lambda: write_operation(operation_id, recorded_by, entries)
+    )
+
+
+def save_once(operation_id: uuid.UUID, write: Callable[[], Saved]) -> Saved:
+    """Run `write` in one transaction. A resent `operation_id` writes nothing
+    and gets the original result instead (§3.3)."""
     try:
         with database_refusals(), transaction.atomic():
-            return write_operation(operation_id, recorded_by, entries)
+            return write()
     except Refused as refusal:
         if refusal.rule != ALREADY_SAVED:
             raise
@@ -119,15 +137,21 @@ def save_operation(
 
 
 def write_operation(
-    operation_id: uuid.UUID, recorded_by: User, entries: Sequence[NewEvent]
+    operation_id: uuid.UUID,
+    recorded_by: User,
+    entries: Sequence[NewEvent] | EntriesFor,
 ) -> Saved:
     """The writes of `save_operation`, inside its transaction."""
     start_operation(operation_id, recorded_by)
+    entries = entries() if callable(entries) else entries
     plant_ids = {entry.new_batch.plant_id for entry in entries if entry.new_batch}
     next_seq = lock_plants(plant_ids)
-    locked = lock_batches({entry.batch_id for entry in entries if entry.batch_id})
+    locked = lock_batches(
+        {entry.batch_id for entry in entries if entry.batch_id is not None}
+    )
     for entry in entries:
         check_entry(entry, locked)
+    check_staff(entries)
     made = make_batches(operation_id, recorded_by, entries, next_seq)
     now = timezone.now()
     event_ids = [
@@ -179,9 +203,15 @@ def batch_ids(entries: Sequence[NewEvent], made: dict[int, Batch]) -> list[int]:
 
 
 def check_entry(entry: NewEvent, locked: dict[int, Batch]) -> None:
-    """Service guards on one entry, under the batch locks (design §3, Q7)."""
+    """Service guards on one entry, under the batch locks (design §3, Q7).
+
+    Each entry is checked against its batch as it was before this operation,
+    so Close must be its own operation, not follow a loss to 0 in the same one.
+    """
     if entry.batch_id is None and entry.new_batch is None:
         raise refuse("event_needs_batch")
+    if entry.batch_id is not None and entry.new_batch is not None:
+        raise refuse("event_one_batch")
     if entry.batch_id is not None:
         batch = locked[entry.batch_id]
         if batch.status != BatchStatus.OPEN:
@@ -191,6 +221,20 @@ def check_entry(entry: NewEvent, locked: dict[int, Batch]) -> None:
     if entry.action == Action.SPLIT and not entry.note.strip():
         raise refuse("split_needs_note")
     check_reason(entry.action, entry.reason_code)
+
+
+def check_staff(entries: Sequence[NewEvent]) -> None:
+    """Who did the work must be an active user (U0.2b G4 security H2).
+
+    Whether the person saving may enter work for them is a role rule (N7,
+    U0.6).
+    """
+    staff_ids = {entry.staff_id for entry in entries if entry.staff_id is not None}
+    if not staff_ids:
+        return
+    active = User.objects.filter(pk__in=staff_ids, is_active=True).count()
+    if active != len(staff_ids):
+        raise refuse("staff_not_active")
 
 
 def make_batch(
@@ -225,7 +269,7 @@ def event_values(entry: NewEvent, recorded_by: User) -> dict[str, Any]:
         "media_code_id": entry.media_code,
         "stage_to_id": entry.stage_to,
         "reason_id": entry.reason_code,
-        "staff_id": entry.staff_id or recorded_by.pk,
+        "staff_id": recorded_by.pk if entry.staff_id is None else entry.staff_id,
         "note": entry.note,
     }
 
@@ -255,20 +299,44 @@ def split(
 ) -> Saved:
     """Move `qty` units into a new child batch, with a note saying why (Q7).
 
-    The child has origin `split`, the parent's location and stage. Both
+    The child has origin `split`, the parent's location and stage, read under
+    the parent's lock so a change saving at the same moment isn't lost. Both
     events share the operation.
     """
-    parent = Batch.objects.get(pk=batch_id)
+    if qty < 1:
+        raise refuse("split_qty_positive")
+
+    def entries() -> list[NewEvent]:
+        return split_entries(lock_parent(batch_id), qty, note, occurred_at)
+
+    return save_operation(operation_id, recorded_by, entries)
+
+
+def lock_parent(batch_id: int) -> Batch:
+    """Lock a batch and its plant, plant first (design §3.4); the batch as locked."""
+    plant_id = (
+        Batch.objects.filter(pk=batch_id).values_list("plant_id", flat=True).first()
+    )
+    if plant_id is None:
+        raise refuse("batch_not_found")
+    lock_plants({plant_id})
+    return lock_batches({batch_id})[batch_id]
+
+
+def split_entries(
+    parent: Batch, qty: int, note: str, occurred_at: datetime | None
+) -> list[NewEvent]:
+    """The split's two events: units out of `parent`, and into a new child."""
     child = NewBatch(
         plant_id=parent.plant_id,
         origin=BatchOrigin.SPLIT,
         location_code=parent.location_id,
-        parent_batch_id=batch_id,
+        parent_batch_id=parent.pk,
     )
-    entries = [
+    return [
         NewEvent(
             Action.SPLIT,
-            batch_id=batch_id,
+            batch_id=parent.pk,
             qty_out=qty,
             note=note,
             occurred_at=occurred_at,
@@ -281,7 +349,6 @@ def split(
             occurred_at=occurred_at,
         ),
     ]
-    return save_operation(operation_id, recorded_by, entries)
 
 
 def close(
@@ -298,26 +365,41 @@ def close(
 # ---------------------------------------------------------------------- Void
 
 
-def void(recorded_by: User, event_id: int, reason_code: str, note: str = "") -> Saved:
+def void(
+    recorded_by: User,
+    event_id: int,
+    reason_code: str,
+    note: str = "",
+    *,
+    operation_id: uuid.UUID | None = None,
+) -> Saved:
     """Void an event and every other event of its operation (Q8, design §3.1).
 
     One Void row per event, all in a new operation. Batches the operation
     created become `voided`. Refused if any of those batches has a later
-    event; the refusal lists them.
+    event; the refusal lists them. Pass the form's `operation_id` so a resend
+    is "Already saved".
     """
-    target = Event.objects.get(pk=event_id)
-    if target.action == Action.VOID:
-        raise refuse("void_of_void")
-    with database_refusals(), transaction.atomic():
-        return write_void(recorded_by, target.operation_id, reason_code, note)
+    operation_id = operation_id or uuid.uuid4()
+    return save_once(
+        operation_id,
+        lambda: write_void(operation_id, recorded_by, event_id, reason_code, note),
+    )
 
 
 def write_void(
-    recorded_by: User, voided_operation: uuid.UUID, reason_code: str, note: str
+    operation_id: uuid.UUID,
+    recorded_by: User,
+    event_id: int,
+    reason_code: str,
+    note: str,
 ) -> Saved:
     """The writes of `void`, inside its transaction."""
-    operation_id = uuid.uuid4()
     start_operation(operation_id, recorded_by)
+    target = find_event(event_id)
+    if target.action == Action.VOID:
+        raise refuse("void_of_void")
+    voided_operation = target.operation_id
     originals = list(Event.objects.filter(operation_id=voided_operation).order_by("id"))
     made_ids = set(
         Batch.objects.filter(created_operation_id=voided_operation).values_list(
@@ -386,27 +468,39 @@ def correct(
     stage_to: str | None = None,
     occurred_at: datetime | None = None,
     note: str = "",
+    operation_id: uuid.UUID | None = None,
 ) -> Saved:
     """Restate an event's values; `None` keeps the value as it is now.
 
+    A value can't be cleared back to empty: that is a Void plus a new event.
     A Correction that doesn't restate the date keeps the original's (M1).
     For a `split`, `transfer` or `quarantine`, a quantity correction is
-    written on both sides in one operation (Q8).
+    written on both sides in one operation (Q8). Pass the form's
+    `operation_id` so a resend is "Already saved".
     """
-    target = Event.objects.get(pk=event_id)
-    if target.action in (Action.VOID, Action.CORRECTION):
-        raise refuse("event_not_correctable")
+    operation_id = operation_id or uuid.uuid4()
     changes = Restated(qty_in, qty_out, counted_qty, media_code, stage_to, occurred_at)
-    with database_refusals(), transaction.atomic():
-        return write_correction(recorded_by, target, reason_code, changes, note)
+    return save_once(
+        operation_id,
+        lambda: write_correction(
+            operation_id, recorded_by, event_id, reason_code, changes, note
+        ),
+    )
 
 
 def write_correction(
-    recorded_by: User, target: Event, reason_code: str, changes: Restated, note: str
+    operation_id: uuid.UUID,
+    recorded_by: User,
+    event_id: int,
+    reason_code: str,
+    changes: Restated,
+    note: str,
 ) -> Saved:
     """The writes of `correct`, inside its transaction."""
-    operation_id = uuid.uuid4()
     start_operation(operation_id, recorded_by)
+    target = find_event(event_id)
+    if target.action in (Action.VOID, Action.CORRECTION):
+        raise refuse("event_not_correctable")
     fixes = corrections_for(target, changes)
     originals = [original for original, _ in fixes]
     locked = lock_batches({original.batch_id for original in originals})
@@ -415,19 +509,22 @@ def write_correction(
     if Event.objects.filter(voids_event__in=originals).exists():
         raise refuse("event_not_correctable")
     check_reason(Action.CORRECTION, reason_code)
+    rows = [
+        (original, checked_values(original, restated)) for original, restated in fixes
+    ]
     fix_ids = [
         insert_event(
             operation_id,
             recorded_by,
             original.batch_id,
             Action.CORRECTION,
-            **restated_values(current_values(original), restated),
+            **values,
             corrects_event_id=original.pk,
             reason_id=reason_code,
             staff_id=recorded_by.pk,
             note=note,
         )
-        for original, restated in fixes
+        for original, values in rows
     ]
     refresh_all(locked.values())
     review_fixed_originals(recorded_by, originals)
@@ -461,6 +558,44 @@ def same_quantity(side: Event, qty: int | None) -> Restated:
     return Restated(qty_in=qty)
 
 
+def find_event(event_id: int) -> Event:
+    event = Event.objects.filter(pk=event_id).first()
+    if event is None:
+        raise refuse("event_not_found")
+    return event
+
+
+def units_direction(qty_in: int, qty_out: int) -> str:
+    """Which way an event moves units: "in", "out" or "none"."""
+    if qty_in > 0:
+        return "in"
+    if qty_out > 0:
+        return "out"
+    return "none"
+
+
+def check_keeps_shape(current: Effective, values: dict[str, Any]) -> None:
+    """A correction can't change what the event is (design §3.1; G4 security H3).
+
+    Its units go the same way as the original's, and it can't add a stage or
+    a count the original didn't have.
+    """
+    before = units_direction(current.qty_in, current.qty_out)
+    after = units_direction(values["qty_in"], values["qty_out"])
+    adds_stage = current.stage_to is None and values["stage_to_id"] is not None
+    adds_count = current.counted_qty is None and values["counted_qty"] is not None
+    if before != after or adds_stage or adds_count:
+        raise refuse("event_correction_keeps_shape")
+
+
+def checked_values(original: Event, changes: Restated) -> dict[str, Any]:
+    """The Correction row's values, refused if they change what the event is."""
+    current = current_values(original)
+    values = restated_values(current, changes)
+    check_keeps_shape(current, values)
+    return values
+
+
 def current_values(original: Event) -> Effective:
     """The original as it counts now: its newest correction applied."""
     effective = Event.objects.effective_events(original.batch_id)
@@ -488,7 +623,7 @@ def restated_values(current: Effective, changes: Restated) -> dict[str, Any]:
 
 def count_difference(count_event_id: int) -> int:
     """A count's unexplained gain or loss, worked out now (design §3.1)."""
-    count = Event.objects.get(pk=count_event_id)
+    count = find_event(count_event_id)
     differences = count_differences(Event.objects.effective_events(count.batch_id))
     if count_event_id not in differences:
         raise ValueError(f"Event {count_event_id} is not a count that still counts")

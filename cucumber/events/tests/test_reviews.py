@@ -8,6 +8,8 @@ import uuid
 
 import pytest
 from django.contrib.auth.models import User
+from django.db import connection
+from django.test.utils import CaptureQueriesContext
 
 from cucumber.core.tests.stock import (
     days_ago,
@@ -286,7 +288,8 @@ def test_reviewing_an_operation_twice_writes_no_second_review(
     out = log(tech, stock, "out", qty_out=1)
     operation_id = Event.objects.get(pk=out).operation_id
     review(supervisor, operation_id)
-    review(admin, operation_id)
+    with refused("event_review_once"):
+        review(admin, operation_id)
     assert reviewers_of(out) == [supervisor.pk]
 
 
@@ -332,3 +335,38 @@ def test_an_entry_dated_more_than_24_hours_back_is_flagged_late(
 
     assert ENTERED_LATE in flags[(late,)]
     assert ENTERED_LATE not in flags[(on_time,)]
+
+
+# ------------------------------------------------------- G4 review fixes
+
+
+def test_reviewing_an_operation_with_nothing_waiting_is_refused(
+    stock: int, tech: User, supervisor: User
+) -> None:
+    """Already reviewed, voided, or no such operation: say so (G4 MEDIUM 4)."""
+    out = log(tech, stock, "out", qty_out=1)
+    operation_id = Event.objects.get(pk=out).operation_id
+    review(supervisor, operation_id)
+
+    with refused("event_review_once"):
+        review(supervisor, operation_id)
+    with refused("event_review_once"):
+        review(supervisor, uuid.uuid4())
+
+
+def queue_queries(reviewer: User) -> int:
+    with CaptureQueriesContext(connection) as queries:
+        review_queue(reviewer)
+    return len(queries)
+
+
+def test_the_queue_takes_the_same_queries_however_many_batches_wait(
+    plant: int, tech: User, supervisor: User
+) -> None:
+    """No query per batch (G4 database HIGH 2)."""
+    for _ in range(2):
+        log(tech, intake_into_new_batch(tech, plant, 5), "count", counted_qty=5)
+    few = queue_queries(supervisor)
+    for _ in range(4):
+        log(tech, intake_into_new_batch(tech, plant, 5), "count", counted_qty=5)
+    assert queue_queries(supervisor) == few

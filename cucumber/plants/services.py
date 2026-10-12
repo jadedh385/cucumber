@@ -13,6 +13,7 @@ from cucumber.plants.models import (
     PlantStatusChange,
     Sku,
 )
+from cucumber.references.models import Genus
 
 GENUS_RECLASSIFIED = "genus reclassified"
 SKU_DIGITS = 3  # PHL005: the genus code, then 3 digits
@@ -42,7 +43,11 @@ def reclassify_genus(admin: User, plant_id: int, genus_code: str) -> Plant:
     if not has_role(admin, ADMIN):
         raise refuse("admin_only")
     with database_refusals(), transaction.atomic():
-        plant = Plant.objects.select_for_update(no_key=True).get(pk=plant_id)
+        plant = Plant.objects.select_for_update(no_key=True).filter(pk=plant_id).first()
+        if plant is None:
+            raise refuse("plant_not_found")
+        if plant.genus_id == genus_code:
+            raise refuse("plant_same_genus")
         new_sku = None
         if plant.sku_id is not None:
             # The (sku, id) link is checked at once: issue the SKU first (§3.4).
@@ -65,8 +70,10 @@ def issue_next_sku(plant_id: int, genus_code: str, assigned_by: User) -> str:
     """Add the genus's next SKU to the register, issued to the plant.
 
     The next number counts from every SKU ever issued for the genus (Q1).
-    The full sequence rules, and allocating under a lock, are U0.8.
+    The genus row is locked, so two reclassifications into the same genus
+    take turns instead of picking the same number. Full sequence rules: U0.8.
     """
+    list(Genus.objects.select_for_update(no_key=True).filter(pk=genus_code))
     issued = Sku.objects.filter(genus_id=genus_code).values_list("sku", flat=True)
     highest = max((int(sku[len(genus_code) :]) for sku in issued), default=0)
     sku = f"{genus_code}{highest + 1:0{SKU_DIGITS}d}"

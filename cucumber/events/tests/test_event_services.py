@@ -340,3 +340,45 @@ def test_ac17a_the_same_form_sent_twice_is_saved_once(plant: int, tech: User) ->
     assert Event.objects.filter(operation_id=operation_id).count() == 4
     assert Batch.objects.filter(created_operation_id=operation_id).count() == 3
     assert live_count(parent) == 7
+
+
+# -------------------------------------------------- G4 review: bad requests
+
+
+def test_a_split_of_a_batch_that_does_not_exist_is_refused(tech: User) -> None:
+    with refused("batch_not_found"):
+        split(uuid.uuid4(), tech, 999_999, 1, "too dense")
+
+
+@pytest.mark.parametrize("qty", [0, -3])
+def test_a_split_needs_at_least_one_unit(plant: int, tech: User, qty: int) -> None:
+    batch = intake_into_new_batch(tech, plant, 10)
+    with refused("split_qty_positive"):
+        split(uuid.uuid4(), tech, batch, qty, "too dense")
+    assert live_count(batch) == 10
+
+
+def test_an_entry_names_one_batch_not_two(plant: int, tech: User) -> None:
+    batch = intake_into_new_batch(tech, plant, 10)
+    new_batch = NewBatch(plant_id=plant, origin="intake", location_code="nursery")
+    entry = NewEvent("intake", batch_id=batch, new_batch=new_batch, qty_in=1)
+    with refused("event_one_batch"):
+        save_operation(uuid.uuid4(), tech, [entry])
+
+
+def test_work_done_by_a_deactivated_user_is_refused(
+    plant: int, supervisor: User, tech: User
+) -> None:
+    batch = intake_into_new_batch(supervisor, plant, 10)
+    User.objects.filter(pk=tech.pk).update(is_active=False)
+    with refused("staff_not_active"):
+        log(supervisor, batch, "out", qty_out=1, staff_id=tech.pk)
+    assert live_count(batch) == 10
+
+
+def test_work_done_by_a_user_that_does_not_exist_is_refused(
+    plant: int, supervisor: User
+) -> None:
+    batch = intake_into_new_batch(supervisor, plant, 10)
+    with refused("staff_not_active"):
+        log(supervisor, batch, "out", qty_out=1, staff_id=999_999)
