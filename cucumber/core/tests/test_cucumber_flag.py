@@ -1,8 +1,11 @@
 """AC13: `cucumber_flag` switches a flag with fixed meanings (U0.4a design §7).
 
 Flags are made here the way a feature's migration makes them: every field
-off. Then each starts "messy", as Waffle's own admin could leave it, to prove
-the command sets every field, not only the one it is about.
+off. Then each starts "messy", as a hand edit could leave it, to prove the
+command sets every field, not only the one it is about. Waffle's per-user list
+is left alone: nothing in Cucumber can fill it (no admin), and `cucumber_app`
+may only read it (design §7). That the command works as `cucumber_app` is in
+test_flag_grants.py.
 """
 
 import re
@@ -45,7 +48,7 @@ def make_flag(name: str) -> FlagRow:
 
 
 def make_messy_flag(name: str) -> FlagRow:
-    """A flag with every other Waffle switch set, groups and users included."""
+    """A flag with every other Waffle switch set, and a group."""
     flag: FlagRow = Flag.objects.create(
         name=name,
         everyone=None,
@@ -58,7 +61,6 @@ def make_messy_flag(name: str) -> FlagRow:
         languages="th",
     )
     flag.groups.add(Group.objects.create(name="Lab"))
-    flag.users.add(User.objects.create_user(username="someone"))
     return flag
 
 
@@ -66,7 +68,6 @@ def assert_only(flag_name: str, everyone: bool | None, groups: set[str]) -> None
     flag: FlagRow = Flag.objects.get(name=flag_name)
     assert flag.everyone is everyone
     assert {group.name for group in flag.groups.all()} == groups
-    assert not flag.users.exists()
     for field, off in ALWAYS_OFF.items():
         assert getattr(flag, field) == off, field
 

@@ -141,6 +141,17 @@ def test_names_come_only_from_the_project_name(compose: dict[str, Any]) -> None:
         assert "build" not in service, name
 
 
+@pytest.mark.parametrize("section", ["volumes", "networks"])
+def test_volumes_and_networks_belong_to_one_project(
+    compose: dict[str, Any], section: str
+) -> None:
+    """A fixed `name:` or `external:` would let staging and production share one."""
+    for name, definition in (compose.get(section) or {}).items():
+        definition = definition or {}
+        assert "name" not in definition, f"{section}: {name}"
+        assert not definition.get("external"), f"{section}: {name}"
+
+
 @pytest.mark.parametrize("name", ["migrate", "app"])
 def test_the_app_image_is_named_per_environment_and_version(
     services: dict[str, dict[str, Any]], name: str
@@ -245,8 +256,17 @@ def test_the_database_logs_lock_waits_and_slow_statements_without_values(
 
 
 # ------------------------------------------- compose itself reads the file
+def has_docker_compose() -> bool:
+    if shutil.which("docker") is None:
+        return False
+    version = subprocess.run(
+        ["docker", "compose", "version"], capture_output=True, check=False
+    )
+    return version.returncode == 0
+
+
 needs_docker = pytest.mark.skipif(
-    shutil.which("docker") is None, reason="needs the docker command"
+    not has_docker_compose(), reason="needs the docker compose command"
 )
 
 
@@ -257,7 +277,13 @@ def compose_config(env_file: Path) -> subprocess.CompletedProcess[str]:
     command += ["--profile", "migrate", "--profile", "tunnel", "config", "--quiet"]
     return subprocess.run(
         command,
-        env={"PATH": os.environ["PATH"], "HOME": str(env_file.parent)},
+        # The real HOME and DOCKER_* so compose finds its plugin and context,
+        # as the deploy command passes them (design §3.1).
+        env={
+            name: value
+            for name, value in os.environ.items()
+            if name in {"PATH", "HOME"} or name.startswith("DOCKER_")
+        },
         capture_output=True,
         text=True,
         timeout=60,

@@ -26,7 +26,8 @@ class RunCommand(Protocol):
     """Runs one command; returns what it printed, raises RuntimeError on failure.
 
     `stdin` and `stdout` name files to read from and write to (binary), for
-    database copies.
+    database copies. The caller creates the `stdout` file first, with its
+    permissions (a database copy is 0600); the runner only writes into it.
     """
 
     def __call__(
@@ -93,6 +94,26 @@ class Place:
     def image(self) -> str:
         """Images are named per environment (design §3, H3)."""
         return f"cucumber-{self.environment}"
+
+
+def run_command(
+    command: Sequence[str],
+    env: Mapping[str, str] | None = None,
+    *,
+    stdin: Path | None = None,
+    stdout: Path | None = None,
+) -> str:
+    """The real RunCommand: no shell, exactly `env` when given.
+
+    A failure raises RuntimeError with the command's own error text, so a
+    refusal from the app (e.g. "No flag called ...") reaches the Owner.
+    """
+    raise NotImplementedError(NOT_BUILT)
+
+
+def real_tools() -> Tools:
+    """Tools that act on this machine: commands, HTTP, the keyboard, the clock."""
+    raise NotImplementedError(NOT_BUILT)
 
 
 def place_for(environment: str, os_environ: Mapping[str, str]) -> Place:

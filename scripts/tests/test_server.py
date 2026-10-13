@@ -13,6 +13,8 @@ from scripts.server import (
     current_version,
     place_for,
     read_secrets,
+    real_tools,
+    run_command,
 )
 from scripts.tests.fake_server import APP_PORT, make_home, shell_environment
 
@@ -123,3 +125,46 @@ def test_compose_file_can_come_from_another_checkout(tmp_path: Path) -> None:
 
     compose_file = Path(command[command.index("-f") + 1])
     assert compose_file == checkout / "deploy" / "compose.server.yaml"
+
+
+# ------------------------------------------------------- the real runner
+def test_the_runner_returns_what_the_command_printed() -> None:
+    assert run_command(["echo", "hello"]) == "hello\n"
+
+
+def test_the_runner_passes_exactly_the_given_environment() -> None:
+    printed = run_command(["env"], {"PATH": "/usr/bin:/bin", "ONLY": "this"})
+
+    names = {line.split("=", 1)[0] for line in printed.splitlines()}
+    assert names <= {"PATH", "ONLY", "PWD", "SHLVL", "_"}
+    assert "ONLY" in names
+
+
+def test_the_runner_uses_no_shell(tmp_path: Path) -> None:
+    printed = run_command(["echo", "$HOME; touch", str(tmp_path / "made")])
+
+    assert "$HOME" in printed
+    assert not (tmp_path / "made").exists()
+
+
+def test_a_failure_carries_the_commands_own_error() -> None:
+    with pytest.raises(RuntimeError, match="No flag called typo"):
+        run_command(["sh", "-c", "echo 'No flag called typo' >&2; exit 1"])
+
+
+def test_the_runner_reads_and_writes_files(tmp_path: Path) -> None:
+    source = tmp_path / "in.bin"
+    source.write_bytes(b"\x00binary\xff")
+    copy = tmp_path / "out.bin"
+    copy.touch(mode=0o600)
+
+    run_command(["cat"], stdin=source, stdout=copy)
+
+    assert copy.read_bytes() == b"\x00binary\xff"
+    assert copy.stat().st_mode & 0o777 == 0o600
+
+
+def test_real_tools_are_complete() -> None:
+    tools = real_tools()
+
+    assert tools.run is run_command

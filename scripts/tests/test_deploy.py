@@ -6,6 +6,7 @@ The failures of design §6.3 (AC12) are in test_deploy_failures.py.
 import fcntl
 import json
 import re
+import threading
 from collections.abc import Mapping
 from pathlib import Path
 
@@ -295,12 +296,20 @@ def test_another_deploy_running_stops_this_one(tmp_path: Path) -> None:
     server = FakeServer()
     home = make_home(tmp_path)
     place = Place("staging", home)
+    codes: list[int] = []
     with place.lock.open("w") as held:
         fcntl.flock(held, fcntl.LOCK_EX)
+        attempt = threading.Thread(
+            target=lambda: codes.append(
+                main(["staging", NEW], server.tools(), shell_environment(home))
+            ),
+            daemon=True,
+        )
+        attempt.start()
+        attempt.join(timeout=10)
+        assert not attempt.is_alive(), "the deploy waited for the lock instead"
 
-        code = main(["staging", NEW], server.tools(), shell_environment(home))
-
-    assert code == 1
+    assert codes == [1]
     assert "Another deploy is running" in server.output()
     assert "fetch" not in server.kinds()
 

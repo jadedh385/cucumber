@@ -116,6 +116,29 @@ def test_secrets_and_clutter_stay_out_of_the_image() -> None:
     assert sorted(set(KEPT_OUT) - entries) == []
 
 
+def ci_steps_text() -> str:
+    """Every `run:` of the CI job that builds and checks the image (design §9)."""
+    ci = yaml.safe_load((ROOT / ".github" / "workflows" / "ci.yml").read_text())
+    jobs = [job for job in ci["jobs"].values() if job.get("name") == "Container image"]
+    assert len(jobs) == 1, 'ci.yml has no "Container image" job'
+    return "\n".join(step.get("run", "") for step in jobs[0]["steps"])
+
+
+def test_ci_builds_the_image_for_intel() -> None:
+    assert "linux/amd64" in ci_steps_text()
+
+
+def test_ci_runs_the_deploy_check_inside_the_image() -> None:
+    assert "check --deploy --fail-level WARNING" in ci_steps_text()
+
+
+def test_ci_rehearses_a_staging_deploy_of_the_pull_request() -> None:
+    steps = ci_steps_text()
+
+    assert "scripts.deploy staging" in steps
+    assert "--source" in steps
+
+
 def test_dependabot_proposes_base_image_updates() -> None:
     config = yaml.safe_load((ROOT / ".github" / "dependabot.yml").read_text())
 

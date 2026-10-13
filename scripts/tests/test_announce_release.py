@@ -9,6 +9,7 @@ import pytest
 
 from scripts.announce_release import (
     DISCORD_LIMIT,
+    MAX_RETRY_WAIT_SECONDS,
     USER_AGENT,
     Post,
     build_message,
@@ -53,13 +54,16 @@ def announce(
     discord: FakeDiscord,
     *,
     body: str | None = None,
+    null_body: bool = False,
     draft: bool = False,
     webhook: str | None = WEBHOOK,
     post: Post | None = None,
 ) -> int:
     release = {
         "tag_name": "2026.10.1",
-        "body": release_body(STAFF_NOTE) if body is None else body,
+        "body": None
+        if null_body
+        else (release_body(STAFF_NOTE) if body is None else body),
         "html_url": RELEASE_URL,
         "draft": draft,
     }
@@ -120,6 +124,8 @@ def test_a_long_note_is_cut_at_a_whole_line_with_a_link() -> None:
     note = message.split("\n\n", 1)[1].removesuffix(f"Full notes: {RELEASE_URL}")
     kept = note.strip().splitlines()
     assert kept and kept == lines[: len(kept)]
+    one_more = message.replace(note, note.rstrip() + "\n" + lines[len(kept)] + "\n\n")
+    assert len(one_more) > DISCORD_LIMIT, "a further whole line would have fitted"
 
 
 def test_a_single_very_long_line_is_cut_hard() -> None:
@@ -127,7 +133,7 @@ def test_a_single_very_long_line_is_cut_hard() -> None:
 
     assert len(message) <= DISCORD_LIMIT
     assert message.endswith(f"Full notes: {RELEASE_URL}")
-    assert "x" * 100 in message
+    assert len(message) >= DISCORD_LIMIT - 100, "cut far shorter than it needed to be"
 
 
 # -------------------------------------------------------------- posting
@@ -157,6 +163,16 @@ def test_nothing_for_staff_posts_nothing_and_says_so(tmp_path: Path) -> None:
     assert code == 0
     assert discord.posts == []
     assert "nothing" in discord.output().lower()
+
+
+def test_a_release_with_no_description_posts_nothing(tmp_path: Path) -> None:
+    """GitHub sends `"body": null` when the description is empty."""
+    discord = FakeDiscord()
+
+    code = announce(tmp_path, discord, null_body=True)
+
+    assert code == 0
+    assert discord.posts == []
 
 
 def test_a_draft_is_never_announced(tmp_path: Path) -> None:
@@ -197,6 +213,21 @@ def test_too_many_requests_twice_fails(tmp_path: Path) -> None:
 
     assert code == 1
     assert len(discord.posts) == 2
+
+
+@pytest.mark.parametrize(
+    "answer", ["slow down", "{}", f'{{"retry_after": {MAX_RETRY_WAIT_SECONDS + 1}}}']
+)
+def test_too_many_requests_without_a_usable_short_wait_fails_at_once(
+    tmp_path: Path, answer: str
+) -> None:
+    discord = FakeDiscord(answers=[(429, answer)])
+
+    code = announce(tmp_path, discord)
+
+    assert code == 1
+    assert len(discord.posts) == 1
+    assert discord.slept == []
 
 
 @pytest.mark.parametrize("status", [400, 401, 404, 500])

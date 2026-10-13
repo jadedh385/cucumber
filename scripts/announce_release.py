@@ -10,6 +10,9 @@ from collections.abc import Callable, Mapping
 
 NOT_BUILT = "U0.4a G3"
 DISCORD_LIMIT = 2000
+# Discord's "too many requests" says how long to wait; longer than this, or no
+# usable answer, and the run fails instead (the Owner posts by hand).
+MAX_RETRY_WAIT_SECONDS = 60
 USER_AGENT = "Cucumber release announcer (https://github.com/jadedh385/cucumber)"
 
 # url, body, headers -> (status, body)

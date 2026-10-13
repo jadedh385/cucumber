@@ -136,7 +136,8 @@ class FakeServer:
         if kind == "stray-check":
             return self.stray_files
         if kind == "rev-parse":
-            return f"{self.head_sha if 'HEAD' in command else self.tag_sha}\n"
+            asks_head = any(part.startswith("HEAD") for part in command)
+            return f"{self.head_sha if asks_head else self.tag_sha}\n"
         if kind == "pending":
             output = self.pending_outputs[0]
             if len(self.pending_outputs) > 1:

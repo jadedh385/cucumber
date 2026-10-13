@@ -63,7 +63,7 @@ def test_a_server_refuses_to_start_without_a_required_variable(
 
 
 @pytest.mark.parametrize("environment", SERVERS)
-@pytest.mark.parametrize("blank", REQUIRED_ON_SERVERS[1:])
+@pytest.mark.parametrize("blank", REQUIRED_ON_SERVERS)
 def test_a_blank_value_counts_as_missing_on_a_server(
     environment: str, blank: str
 ) -> None:
@@ -168,6 +168,33 @@ def test_errors_go_to_the_container_log_and_never_by_email(environment: str) -> 
     assert not any("AdminEmailHandler" in handler["class"] for handler in handlers)
     assert logging["root"]["level"] == "WARNING"
     assert values["ADMINS"] == []
+
+
+LOG_AN_ERROR = """
+import logging
+import django
+django.setup()
+from django.conf import settings
+def save(password=settings.DATABASES["default"]["PASSWORD"]):
+    raise RuntimeError("save failed")
+try:
+    save()
+except RuntimeError:
+    logging.getLogger("django.request").exception("Internal Server Error: /save/")
+"""
+
+
+@pytest.mark.parametrize("environment", SERVERS)
+def test_a_logged_error_shows_no_password_or_secret(environment: str) -> None:
+    variables = {"DJANGO_SETTINGS_MODULE": "cucumber.settings", **server(environment)}
+
+    result = run_python(["-c", LOG_AN_ERROR], variables)
+
+    assert result.returncode == 0, result.stderr
+    assert "Internal Server Error: /save/" in result.stderr
+    assert "save failed" in result.stderr
+    assert SERVER["DB_PASSWORD"] not in result.stderr
+    assert FAKE_KEY not in result.stderr
 
 
 @pytest.mark.parametrize("environment", SERVERS)

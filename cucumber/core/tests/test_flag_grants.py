@@ -17,7 +17,9 @@ from django.db import connection
 from waffle.models import Flag
 
 from cucumber.core.tests.rows import refused_for_app
+from cucumber.core.tests.startup import error_line, run_python
 from cucumber.core.tests.test_protection import FLAG_GRANTS
+from cucumber.env import env
 
 AppConnection = psycopg.Connection[tuple[object, ...]]
 
@@ -68,6 +70,35 @@ def test_the_app_can_not_create_or_delete_a_flag(
 ) -> None:
     refused_for_app(app_db, NEW_FLAG)
     refused_for_app(app_db, f"DELETE FROM waffle_flag WHERE id = {flag.pk}")  # noqa: S608
+
+
+def cucumber_flag_as_app(*args: str) -> None:
+    """Run the command in a fresh Python connected as `cucumber_app`, as on a server."""
+    database = connection.settings_dict
+    variables = {
+        "DJANGO_DEBUG": "1",
+        "DB_NAME": database["NAME"],
+        "DB_HOST": database["HOST"],
+        "DB_PORT": str(database["PORT"]),
+        "DB_USER": "cucumber_app",
+        "DB_PASSWORD": env("DB_APP_PASSWORD"),
+    }
+    result = run_python(["manage.py", "cucumber_flag", *args], variables)
+    assert result.returncode == 0, error_line(result)
+
+
+def test_the_command_can_switch_a_flag_as_the_app_user(
+    flag: Any, app_db: AppConnection
+) -> None:
+    Group.objects.create(name="Owner")
+
+    cucumber_flag_as_app("needs_attention", "on", "--group", "Owner")
+    cucumber_flag_as_app("needs_attention", "on")
+    cucumber_flag_as_app("needs_attention", "off")
+
+    flag.refresh_from_db()
+    assert flag.everyone is False
+    assert not flag.groups.exists()
 
 
 @pytest.fixture

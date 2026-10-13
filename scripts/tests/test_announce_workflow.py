@@ -1,5 +1,6 @@
 """AC14: the announcement workflow runs on publish only, safely (design §8)."""
 
+import re
 from pathlib import Path
 from typing import Any
 
@@ -60,3 +61,18 @@ def test_checkout_keeps_no_credentials(workflow: dict[Any, Any]) -> None:
 
     assert checkouts
     assert all(step["with"]["persist-credentials"] is False for step in checkouts)
+
+
+def test_the_webhook_secret_reaches_no_other_step(workflow: dict[Any, Any]) -> None:
+    outside = {key: value for key, value in workflow.items() if key != "jobs"}
+    assert "secrets." not in yaml.safe_dump(outside)
+    for job in workflow["jobs"].values():
+        assert "secrets." not in yaml.safe_dump(job.get("env", {}))
+    users = [step for step in steps(workflow) if "secrets." in yaml.safe_dump(step)]
+    assert len(users) == 1
+
+
+def test_actions_are_pinned_to_a_commit(workflow: dict[Any, Any]) -> None:
+    for step in steps(workflow):
+        if "uses" in step:
+            assert re.fullmatch(r"[\w./-]+@[0-9a-f]{40}", step["uses"]), step["uses"]
