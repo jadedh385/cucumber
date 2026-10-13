@@ -199,6 +199,9 @@ exits · *Gate focus* = unit-specific checks on top of [the standard gates](gate
   strict Content Security Policy is possible; an HTMX **timeout** so a hung save
   shows the "not saved" banner and re-enables Save; different wording for "no
   connection" and "server error".
+  **From the U0.4a G4 review:** a database `statement_timeout` and
+  `idle_in_transaction_session_timeout` (only `lock_timeout` is set), shown
+  with the same "Busy, please try again" message.
 - **Acceptance:** all components usable one-handed at 375 px width; date and week
   never typed; no UI text hard-coded outside the translation function (checked by
   a lint rule or test).
