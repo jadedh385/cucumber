@@ -13,7 +13,7 @@ Mark each cell with the sign-off date (e.g. `10-14`) when the gate passes.
 | U0.2a | Domain model: schema | M | D-02, D-05, D-07, D-15; U0.3 | 10-11 | 10-11 | 10-12 | 10-12 | 10-12 | 10-12 | · |
 | U0.2b | Domain model: event core services | M | U0.2a | 10-11 | 10-11 | 10-12 | 10-12 | 10-12 | 10-12 | · |
 | U0.3 | Repo, CI, test harness | M | | 10-11 | 10-11 | 10-12 | 10-12 | 10-12 | ▶ | · |
-| U0.4a | Environments: app packaging & deploy | M | D-10, D-25, D-26; U0.3 | 10-13 | ▶ | · | · | · | · | · |
+| U0.4a | Environments: app packaging & deploy | M | D-10, D-25, D-26; U0.3 | 10-13 | 10-13 | · | · | · | · | · |
 | U0.4b | Environments: hosts, Cloudflare & go-live | M | D-10, D-25, D-26; U0.4a | 10-13 | · | · | · | · | · | · |
 | U0.5 | Authentication | M | | · | · | · | · | · | · | · |
 | U0.6 | Roles & permissions | M | D-03 | · | · | · | · | · | · | · |
@@ -113,6 +113,7 @@ Record every failed gate and every sign-off with notes.
 | 2026-10-13 | U0.4 / G0 | In progress | Owner answered Q1–Q4 ([spec](units/u0.4-spec.md#owner-answers)): staff reach staging behind the same email check, with the "Practice data" banner; every staff member has their own email (email code only); USB-C Ethernet adapter, router UPS and freeing disk space due before R1 go-live, tracked in U0.4b; Access asks again every 30 days per phone. Then signed off | Jade |
 | 2026-10-13 | U0.4 / G0 | Passed | Spec signed off for U0.4a and U0.4b (AC1–AC27); D-25 and D-26 Resolved; Q1–Q4 answered. Next: U0.4a G1 design | Jade |
 | 2026-10-13 | U0.4a / G1 | In progress | [Design note](units/u0.4a-design.md): one image (gunicorn, whitenoise, non-root, Intel build in CI); one server compose file for both copies, named per environment (project, images, volumes), owner password only in the migration step; start-up refusals and production security settings, `check --deploy --fail-level WARNING` in CI; Python deploy command with backup, migration check and rollback; django-waffle behind our own `cucumber_flag` command, no flag cache; Discord announcement script; CI deploy rehearsal. Owner answered Q1–Q4 (all recommended: staging caps app/db 512 MB + tunnel 128 MB; amber banner; step lines + log file; last 5 copies). Architect review: pass with fixes, H1–H6 and M1–M8 applied (M4 changed: flag command runs as `cucumber_app` to keep AC6). Logged to U0.7 (record flag changes in the audit trail) and U1.x screens (lock timeout → "Busy, please try again"). Left: Owner sign-off | Claude |
+| 2026-10-13 | U0.4a / G1 | Passed | Owner signed off the [design note](units/u0.4a-design.md) after architect review (pass with fixes, all applied). Next: U0.4a G2 tests first | Jade |
 | 2026-10-11 | U0.2 / G0 | Passed | Spec signed off; Q1–Q8 answered; D-05 Resolved. Size L confirmed, not split | Jade |
 | 2026-10-11 | U0.2 / G1 | Owner approved | Design note approved; G1 passes after the architect review | Jade |
 | 2026-10-11 | U0.2 / G1 | Fixes required | Architect review: pass with fixes (H1–H5, M1–M6). Split into U0.2a / U0.2b; the count wins; record both who did and who saved an event | Jade |
