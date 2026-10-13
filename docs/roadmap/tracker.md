@@ -49,6 +49,8 @@ Mark each cell with the sign-off date (e.g. `10-14`) when the gate passes.
 | U2.3 | Lineage tree viewer | M | | · | · | · | · | · | · | · |
 | U2.4 | Photos & attachments | M | | · | · | · | · | · | · | · |
 | U2.5 | Acclimatization | M | D-06 | · | · | · | · | · | · | · |
+| U2.7 | Needs attention list | M | D-27 | · | · | · | · | · | · | · |
+| U2.8 | Discord attention alerts | M | D-27 | · | · | · | · | · | · | · |
 | U2.6 | ~~Vessel tracking~~ **Won't Do** (D-02) | L | | — | — | — | — | — | — | — |
 | **R2** | **Lab depth** | | | | | | | | | · |
 

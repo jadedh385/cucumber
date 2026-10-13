@@ -48,6 +48,39 @@ lineage trees, photos, acclimatization.
 - **Acceptance:** survival rate calculated from events; transfer conserves units.
 - **Gate focus:** G5 a real tray tracked for one full cycle.
 
+### U2.7 · Needs attention list
+- **Size:** M · **Deps:** U2.1, U2.2, U0.10 · **Decisions:** D-27
+- **Source:** Owner request (2026-10-13)
+- **Scope:** one "Needs attention" list on the home screen that gathers every
+  reason a batch or task needs someone: subculture due / overdue (U2.2),
+  Collection count overdue (U1.7), entries waiting for review (U1.8), and new
+  rules: in quarantine too long, contamination above a set rate, no event in
+  X days. Each item says why it is listed and opens the batch. Thresholds are
+  settings the Owner can change (D-27).
+- **Acceptance:** each rule lists a batch exactly when its threshold is
+  crossed and drops it once the reason is cleared; the list is built only from
+  events and settings (nothing extra typed); usable on phone.
+- **Gate focus:** G2 time-travel tests (fixed clock) for every rule · G5 Owner
+  compares a week of the list against the lab.
+
+### U2.8 · Discord attention alerts
+- **Size:** M · **Deps:** U2.7, U0.4a, U0.6 · **Decisions:** D-27
+- **Source:** Owner request (2026-10-13)
+- **Scope:** post the "Needs attention" items to Discord (e.g. a daily summary:
+  "5 batches due for subculture today") with a link into Cucumber. **Controls**
+  for the Owner: switch the whole feature, or each alert type, on or off;
+  choose the channel and the time of the summary; mute for a period. Messages
+  carry batch codes and counts only, with mentions off; the link still needs
+  the Access email check and Cucumber login. Runs on a schedule (the scheduler
+  is chosen at G1).
+- **Acceptance:** a summary is sent once per scheduled time, never twice; a
+  switched-off or muted type sends nothing; if Discord fails, Cucumber keeps
+  working and the failure is logged and shown to the Owner; only the Owner
+  can change the controls.
+- **Gate focus:** G2 no-duplicate and on/off tests · G4 **security review**
+  (webhook secret, what a message may contain) · G5 Owner and staff use it for
+  one week.
+
 ### U2.6 · Vessel tracking — **Won't Do**
 - **Size:** L · **Deps:** U1.3 · **Decisions:** D-02
 - **Status:** closed. D-02 chose batch-only tracking; contamination is handled by
