@@ -60,7 +60,15 @@ exits · *Gate focus* = unit-specific checks on top of [the standard gates](gate
 - **Gate focus:** G2 a deliberately failing test proves CI blocks merge.
 
 ### U0.4 · Environments & self-hosted deployment
-- **Size:** M · **Deps:** U0.3 · **Decisions:** D-10
+- **Split 2026-10-12** (Owner) into two units that share one spec:
+  - **U0.4a · App packaging & deploy** (M, Deps: U0.3): container image,
+    compose files, secrets and start-up checks, production security settings,
+    deploy command, feature flags (django-waffle), Discord release hook. AC1–AC14.
+  - **U0.4b · Hosts, Cloudflare & go-live readiness** (M, Deps: U0.4a): DNS
+    move to Cloudflare (D-25), staging as a second copy on the MacBook (D-26), Tunnel +
+    Access, remote SSH, uptime alert, restart tests, staging E2E and
+    walk-throughs. AC15–AC27.
+- **Size:** L (as two M units) · **Deps:** U0.3 · **Decisions:** D-10, D-25, D-26
 - **Scope:** dev / staging / production; containerized deploy; remote access via
   Cloudflare Tunnel + Access (D-10), no open inbound ports; secrets via
   environment variables; startup check that required secrets are present;
@@ -86,9 +94,10 @@ exits · *Gate focus* = unit-specific checks on top of [the standard gates](gate
   restrict who runs the *Draft release* workflow.
 - **Gate focus:** G4 security review (secrets, exposed ports) · G5 fresh-host deploy test,
   including a restart test (the app comes back after a reboot and the FileVault password).
+- **Unit files:** [spec (G0)](units/u0.4-spec.md)
 
 ### U0.5 · Authentication
-- **Size:** M · **Deps:** U0.3, U0.4
+- **Size:** M · **Deps:** U0.3, U0.4a
 - **Scope:** user accounts, login / logout, session expiry, password hashing,
   Owner-issued password reset, account deactivation.
 - **Acceptance:** wrong password rejected without revealing whether the user exists;
@@ -197,7 +206,7 @@ exits · *Gate focus* = unit-specific checks on top of [the standard gates](gate
   Android** (the vivo Y3s, 3 GB RAM, found the double-tap bug).
 
 ### U0.11 · Backup & restore baseline
-- **Size:** S · **Deps:** U0.4
+- **Size:** S · **Deps:** U0.4b
 - **Scope:** scheduled DB + file backup to a second location; documented restore.
   The production server is self-hosted, so the second location is **off-site
   cloud storage** (e.g. Cloudflare R2) and must run **before go-live**. The

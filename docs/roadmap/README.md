@@ -103,6 +103,7 @@ A phase passes its release gate when **all its units are at G6** *and*:
 | Audit Trail & Record Keeping | U0.7 |
 | Document Management | U4.7 |
 | Culture labels after events (Owner request) | U4.8 |
+| Needs attention list and Discord alerts (Owner request) | U2.7, U2.8 |
 | Dashboard & Analytics | U5.1, U5.3 |
 | Report Builder | U5.4 |
 | Environmental Telemetry | U5.6 |

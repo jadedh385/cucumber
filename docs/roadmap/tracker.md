@@ -13,7 +13,8 @@ Mark each cell with the sign-off date (e.g. `10-14`) when the gate passes.
 | U0.2a | Domain model: schema | M | D-02, D-05, D-07, D-15; U0.3 | 10-11 | 10-11 | 10-12 | 10-12 | 10-12 | 10-12 | · |
 | U0.2b | Domain model: event core services | M | U0.2a | 10-11 | 10-11 | 10-12 | 10-12 | 10-12 | 10-12 | · |
 | U0.3 | Repo, CI, test harness | M | | 10-11 | 10-11 | 10-12 | 10-12 | 10-12 | ▶ | · |
-| U0.4 | Environments & deploy | M | D-10 | · | · | · | · | · | · | · |
+| U0.4a | Environments: app packaging & deploy | M | D-10, D-25, D-26; U0.3 | 10-13 | · | · | · | · | · | · |
+| U0.4b | Environments: hosts, Cloudflare & go-live | M | D-10, D-25, D-26; U0.4a | 10-13 | · | · | · | · | · | · |
 | U0.5 | Authentication | M | | · | · | · | · | · | · | · |
 | U0.6 | Roles & permissions | M | D-03 | · | · | · | · | · | · | · |
 | U0.7 | Audit trail & append-only store | M | D-07 | · | · | · | · | · | · | · |
@@ -48,6 +49,8 @@ Mark each cell with the sign-off date (e.g. `10-14`) when the gate passes.
 | U2.3 | Lineage tree viewer | M | | · | · | · | · | · | · | · |
 | U2.4 | Photos & attachments | M | | · | · | · | · | · | · | · |
 | U2.5 | Acclimatization | M | D-06 | · | · | · | · | · | · | · |
+| U2.7 | Needs attention list | M | D-27 | · | · | · | · | · | · | · |
+| U2.8 | Discord attention alerts | M | D-27 | · | · | · | · | · | · | · |
 | U2.6 | ~~Vessel tracking~~ **Won't Do** (D-02) | L | | — | — | — | — | — | — | — |
 | **R2** | **Lab depth** | | | | | | | | | · |
 
@@ -106,6 +109,9 @@ Record every failed gate and every sign-off with notes.
 
 | Date | Unit / Gate | Result | Notes / sent back to | Signed by |
 |---|---|---|---|---|
+| 2026-10-12 | U0.4 / G0 | In progress | [Spec draft](units/u0.4-spec.md). Owner: split into U0.4a (app packaging & deploy) and U0.4b (hosts, Cloudflare & go-live); domain = subdomains of `southeastcanopy.com` with DNS moved to Cloudflare's free plan (D-25); staging first proposed on the Asus (Ubuntu), then **Owner chose a second copy on the MacBook for now** to keep effort low (D-26; cost/effort comparison in the spec, revisit at U0.10 G0); flags = django-waffle + a command. U0.5 now depends on U0.4a, U0.11 on U0.4b. Left: Q1–Q4 | Jade |
+| 2026-10-13 | U0.4 / G0 | In progress | Owner answered Q1–Q4 ([spec](units/u0.4-spec.md#owner-answers)): staff reach staging behind the same email check, with the "Practice data" banner; every staff member has their own email (email code only); USB-C Ethernet adapter, router UPS and freeing disk space due before R1 go-live, tracked in U0.4b; Access asks again every 30 days per phone. Then signed off | Jade |
+| 2026-10-13 | U0.4 / G0 | Passed | Spec signed off for U0.4a and U0.4b (AC1–AC27); D-25 and D-26 Resolved; Q1–Q4 answered. Next: U0.4a G1 design | Jade |
 | 2026-10-11 | U0.2 / G0 | Passed | Spec signed off; Q1–Q8 answered; D-05 Resolved. Size L confirmed, not split | Jade |
 | 2026-10-11 | U0.2 / G1 | Owner approved | Design note approved; G1 passes after the architect review | Jade |
 | 2026-10-11 | U0.2 / G1 | Fixes required | Architect review: pass with fixes (H1–H5, M1–M6). Split into U0.2a / U0.2b; the count wins; record both who did and who saved an event | Jade |
