@@ -53,6 +53,7 @@ INSTALLED_APPS = [
     "django.contrib.contenttypes",
     "django.contrib.sessions",
     "django.contrib.messages",
+    "waffle",
     "cucumber.core",
     "cucumber.accounts",
     "cucumber.references",

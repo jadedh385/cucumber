@@ -1,47 +1,28 @@
-"""AC12: debug is off unless asked for, and start-up fails closed.
+"""U0.3 AC12: debug is off unless asked for, and start-up fails closed.
 
 Each test imports the settings in a fresh Python with only the variables it
-lists, so nothing from the developer's own environment or .env leaks in.
+lists (startup.py). Staging and production rules (U0.4a AC5, AC7) are in
+test_server_settings.py.
 """
 
-import os
-import subprocess
-import sys
-
 import pytest
-from django.conf import settings
+
+from cucumber.core.tests.startup import error_line, load_settings
 
 REQUIRED_WHEN_DEBUG_OFF = [
+    "DJANGO_ENVIRONMENT",
     "DJANGO_SECRET_KEY",
     "DJANGO_ALLOWED_HOSTS",
     "DB_USER",
     "DB_PASSWORD",
 ]
 COMPLETE = {
+    "DJANGO_ENVIRONMENT": "local",
     "DJANGO_SECRET_KEY": "test-only-not-a-secret",
     "DJANGO_ALLOWED_HOSTS": "localhost",
     "DB_USER": "cucumber_app",
     "DB_PASSWORD": "test-only-not-a-secret",
 }
-PRINT_DEBUG = "import cucumber.settings as s; print(s.DEBUG)"
-
-
-def error_line(result: subprocess.CompletedProcess[str]) -> str:
-    """The exception's own line; the traceback above it echoes source code."""
-    lines = result.stderr.strip().splitlines()
-    return lines[-1] if lines else ""
-
-
-def load_settings(variables: dict[str, str]) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
-        [sys.executable, "-c", PRINT_DEBUG],
-        cwd=settings.BASE_DIR,
-        env={"PATH": os.environ["PATH"], **variables},
-        capture_output=True,
-        text=True,
-        timeout=60,
-        check=False,
-    )
 
 
 def test_debug_is_off_when_DJANGO_DEBUG_is_missing() -> None:

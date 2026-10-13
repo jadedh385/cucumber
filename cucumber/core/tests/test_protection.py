@@ -39,6 +39,14 @@ ALL_PRIVILEGES = [
 ]  # fmt: skip
 READ_WRITE = {"SELECT", "INSERT", "UPDATE"}
 HOUSEKEEPING = {"SELECT", "INSERT", "UPDATE", "DELETE"}
+# U0.4a design §7: the app may switch a flag and its groups, never create one.
+FLAG_GRANTS = {
+    "waffle_flag": {"SELECT", "UPDATE"},
+    "waffle_flag_groups": {"SELECT", "INSERT", "DELETE"},
+    "waffle_flag_users": {"SELECT"},
+    "waffle_switch": {"SELECT"},
+    "waffle_sample": {"SELECT"},
+}
 
 # Design §4, "App user permissions". Every table in the database must be listed:
 # a new table without a decision here fails the matrix test.
@@ -57,6 +65,7 @@ APP_GRANTS: dict[str, set[str]] = (
         "django_content_type": {"SELECT"},
         "django_migrations": {"SELECT"},
     }
+    | FLAG_GRANTS
 )
 
 # A harmless column to "update" on each insert-only table.
