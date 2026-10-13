@@ -1,0 +1,43 @@
+/* Cucumber's own styles. U0.5 adds the real screens' styles here. */
+
+/* "Practice data" banner on staging (U0.4a AC9): amber, dark text, stays at
+   the top while scrolling. */
+.practice-banner {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  padding: 0.5rem 1rem;
+  background: #f5b301;
+  color: #1a1a1a;
+  font-family: system-ui, sans-serif;
+  font-size: 0.95rem;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.practice-banner-short {
+  display: none;
+}
+
+/* Phones get the short wording. */
+@media (max-width: 40rem) {
+  .practice-banner-long {
+    display: none;
+  }
+
+  .practice-banner-short {
+    display: inline;
+  }
+}
+
+/* Plain pages: login (until U0.5), 404 and 500. */
+.plain-page {
+  margin: 0;
+  font-family: system-ui, sans-serif;
+}
+
+.plain-page main {
+  max-width: 24rem;
+  margin: 0 auto;
+  padding: 16px;
+}

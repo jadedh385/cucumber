@@ -7,15 +7,24 @@ They use only Python's standard library: the server runs them with
 `uv run --no-dev`.
 """
 
+import subprocess
+import time
 from collections.abc import Callable, Mapping, Sequence
+from contextlib import ExitStack
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Protocol
 
+from scripts.web import request
+
 ENVIRONMENTS = ("staging", "production")
 COMPOSE_FILE = Path("deploy") / "compose.server.yaml"
-NOT_BUILT = "U0.4a G3"
+# What compose may see from the shell (design §3.1); everything else comes
+# from the secrets file.
+SHELL_NAMES = ("PATH", "HOME")
+SHELL_PREFIX = "DOCKER_"
+PRIVATE = 0o077  # group and other permission bits
 
 
 class ServerError(Exception):
@@ -108,37 +117,102 @@ def run_command(
     A failure raises RuntimeError with the command's own error text, so a
     refusal from the app (e.g. "No flag called ...") reaches the Owner.
     """
-    raise NotImplementedError(NOT_BUILT)
+    with ExitStack() as files:
+        source = files.enter_context(stdin.open("rb")) if stdin else None
+        target = files.enter_context(stdout.open("wb")) if stdout else subprocess.PIPE
+        finished = subprocess.run(
+            list(command),
+            env=dict(env) if env is not None else None,
+            stdin=source,
+            stdout=target,
+            stderr=subprocess.PIPE,
+            check=False,
+        )
+    if finished.returncode != 0:
+        error = finished.stderr.decode(errors="replace").strip()
+        details = error or f"exit status {finished.returncode}"
+        raise RuntimeError(f"`{' '.join(command)}` failed: {details}")
+    return "" if stdout else finished.stdout.decode(errors="replace")
+
+
+def ask(question: str) -> str:
+    return input(question)
+
+
+def say(line: str) -> None:
+    print(line, flush=True)
+
+
+def get_page(url: str, headers: Mapping[str, str]) -> tuple[int, str]:
+    """A GET that answers (0, reason) when nothing answers at all yet."""
+    try:
+        return request(url, headers)
+    except OSError as error:
+        return 0, type(error).__name__
 
 
 def real_tools() -> Tools:
     """Tools that act on this machine: commands, HTTP, the keyboard, the clock."""
-    raise NotImplementedError(NOT_BUILT)
+    return Tools(
+        run=run_command,
+        get=get_page,
+        ask=ask,
+        say=say,
+        now=lambda: datetime.now(UTC),
+        sleep=time.sleep,
+    )
 
 
 def place_for(environment: str, os_environ: Mapping[str, str]) -> Place:
     """The environment's place under `CUCUMBER_HOME` (default `~/cucumber`)."""
-    raise NotImplementedError(NOT_BUILT)
+    if environment not in ENVIRONMENTS:
+        raise ServerError(
+            f"The environment must be staging or production, not {environment!r}."
+        )
+    home = os_environ.get("CUCUMBER_HOME") or str(
+        Path(os_environ.get("HOME") or Path.home()) / "cucumber"
+    )
+    return Place(environment, Path(home).expanduser().absolute())
 
 
 def check_secrets_private(place: Place) -> None:
     """Stop unless the secrets file exists and only its owner can read it."""
-    raise NotImplementedError(NOT_BUILT)
+    if not place.secrets.is_file():
+        raise ServerError(
+            f"There is no {place.secrets}. Make it from deploy/secrets.env.example."
+        )
+    if place.secrets.stat().st_mode & PRIVATE:
+        raise ServerError(
+            f"Others can read {place.secrets}. Run: chmod 600 {place.secrets}"
+        )
 
 
 def read_secrets(place: Place) -> dict[str, str]:
     """`NAME=value` pairs from the secrets file. Values are never printed."""
-    raise NotImplementedError(NOT_BUILT)
+    values = {}
+    for line in place.secrets.read_text().splitlines():
+        if not line.strip() or line.lstrip().startswith("#"):
+            continue
+        name, _, value = line.partition("=")
+        values[name.strip()] = value.strip().strip("'\"")
+    return values
 
 
 def current_version(place: Place) -> str | None:
     """The version now running, from the `current` file; None before the first."""
-    raise NotImplementedError(NOT_BUILT)
+    if not place.current.is_file():
+        return None
+    return place.current.read_text().strip() or None
 
 
 def compose_environment(os_environ: Mapping[str, str], **extra: str) -> dict[str, str]:
     """`PATH`, `HOME` and `DOCKER_*` from the shell, plus `extra`; nothing else."""
-    raise NotImplementedError(NOT_BUILT)
+    passed = {
+        name: value
+        for name, value in os_environ.items()
+        if name in SHELL_NAMES or name.startswith(SHELL_PREFIX)
+    }
+    return {**passed, **extra}
 
 
 def compose_command(place: Place, *args: str, src: Path | None = None) -> list[str]:
@@ -147,4 +221,11 @@ def compose_command(place: Place, *args: str, src: Path | None = None) -> list[s
     The compose file comes from `src` (default: the environment's own clone),
     so it always matches the version being run.
     """
-    raise NotImplementedError(NOT_BUILT)
+    compose_file = (src or place.src) / COMPOSE_FILE
+    return [
+        "docker", "compose",
+        "-p", place.image,
+        "--env-file", str(place.secrets),
+        "-f", str(compose_file),
+        *args,
+    ]  # fmt: skip

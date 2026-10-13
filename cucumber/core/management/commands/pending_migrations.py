@@ -9,13 +9,23 @@ Prints one line of JSON for the deploy command (U0.4a design §6.2):
 (it is older than the database, design §6.3).
 """
 
+import json
 from typing import Any
 
 from django.core.management.base import BaseCommand
+from django.db import connection
+from django.db.migrations.loader import MigrationLoader
 
 
 class Command(BaseCommand):
     help = "Print, as JSON, the migrations still to run and those not known here."
 
     def handle(self, *args: Any, **options: Any) -> None:
-        raise NotImplementedError("U0.4a G3")
+        loader = MigrationLoader(connection)
+        known = set(loader.disk_migrations)
+        applied = set(loader.applied_migrations)
+        report = {
+            "pending": [f"{app}.{name}" for app, name in sorted(known - applied)],
+            "unknown": [f"{app}.{name}" for app, name in sorted(applied - known)],
+        }
+        self.stdout.write(json.dumps(report))

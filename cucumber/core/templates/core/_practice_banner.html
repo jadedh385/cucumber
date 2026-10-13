@@ -1,0 +1,5 @@
+{% comment %}
+  "Practice data" banner, shown on staging only (U0.4a AC9, design §4.4).
+  Every full page includes it first thing in its body. Phones see the short
+  wording; the style is in core/cucumber.css.
+{% endcomment %}{% if environment == "staging" %}<div class="practice-banner" role="note"><strong>PRACTICE DATA</strong> · <span class="practice-banner-long">nothing here is real; test freely</span><span class="practice-banner-short">not real</span></div>{% endif %}

@@ -1,0 +1,23 @@
+# Kept out of the image (U0.4a AC1, AC4): secrets, history, local tools and
+# everything that isn't the running app.
+.git
+.github
+.venv
+.env
+.env.*
+**/secrets.env
+secrets.env
+spike
+docs
+uat
+e2e
+staticfiles
+**/__pycache__
+.pytest_cache
+.mypy_cache
+.ruff_cache
+.coverage
+htmlcov
+test-results
+*.code-workspace
+*.md

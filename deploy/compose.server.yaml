@@ -1,0 +1,116 @@
+# Staging and production on the server (U0.4a design §3). One file for both:
+# what differs comes from the project name (cucumber-staging or
+# cucumber-production) and that environment's secrets.env. The deploy and
+# flag commands build the command line; nobody types it.
+#
+# No service gets the whole secrets file (no env_file): each is handed only
+# the values it needs (design §3.1). Never run `docker compose config` into a
+# log or the screen: it prints the filled-in secrets.
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+# Settings the app and the migrations share. DB_USER and DB_PASSWORD differ.
+x-django: &django
+  DJANGO_ENVIRONMENT: "${DJANGO_ENVIRONMENT:?DJANGO_ENVIRONMENT missing from secrets.env}"
+  DJANGO_SECRET_KEY: "${DJANGO_SECRET_KEY:?DJANGO_SECRET_KEY missing from secrets.env}"
+  DJANGO_ALLOWED_HOSTS: "${DJANGO_ALLOWED_HOSTS:?DJANGO_ALLOWED_HOSTS missing from secrets.env}"
+  DJANGO_CSRF_TRUSTED_ORIGINS: "${DJANGO_CSRF_TRUSTED_ORIGINS:?DJANGO_CSRF_TRUSTED_ORIGINS missing from secrets.env}"
+  DJANGO_HSTS_SECONDS: "${DJANGO_HSTS_SECONDS:?DJANGO_HSTS_SECONDS missing from secrets.env}"
+  DB_NAME: cucumber
+  DB_HOST: db
+  DB_PORT: "5432"
+
+# Built on the server by the deploy command, named per environment and
+# version; never pulled from anywhere.
+x-app-image: &app-image "${IMAGE_NAME:?IMAGE_NAME missing from secrets.env and not set by the deploy command}:${CUCUMBER_VERSION:?CUCUMBER_VERSION missing from secrets.env and not set by the deploy command}"
+
+services:
+  db:
+    image: postgres:17@sha256:2d2b8998d31037bf721cfdf764d76ba74171b4fab3431b7f72c27c56ddbdf9e3
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD missing from secrets.env}"
+      DB_NAME: cucumber
+      # Read once, by the roles script, when the volume is first made.
+      DB_OWNER_PASSWORD: "${DB_OWNER_PASSWORD:?DB_OWNER_PASSWORD missing from secrets.env}"
+      DB_APP_PASSWORD: "${DB_APP_PASSWORD:?DB_APP_PASSWORD missing from secrets.env}"
+    # Lock waits and statements slower than 500 ms are logged, never the text
+    # of a failing statement (design §5).
+    command:
+      - postgres
+      - -c
+      - log_lock_waits=on
+      - -c
+      - log_min_duration_statement=500ms
+      - -c
+      - log_min_error_statement=panic
+    # This Mac only, for walk-throughs and backups with plain tools.
+    ports:
+      - "127.0.0.1:${DB_LOCAL_PORT:?DB_LOCAL_PORT missing from secrets.env}:5432"
+    volumes:
+      - db-data:/var/lib/postgresql/data
+      - ../docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U postgres -d cucumber"]
+      interval: 2s
+      retries: 15
+    mem_limit: ${DB_MEMORY_LIMIT:-0}
+    memswap_limit: ${DB_MEMORY_LIMIT:-0}
+    logging: *logging
+
+  # One-off: always `docker compose run --rm migrate`, so no stopped
+  # container keeps the owner password. Never restarts by itself.
+  migrate:
+    image: *app-image
+    pull_policy: never
+    profiles: [migrate]
+    restart: "no"
+    command: ["python", "manage.py", "migrate", "--noinput"]
+    environment:
+      <<: *django
+      DB_USER: cucumber_owner
+      DB_PASSWORD: "${DB_OWNER_PASSWORD:?DB_OWNER_PASSWORD missing from secrets.env}"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  app:
+    image: *app-image
+    pull_policy: never
+    restart: unless-stopped
+    environment:
+      <<: *django
+      DB_USER: cucumber_app
+      DB_PASSWORD: "${DB_APP_PASSWORD:?DB_APP_PASSWORD missing from secrets.env}"
+    # This Mac only: the tunnel and the deploy command's health check.
+    ports:
+      - "127.0.0.1:${APP_PORT:?APP_PORT missing from secrets.env}:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    mem_limit: ${APP_MEMORY_LIMIT:-0}
+    memswap_limit: ${APP_MEMORY_LIMIT:-0}
+    logging: *logging
+
+  # Cloudflare's tunnel (U0.4b). On only when secrets.env sets
+  # COMPOSE_PROFILES=tunnel. The token is a variable, never an argument
+  # (an argument would show in `ps`).
+  tunnel:
+    image: cloudflare/cloudflared:2026.10.0@sha256:9b49eed8f62806d5d45ddf59ecefb5710429598ea6d3fcccd2af938f621b2b07
+    profiles: [tunnel]
+    restart: unless-stopped
+    command: ["tunnel", "--no-autoupdate", "run"]
+    environment:
+      TUNNEL_TOKEN: "${TUNNEL_TOKEN:?TUNNEL_TOKEN missing from secrets.env}"
+    depends_on:
+      - app
+    mem_limit: ${TUNNEL_MEMORY_LIMIT:-0}
+    memswap_limit: ${TUNNEL_MEMORY_LIMIT:-0}
+    logging: *logging
+
+volumes:
+  db-data:

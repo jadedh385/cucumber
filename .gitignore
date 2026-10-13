@@ -12,3 +12,6 @@ __pycache__/
 htmlcov/
 test-results/
 uat/*-result.md
+# collectstatic output (built into the image) and server secrets (U0.4a)
+staticfiles/
+secrets.env

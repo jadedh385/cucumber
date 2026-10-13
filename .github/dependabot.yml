@@ -28,3 +28,21 @@ updates:
     groups:
       github-actions:
         patterns: ["*"]
+
+  # Pinned base images: Python and uv in the Dockerfile, PostgreSQL and
+  # cloudflared in the server compose file (U0.4a design §9).
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+
+  - package-ecosystem: "docker-compose"
+    directory: "/deploy"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "chore"
+      include: "scope"

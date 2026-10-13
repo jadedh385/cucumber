@@ -141,6 +141,22 @@ def test_a_private_database_copy_is_saved_and_checked_before_migrating(
     assert server.index("backup-check") < server.index("migrate")
 
 
+def test_an_earlier_copy_is_never_overwritten(tmp_path: Path) -> None:
+    """Two deploys in the same minute would give the copy the same name."""
+    server = FakeServer()
+    home = make_home(tmp_path)
+    place = Place("staging", home)
+    earlier = place.backups / f"2026-10-13-1405-before-{NEW}.dump"
+    earlier.write_bytes(b"the earlier copy")
+
+    code = main(["staging", NEW], server.tools(), shell_environment(home))
+
+    assert code == 1
+    assert earlier.read_bytes() == b"the earlier copy"
+    assert "Stopped: " in server.output()
+    assert {"backup", "migrate", "up"}.isdisjoint(server.kinds())
+
+
 def test_only_the_last_five_copies_are_kept(tmp_path: Path) -> None:
     server = FakeServer()
     home = make_home(tmp_path)

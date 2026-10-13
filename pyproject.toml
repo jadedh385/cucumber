@@ -79,6 +79,9 @@ pythonpath = ["."]
 testpaths = ["cucumber", "scripts", "e2e"]
 python_files = ["test_*.py"]
 addopts = "--cov=cucumber --cov=scripts --cov-report=term-missing --strict-markers"
+# Tests never run collectstatic, so whitenoise finds no staticfiles/ folder;
+# Django's test server serves CSS straight from the apps instead.
+filterwarnings = ["ignore:No directory at:UserWarning:django.core.handlers.base"]
 
 [tool.coverage.run]
 branch = true

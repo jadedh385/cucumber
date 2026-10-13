@@ -1,0 +1,17 @@
+{% load static %}<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% if environment == "staging" %}[Practice] {% endif %}Something went wrong · Cucumber</title>
+  <link rel="stylesheet" href="{% static 'core/cucumber.css' %}">
+</head>
+<body class="plain-page">
+  {% include "core/_practice_banner.html" %}
+  <main>
+    <h1>Something went wrong</h1>
+    <p>Nothing was saved. Please try again in a moment. If it keeps happening,
+      tell the Owner what you were doing.</p>
+  </main>
+</body>
+</html>

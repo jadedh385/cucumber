@@ -37,6 +37,7 @@ jobs:
     # Fake values so settings load. They protect nothing: CI's database is
     # thrown away after each run.
     env:
+      DJANGO_ENVIRONMENT: local
       DJANGO_SECRET_KEY: ci-only-not-a-secret
       DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1
       DB_NAME: cucumber
@@ -69,3 +70,60 @@ jobs:
 
       - name: Run every check
         run: scripts/check.sh
+
+  image:
+    name: Container image
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      # A pretend staging server in the runner's temp folder (design §9).
+      CUCUMBER_HOME: ${{ runner.temp }}/cucumber
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+
+      # AC1: the image still builds for Intel, so staging or production can
+      # move off the MacBook without code changes.
+      - name: Build the image for Intel
+        run: docker build --platform linux/amd64 -t cucumber-ci .
+
+      - name: Check it runs as non-root with no settings baked in
+        run: |
+          set -euo pipefail
+          user="$(docker inspect --format '{{.Config.User}}' cucumber-ci)"
+          [ "$user" = "cucumber" ] || { echo "runs as '$user', not cucumber"; exit 1; }
+          if docker inspect --format '{{json .Config.Env}}' cucumber-ci | grep -Eq '"(DJANGO|DB)_'; then
+            echo "the image's environment holds a setting"; exit 1
+          fi
+
+      # AC7: with fake production values; warnings fail it too.
+      - name: Run Django's deploy check inside the image
+        run: |
+          docker run --rm \
+            -e DJANGO_ENVIRONMENT=production \
+            -e DJANGO_SECRET_KEY="ci-only-not-a-secret-$(printf 'k%.0s' {1..40})" \
+            -e DJANGO_ALLOWED_HOSTS=example.invalid \
+            -e DJANGO_CSRF_TRUSTED_ORIGINS=https://example.invalid \
+            -e DB_USER=cucumber_app -e DB_PASSWORD=ci-only-not-a-secret \
+            cucumber-ci python manage.py check --deploy --fail-level WARNING
+
+      # Deploy rehearsal: this pull request's own code, as staging.
+      - name: Set up a pretend staging server
+        run: scripts/rehearse_deploy.sh setup
+
+      - name: Deploy this checkout to it
+        run: uv run --no-dev python -m scripts.deploy staging main --source "$GITHUB_WORKSPACE"
+
+      - name: Check what staff and the server would see
+        run: scripts/rehearse_deploy.sh check
+
+      - name: Deploy again and find no database changes
+        run: |
+          set -euo pipefail
+          sleep $((61 - $(date +%-S)))   # copies are named to the minute; never overwritten
+          uv run --no-dev python -m scripts.deploy staging main --source "$GITHUB_WORKSPACE" | tee second.log
+          grep -q "Updating the database (no changes)" second.log
