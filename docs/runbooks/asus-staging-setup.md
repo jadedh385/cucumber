@@ -284,3 +284,4 @@ U0.2a/b:
 | Date | Phase | Result | Who |
 |---|---|---|---|
 | 2026-10-13 | 0 | Facts above; D: shrinkable by 368,714 MB. Plan: delete recovery section, shrink D: by 120 GB | Jade + Claude |
+| 2026-10-13 | 1 | Fast Startup and hibernation off; Winre.wim confirmed on C: (hidden, so `Test-Path` said False; `Get-ChildItem -Force` found it); recovery section removed with `Remove-Partition` (diskpart wouldn't start in that window); D: shrunk to 285.67 GB; **120.00 GB unallocated** at the end (plus 805 MB left unused where section 3 was); Windows RE enabled again on C: (`partition2\Recovery\WindowsRE`). Next: install media | Jade + Claude |
