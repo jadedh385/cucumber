@@ -38,8 +38,9 @@ services:
       # Read once, by the roles script, when the volume is first made.
       DB_OWNER_PASSWORD: "${DB_OWNER_PASSWORD:?DB_OWNER_PASSWORD missing from secrets.env}"
       DB_APP_PASSWORD: "${DB_APP_PASSWORD:?DB_APP_PASSWORD missing from secrets.env}"
-    # Lock waits and statements slower than 500 ms are logged, never the text
-    # of a failing statement (design §5).
+    # Lock waits and statements slower than 500 ms are logged; a slow
+    # statement's line holds its text and values, so these logs stay on the
+    # server. A failing statement's text is never logged (design §5).
     command:
       - postgres
       - -c

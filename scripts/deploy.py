@@ -12,6 +12,7 @@ safe (design §6.3).
 """
 
 import argparse
+import dataclasses
 import fcntl
 import json
 import os
@@ -42,6 +43,13 @@ IMAGES_KEPT = 3
 LOG_LINES_ON_FAILURE = 30
 BUILD_CACHE_KEPT = "until=168h"  # a week
 STAGING_BRANCH = "main"
+# `main` moves, so each staging build of it is named for its commit, e.g.
+# `main-3f2a9c1d0b7e`: putting the previous one back must not find the new
+# build under the same name (G4 review).
+MAIN_BUILD_PREFIX = f"{STAGING_BRANCH}-"
+COMMIT_CHARACTERS = 12
+PRIVATE_FOLDER = 0o700
+PRIVATE_FILE = 0o600
 DB_NAME = "cucumber"  # as deploy/compose.server.yaml names it
 # The clone's own virtual environment is never part of the image.
 NOT_A_STRAY = {".venv/"}
@@ -123,9 +131,24 @@ def changes(count: int) -> str:
     return "1 change" if count == 1 else f"{count} changes"
 
 
+def main_build(commit: str) -> str:
+    """The name of one staging build of `main`, e.g. `main-3f2a9c1d0b7e`."""
+    return f"{MAIN_BUILD_PREFIX}{commit[:COMMIT_CHARACTERS]}"
+
+
 def git_ref(version: str) -> str:
-    """What to check out: the tag itself, or GitHub's main."""
-    return f"origin/{version}" if version == STAGING_BRANCH else version
+    """What to check out: GitHub's main, a main build's commit, or the tag."""
+    if version == STAGING_BRANCH:
+        return f"origin/{version}"
+    if version.startswith(MAIN_BUILD_PREFIX):
+        return version.removeprefix(MAIN_BUILD_PREFIX)
+    return version
+
+
+def private_folder(folder: Path) -> None:
+    """Database copies and logs are for the admin only (G4 security review)."""
+    folder.mkdir(mode=PRIVATE_FOLDER, exist_ok=True)
+    folder.chmod(PRIVATE_FOLDER)
 
 
 def restore_line(backup: Path) -> str:
@@ -168,7 +191,8 @@ class Deploy:
     def record(self, line: str) -> None:
         if not self.place.folder.is_dir():
             return  # not set up yet; nothing to log into
-        self.log.parent.mkdir(exist_ok=True)
+        private_folder(self.log.parent)
+        self.log.touch(mode=PRIVATE_FILE)
         with self.log.open("a") as log:
             log.write(line + "\n")
 
@@ -217,6 +241,14 @@ def check_before_start(run: Deploy) -> dict[str, str]:
     for name in ("APP_PORT", "DJANGO_ALLOWED_HOSTS"):
         if not secrets.get(name):
             raise ServerError(f"{run.place.secrets} has no {name}.")
+    named = secrets.get("DJANGO_ENVIRONMENT")
+    if named != run.place.environment:
+        # Otherwise e.g. a copied `local` would start production without
+        # its HTTPS settings (G4 security review).
+        raise ServerError(
+            f"{run.place.secrets} says DJANGO_ENVIRONMENT={named or ''}, "
+            f"but this is {run.place.environment}."
+        )
     if run.from_source:
         return secrets
     if is_version_tag(run.version):
@@ -233,8 +265,11 @@ def check_before_start(run: Deploy) -> dict[str, str]:
     return secrets
 
 
-def get_version(run: Deploy) -> None:
-    """Step 1: check out exactly the version's commit in the clone."""
+def get_version(run: Deploy) -> str:
+    """Step 1: check out exactly the version's commit in the clone.
+
+    Returns the name to build it under: the tag, or `main-<commit>`.
+    """
     run.say(f"Getting {run.version} from GitHub")
     ref = git_ref(run.version)
     run.git("fetch", "--tags", "--force", "origin")
@@ -243,6 +278,7 @@ def get_version(run: Deploy) -> None:
     wanted = run.git("rev-parse", f"{ref}^{{commit}}").strip()
     if head != wanted:
         raise ServerError(f"The clone isn't at {run.version}'s commit after checkout.")
+    return main_build(head) if run.version == STAGING_BRANCH else run.version
 
 
 def build(run: Deploy) -> None:
@@ -273,28 +309,33 @@ def check_database_fits(run: Deploy) -> Pending:
 def save_copy(run: Deploy) -> Path:
     """Step 4: a private copy of the database, checked readable; keep 5."""
     run.say("Saving a copy of the database")
-    run.place.backups.mkdir(exist_ok=True)
+    private_folder(run.place.backups)
     copy = run.place.backups / backup_name(run.started, run.version)
     try:
-        copy.touch(mode=0o600, exist_ok=False)  # never overwrite an earlier copy
+        copy.touch(mode=PRIVATE_FILE, exist_ok=False)  # never overwrite a copy
     except FileExistsError:
         raise ServerError(
             f"A copy named {copy.name} already exists. Wait a minute and try again"
         ) from None
-    copy.chmod(0o600)
+    copy.chmod(PRIVATE_FILE)
     try:
         run.compose(
             "exec", "-T", "db", "pg_dump", "-U", "postgres", "-Fc", DB_NAME, stdout=copy
         )
         listing = run.compose("exec", "-T", "db", "pg_restore", "--list", stdin=copy)
-    except RuntimeError:
+        if not listing.strip():
+            raise ServerError(f"The database copy {copy.name} can't be read")
+    except BaseException:
+        # Even on Ctrl-C: a cut-off copy must never pass for a good one.
         copy.unlink(missing_ok=True)
         raise
-    if not listing.strip():
-        raise ServerError(f"The database copy {copy.name} can't be read")
+    return copy
+
+
+def drop_old_copies(run: Deploy) -> None:
+    """After a good deploy only, so failed tries never push out good copies."""
     for old in sorted(run.place.backups.glob("*.dump"))[:-BACKUPS_KEPT]:
         old.unlink()
-    return copy
 
 
 # ------------------------------------------------ steps 5-7: the change itself
@@ -325,13 +366,19 @@ def migrate(run: Deploy, pending: Pending, backup: Path) -> bool:
     return False
 
 
-def restart(run: Deploy, version: str) -> None:
-    """Step 6: start the app (and the tunnel, if on) at `version`."""
+def restart(run: Deploy, version: str) -> bool:
+    """Step 6: start the app (and the tunnel, if on) at `version`.
+
+    False when `up` failed: the old app may still be answering, so the
+    health check alone can't tell the new one started (G4 review).
+    """
     run.say("Restarting the app")
     try:
         run.compose("up", "-d", version=version)
     except RuntimeError as error:
         run.say(f"Starting it failed: {error}")
+        return False
+    return True
 
 
 def answers(run: Deploy, secrets: Mapping[str, str]) -> bool:
@@ -387,13 +434,19 @@ def recover(
         put_back(run, run.previous, secrets)
 
 
+def back_to_running_clone(run: Deploy) -> None:
+    """The clone goes back to the previous version, which still runs (§6.3)."""
+    if run.from_source or run.previous is None:
+        return
+    try:
+        run.git("checkout", "--detach", git_ref(run.previous))
+    except RuntimeError as error:
+        run.say(f"Couldn't check out {run.previous} again: {error}")
+
+
 def put_back(run: Deploy, previous: str, secrets: Mapping[str, str]) -> None:
     """Run the previous version again, from its own compose file."""
-    if not run.from_source:
-        try:
-            run.git("checkout", "--detach", git_ref(previous))
-        except RuntimeError as error:
-            run.say(f"Couldn't check out {previous} again: {error}")
+    back_to_running_clone(run)
     restart(run, previous)
     if answers(run, secrets):
         run.say(
@@ -423,6 +476,7 @@ def tidy_up(run: Deploy) -> None:
 
 def finish(run: Deploy) -> None:
     run.place.current.write_text(f"{run.version}\n")
+    drop_old_copies(run)
     tidy_up(run)
     was = f" (was {run.previous})" if run.previous else ""
     took = format_duration((run.tools.now() - run.started).total_seconds())
@@ -434,17 +488,30 @@ def deploy(run: Deploy) -> int:
     try:
         secrets = check_before_start(run)
         if not run.from_source:
-            get_version(run)
+            run = dataclasses.replace(run, version=get_version(run))
         build(run)
         pending = check_database_fits(run)
         backup = save_copy(run)
     except (ServerError, RuntimeError) as error:
+        back_to_running_clone(run)
         run.stop(error)
         return 1
-    if not migrate(run, pending, backup):
+    try:
+        return change(run, pending, backup, secrets)
+    except Exception as error:  # anything at all: still say how to restore
+        run.stop(error)
+        run.say(restore_line(backup))
         return 1
-    restart(run, run.version)
-    if answers(run, secrets):
+
+
+def change(
+    run: Deploy, pending: Pending, backup: Path, secrets: Mapping[str, str]
+) -> int:
+    """Steps 5-7, once a copy of the database is saved."""
+    if not migrate(run, pending, backup):
+        back_to_running_clone(run)
+        return 1
+    if restart(run, run.version) and answers(run, secrets):
         finish(run)
         return 0
     recover(run, pending, backup, secrets)
@@ -495,13 +562,14 @@ def main(
     shell = os.environ if os_environ is None else os_environ
     try:
         place = place_for(args.environment, shell)
+        # Before anything is logged: the version names the log file.
+        check_version(place.environment, args.version, from_source=bool(args.source))
     except ServerError as error:
         tools.say(f"Stopped: {error}")
         return 1
     run = new_run(place, args, tools, shell)
     run.say("Checking before we start")
     try:
-        check_version(place.environment, run.version, from_source=run.from_source)
         check_secrets_private(place)
         with deploy_lock(place.lock):
             return deploy(run)

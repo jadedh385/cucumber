@@ -188,8 +188,12 @@ def make_home(
     *,
     current: str | None = PREVIOUS,
     secrets_mode: int = 0o600,
+    named: str | None = None,
 ) -> Path:
-    """`~/cucumber` with one environment's folder, secrets file and clone."""
+    """`~/cucumber` with one environment's folder, secrets file and clone.
+
+    The secrets file names its own environment; `named` makes it say another.
+    """
     home = root / "cucumber"
     folder = home / environment
     (folder / "src" / "deploy").mkdir(parents=True)
@@ -198,6 +202,7 @@ def make_home(
     secrets = folder / "secrets.env"
     secrets.write_text(
         "# pretend secrets for tests\n"
+        f"DJANGO_ENVIRONMENT={named or environment}\n"
         f"APP_PORT={APP_PORT}\n"
         f"DJANGO_ALLOWED_HOSTS={PUBLIC_HOST},localhost\n"
         f"DJANGO_SECRET_KEY={SECRET_VALUE}\n"

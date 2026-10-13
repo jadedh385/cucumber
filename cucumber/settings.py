@@ -67,6 +67,19 @@ def comma_list(value: str) -> list[str]:
 
 
 SECRET_KEY = required("DJANGO_SECRET_KEY", "dev-only-not-a-secret")
+# Django's own rule for `check --deploy`, checked at every server start too.
+SECRET_KEY_MIN_LENGTH = 50
+SECRET_KEY_MIN_DIFFERENT_CHARACTERS = 5
+if IS_SERVER and (
+    len(SECRET_KEY) < SECRET_KEY_MIN_LENGTH
+    or len(set(SECRET_KEY)) < SECRET_KEY_MIN_DIFFERENT_CHARACTERS
+    or SECRET_KEY.startswith("django-insecure-")
+):
+    raise ImproperlyConfigured(
+        f"DJANGO_SECRET_KEY must be at least {SECRET_KEY_MIN_LENGTH} random "
+        f"characters when DJANGO_ENVIRONMENT is {ENVIRONMENT}. "
+        "See deploy/secrets.env.example."
+    )
 
 ALLOWED_HOSTS = comma_list(required("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1"))
 if not DEBUG and (not ALLOWED_HOSTS or "*" in ALLOWED_HOSTS):

@@ -76,3 +76,13 @@ def test_actions_are_pinned_to_a_commit(workflow: dict[Any, Any]) -> None:
     for step in steps(workflow):
         if "uses" in step:
             assert re.fullmatch(r"[\w./-]+@[0-9a-f]{40}", step["uses"]), step["uses"]
+
+
+def test_the_webhook_is_never_present_while_packages_install(
+    workflow: dict[Any, Any],
+) -> None:
+    """The script needs only Python's own library, so nothing else is installed
+    in the step that holds the webhook (G4 security review)."""
+    step = next(step for step in steps(workflow) if "announce_release" in str(step))
+
+    assert "--no-project" in step["run"].split()

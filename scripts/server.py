@@ -25,6 +25,9 @@ COMPOSE_FILE = Path("deploy") / "compose.server.yaml"
 SHELL_NAMES = ("PATH", "HOME")
 SHELL_PREFIX = "DOCKER_"
 PRIVATE = 0o077  # group and other permission bits
+# A hung build, migration or copy must not hold the deploy lock for ever;
+# the slowest step (a build) takes 1-3 minutes.
+COMMAND_TIMEOUT_SECONDS = 30 * 60
 
 
 class ServerError(Exception):
@@ -115,19 +118,27 @@ def run_command(
     """The real RunCommand: no shell, exactly `env` when given.
 
     A failure raises RuntimeError with the command's own error text, so a
-    refusal from the app (e.g. "No flag called ...") reaches the Owner.
+    refusal from the app (e.g. "No flag called ...") reaches the Owner. So
+    does a command still running after COMMAND_TIMEOUT_SECONDS; it is stopped.
     """
     with ExitStack() as files:
         source = files.enter_context(stdin.open("rb")) if stdin else None
         target = files.enter_context(stdout.open("wb")) if stdout else subprocess.PIPE
-        finished = subprocess.run(
-            list(command),
-            env=dict(env) if env is not None else None,
-            stdin=source,
-            stdout=target,
-            stderr=subprocess.PIPE,
-            check=False,
-        )
+        try:
+            finished = subprocess.run(
+                list(command),
+                env=dict(env) if env is not None else None,
+                stdin=source,
+                stdout=target,
+                stderr=subprocess.PIPE,
+                check=False,
+                timeout=COMMAND_TIMEOUT_SECONDS,
+            )
+        except subprocess.TimeoutExpired:
+            raise RuntimeError(
+                f"`{' '.join(command)}` took longer than "
+                f"{COMMAND_TIMEOUT_SECONDS:g} seconds and was stopped."
+            ) from None
     if finished.returncode != 0:
         error = finished.stderr.decode(errors="replace").strip()
         details = error or f"exit status {finished.returncode}"
@@ -136,7 +147,11 @@ def run_command(
 
 
 def ask(question: str) -> str:
-    return input(question)
+    """The typed answer; no keyboard (e.g. run from a script) counts as none."""
+    try:
+        return input(question)
+    except EOFError:
+        return ""
 
 
 def say(line: str) -> None:

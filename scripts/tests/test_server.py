@@ -7,6 +7,7 @@ import pytest
 from scripts.server import (
     Place,
     ServerError,
+    ask,
     check_secrets_private,
     compose_command,
     compose_environment,
@@ -162,6 +163,23 @@ def test_the_runner_reads_and_writes_files(tmp_path: Path) -> None:
 
     assert copy.read_bytes() == b"\x00binary\xff"
     assert copy.stat().st_mode & 0o777 == 0o600
+
+
+def test_a_command_that_hangs_is_stopped(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A hung build or copy must not hold the deploy lock for ever (G4 review)."""
+    monkeypatch.setattr("scripts.server.COMMAND_TIMEOUT_SECONDS", 0.2)
+
+    with pytest.raises(RuntimeError, match="took longer than"):
+        run_command(["sleep", "5"])
+
+
+def test_no_keyboard_counts_as_no(monkeypatch: pytest.MonkeyPatch) -> None:
+    def closed(prompt: str) -> str:
+        raise EOFError
+
+    monkeypatch.setattr("builtins.input", closed)
+
+    assert ask("Type yes to go on: ") == ""
 
 
 def test_real_tools_are_complete() -> None:

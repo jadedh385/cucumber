@@ -82,6 +82,24 @@ def test_an_unknown_environment_name_is_refused(name: str) -> None:
 
 
 @pytest.mark.parametrize("environment", SERVERS)
+@pytest.mark.parametrize(
+    "key",
+    [
+        "dev-only-not-a-secret",
+        "short-" + "x7" * 10,
+        "a" * 60,
+        "django-insecure-" + "q7Zp" * 12,
+    ],
+)
+def test_a_server_refuses_a_weak_secret_key(environment: str, key: str) -> None:
+    """The same rule as `check --deploy`, at every start (G4 security review)."""
+    result = load_settings(server(environment, DJANGO_SECRET_KEY=key))
+
+    assert result.returncode != 0
+    assert "DJANGO_SECRET_KEY" in error_line(result)
+
+
+@pytest.mark.parametrize("environment", SERVERS)
 def test_debug_can_not_be_on_for_a_server(environment: str) -> None:
     result = load_settings(server(environment, DJANGO_DEBUG="1"))
 
