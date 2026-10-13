@@ -57,6 +57,39 @@ Send Claude the answers; they decide some choices in Phases 1–2.
 already** (MBR allows only 4, so the installer can't add one). In either
 case Claude suggests the next step before going on.
 
+### Results for this Asus (2026-10-13)
+
+750 GB spinning disk (Seagate ST9750420AS, HDD) · **MBR** · **Legacy BIOS**,
+no Secure Boot · BitLocker off · 12 GB. Disk 0 already has **4 sections**
+(MBR's limit): 1 = 0.1 GB start-up files (active), 2 = C: 292 GB (176 GB
+free), 3 = 0.8 GB **Windows recovery** (MBR type 39), 4 = D: 406 GB (360 GB
+free, ~45 GB used). D: can shrink by up to 368,714 MB.
+
+**Chosen:** move Windows' repair tools onto C:, delete section 3 (frees the
+slot Ubuntu needs), **shrink D: by 120 GB** (C: untouched), Ubuntu in that
+space at the end of the disk. Phase 1 below is the generic version;
+**this Asus uses [Phase 1 for this Asus](#phase-1-for-this-asus-mbr-4-sections)**.
+
+## Phase 1 for this Asus (MBR, 4 sections)
+
+All in **PowerShell as administrator** unless it says Disk Management.
+
+1. **Back up** what you'd mind losing from C: and D: (D: has ~45 GB).
+2. **Fast Startup off** (generic step 4) and `powercfg /h off`.
+3. **Repair tools onto C::** `reagentc /disable`. Check: `reagentc /info`
+   says *Disabled*, and `Test-Path C:\Windows\System32\Recovery\Winre.wim`
+   says **True**. If False: stop and ask.
+4. **Delete section 3** with `diskpart`: `select disk 0` → `list partition` →
+   `select partition 3` → `detail partition` (**check: Type 27, about
+   804 MB; otherwise stop**) → `delete partition override` → `list partition`
+   (3 sections left) → `exit`.
+5. **Shrink D:** Disk Management → right-click D: → Shrink Volume → amount
+   **122880** → Shrink. Check: **120.00 GB Unallocated** after D:.
+6. **Repair tools back on:** `reagentc /enable`; `reagentc /info` says
+   *Enabled*.
+7. **USB stick** (generic step 8) with **Partition scheme MBR, Target system
+   BIOS**.
+
 ## Phase 1 · Make room, keep Windows (Jade, 30–60 min)
 
 1. **Back up anything you'd mind losing** (to a USB drive or Google Drive).
@@ -112,7 +145,11 @@ case Claude suggests the next step before going on.
 | SSH | **tick Install OpenSSH server**; don't import keys |
 | Featured snaps | **tick nothing** (Docker comes from Docker's own source in Phase 4) |
 
-5. **Storage screen** (the one that matters):
+5. **Storage screen** (the one that matters). **This Asus (MBR, Legacy):**
+   select the **120 GB free space** → Add Partition (all of it, ext4, `/`);
+   then select the **disk itself** (ST9750420AS) → **Use As Boot Device**
+   (puts the Ubuntu start-up menu on the disk; there is no EFI section).
+   Summary: only `/`, new, ext4. Generic steps:
    1. Choose **Custom storage layout** → Done.
    2. Under *Available devices*, find the line **free space ~80 GB**
       (the space from Phase 1 step 6). Select it → **Add GPT Partition**
@@ -133,7 +170,9 @@ case Claude suggests the next step before going on.
    a `login:` prompt). Log in as `staging-admin` once, type `ip -4 addr` and
    check the address matches the one you wrote down.
    - **Windows isn't in the menu yet:** expected. Phase 4 adds it. Until then,
-     tap Esc at start-up and choose *Windows Boot Manager*.
+     on UEFI tap Esc at start-up and choose *Windows Boot Manager*; **on this
+     Asus (Legacy) Windows can't be started until Phase 4**, so do Phase 4
+     straight after.
    - **It starts Windows instead of Ubuntu:** tell Claude (it's a boot-order
      setting in F2 → Boot).
 
@@ -244,4 +283,4 @@ U0.2a/b:
 
 | Date | Phase | Result | Who |
 |---|---|---|---|
-| | | | |
+| 2026-10-13 | 0 | Facts above; D: shrinkable by 368,714 MB. Plan: delete recovery section, shrink D: by 120 GB | Jade + Claude |
