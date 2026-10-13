@@ -75,9 +75,6 @@ jobs:
     name: Container image
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    env:
-      # A pretend staging server in the runner's temp folder (design §9).
-      CUCUMBER_HOME: ${{ runner.temp }}/cucumber
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -112,8 +109,11 @@ jobs:
             cucumber-ci python manage.py check --deploy --fail-level WARNING
 
       # Deploy rehearsal: this pull request's own code, as staging.
+      # In the runner's temp folder; later steps find it through CUCUMBER_HOME.
       - name: Set up a pretend staging server
-        run: scripts/rehearse_deploy.sh setup
+        run: |
+          echo "CUCUMBER_HOME=$RUNNER_TEMP/cucumber" >> "$GITHUB_ENV"
+          CUCUMBER_HOME="$RUNNER_TEMP/cucumber" scripts/rehearse_deploy.sh setup
 
       - name: Deploy this checkout to it
         run: uv run --no-dev python -m scripts.deploy staging main --source "$GITHUB_WORKSPACE"
