@@ -33,6 +33,21 @@ is the switch.
 - The zone file export (A2) is the real list; this table is only what a
   look-up from outside can guess.
 
+**The export (2026-10-16) also has:**
+
+| Name | Type | Value | Note |
+|---|---|---|---|
+| `@` | A | `WebsiteBuilder Site` | GoDaddy's placeholder, not an address: Cloudflare and `check_dns.py` can't read it |
+| `instagram` | A | `15.197.225.128`, `3.33.251.168` | GoDaddy **forwarding**: redirects to `www.instagram.com` (only works on GoDaddy's nameservers) |
+| `pay` | CNAME | `paylinks.commerce.godaddy.com` | GoDaddy Payments pay links |
+| `_domainconnect` | CNAME | `_domainconnect.gd.domaincontrol.com` | GoDaddy's set-up helper for other services |
+| `_dmarc` | TXT | `v=DMARC1; p=quarantine; …` | Email protection policy |
+
+The export was under the DNS that GoDaddy's domain page called "managed
+elsewhere" (it's still GoDaddy's nameservers). **Use the corrected copy**
+`~/Documents/southeastcanopy.com.cloudflare.txt` in A4 and A5: the same file
+with `WebsiteBuilder Site` replaced by the website's two addresses.
+
 ## Part A · Before the switch (nothing changes yet)
 
 ### A1. Lock down both accounts (Owner, 10 min)
@@ -76,7 +91,7 @@ Note each answer in the log at the bottom:
 
 1. Cloudflare → *Add a domain* → `southeastcanopy.com` → **Free** plan.
 2. When it offers to scan or import records: choose **import a zone file**,
-   pick `~/Documents/southeastcanopy.com.txt`, and **untick** *Proxy imported
+   pick `~/Documents/southeastcanopy.com.cloudflare.txt`, and **untick** *Proxy imported
    DNS records*.
 3. On the DNS records page, set **every record to DNS only (grey cloud)**,
    including `@` and `www`. Delete any record GoDaddy didn't have (Claude
@@ -89,7 +104,7 @@ Note each answer in the log at the bottom:
 From the repo on the Owner's Mac:
 
 ```bash
-uv run --no-dev python -m scripts.check_dns ~/Documents/southeastcanopy.com.txt \
+uv run --no-dev python -m scripts.check_dns ~/Documents/southeastcanopy.com.cloudflare.txt \
   --server <one of Cloudflare's two nameservers>
 ```
 
@@ -137,3 +152,5 @@ Keep the Cloudflare site for at least 48 h after an undo.
 | Date | Step | Result | By |
 |---|---|---|---|
 | 2026-10-16 | Public look-up | NS at GoDaddy; DNSSEC off (no DS); email = Microsoft 365; no DKIM; website on GoDaddy | Claude |
+| 2026-10-16 | A2 export | Saved. 9 names; `@` A is GoDaddy's `WebsiteBuilder Site` placeholder (corrected copy made); `instagram` uses GoDaddy forwarding | Owner, Claude |
+| 2026-10-16 | Baseline | `check_dns.py` on the corrected copy against `ns71.domaincontrol.com`: all records match | Claude |
