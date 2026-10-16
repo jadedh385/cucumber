@@ -146,6 +146,23 @@ def test_no_answer_without_database_changes_puts_the_old_version_back(
     assert "prune" not in kinds
 
 
+def test_after_a_local_checkout_build_the_clone_is_left_alone(
+    tmp_path: Path,
+) -> None:
+    """A `source-…` build has no commit in the clone to check out again."""
+    practice = "source-2026-10-13-140000"
+    server = FakeServer(broken_versions={NEW})
+
+    code, place = deploy(tmp_path, server, current=practice)
+
+    assert code == 1
+    ups = [call.env["CUCUMBER_VERSION"] for call in server.all("up") if call.env]
+    assert ups == [NEW, practice]
+    assert not any(practice in call.command for call in server.all("checkout"))
+    assert f"so {practice} is back. Nothing was lost." in server.output()
+    assert place.current.read_text().strip() == practice
+
+
 def test_no_answer_after_database_changes_says_to_restore(tmp_path: Path) -> None:
     server = FakeServer(
         pending_outputs=[TWO_TO_RUN, NONE_TO_RUN], broken_versions={NEW}

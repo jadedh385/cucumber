@@ -48,6 +48,10 @@ STAGING_BRANCH = "main"
 # build under the same name (G4 review).
 MAIN_BUILD_PREFIX = f"{STAGING_BRANCH}-"
 COMMIT_CHARACTERS = 12
+# A `--source` build is named for its start time, e.g.
+# `source-2026-10-16-115552`: under `main` or a tag it would take over that
+# build's image (G5 finding 1).
+SOURCE_BUILD_PREFIX = "source-"
 PRIVATE_FOLDER = 0o700
 PRIVATE_FILE = 0o600
 DB_NAME = "cucumber"  # as deploy/compose.server.yaml names it
@@ -79,6 +83,10 @@ def check_version(environment: str, version: str, *, from_source: bool) -> None:
     """
     if from_source and environment != "staging":
         raise ServerError("Only staging may build from a local checkout (--source).")
+    if from_source and version != STAGING_BRANCH:
+        raise ServerError(
+            f"A local checkout (--source) is built as main, not {version!r}."
+        )
     if is_version_tag(version):
         return
     if environment == "production":
@@ -136,6 +144,13 @@ def changes(count: int) -> str:
 def main_build(commit: str) -> str:
     """The name of one staging build of `main`, e.g. `main-3f2a9c1d0b7e`."""
     return f"{MAIN_BUILD_PREFIX}{commit[:COMMIT_CHARACTERS]}"
+
+
+def source_build(started: datetime) -> str:
+    """The name of one `--source` build, e.g. `source-2026-10-16-115552`."""
+    if started.utcoffset() is None:
+        raise ValueError("`started` must carry a time zone, e.g. datetime.now(UTC)")
+    return f"{SOURCE_BUILD_PREFIX}{started.astimezone(BANGKOK):%Y-%m-%d-%H%M%S}"
 
 
 def git_ref(version: str) -> str:
@@ -444,6 +459,8 @@ def back_to_running_clone(run: Deploy) -> None:
     """The clone goes back to the previous version, which still runs (§6.3)."""
     if run.from_source or run.previous is None:
         return
+    if run.previous.startswith(SOURCE_BUILD_PREFIX):
+        return  # built from a folder, not from a commit in the clone
     try:
         run.git("checkout", "--detach", git_ref(run.previous))
     except RuntimeError as error:
@@ -493,7 +510,9 @@ def deploy(run: Deploy) -> int:
     """Steps 0 (after the lock) to 7; 0 when the new version answers."""
     try:
         secrets = check_before_start(run)
-        if not run.from_source:
+        if run.from_source:
+            run = dataclasses.replace(run, version=source_build(run.started))
+        else:
             run = dataclasses.replace(run, version=get_version(run))
         build(run)
         pending = check_database_fits(run)

@@ -14,6 +14,7 @@ from scripts.deploy import (
     images_to_remove,
     is_version_tag,
     parse_pending,
+    source_build,
 )
 from scripts.next_version import VERSION_PATTERN
 from scripts.server import ServerError
@@ -70,6 +71,23 @@ def test_staging_may_also_run_main() -> None:
 
 def test_staging_may_build_main_from_a_local_checkout() -> None:
     check_version("staging", "main", from_source=True)
+
+
+def test_a_local_checkout_never_takes_a_release_tags_name() -> None:
+    """G5 finding 1: it would take over that version's image."""
+    with pytest.raises(ServerError, match="--source"):
+        check_version("staging", "2026.10.1", from_source=True)
+
+
+def test_each_local_checkout_build_is_named_for_its_time() -> None:
+    started = datetime(2026, 10, 16, 4, 55, 52, tzinfo=UTC)
+
+    assert source_build(started) == "source-2026-10-16-115552"
+
+
+def test_a_local_checkout_build_name_needs_a_time_zone() -> None:
+    with pytest.raises(ValueError, match="time zone"):
+        source_build(datetime(2026, 10, 16, 4, 55, 52))  # noqa: DTZ001
 
 
 @pytest.mark.parametrize("version", ["feature/split-batch", "develop", "2026.13.1"])
