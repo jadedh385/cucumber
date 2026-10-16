@@ -21,7 +21,8 @@ and its [set-up checklist](../roadmap/adr/0001-stack-selection.md#set-up-checkli
 - GUI-only settings: tell the Owner exactly where to click, then check the
   result with the terminal command given.
 - **Stop at the end of Phase 2.** Phase 3 needs decisions from the main
-  planning session.
+  planning session. (Phase 3 is now written: it runs from the Owner's Mac
+  over SSH, not in a session on this MacBook.)
 - At the end, fill in the [Setup log](#setup-log) and push it (see the last
   step).
 
@@ -104,6 +105,92 @@ sudo pmset -c sleep 0 disksleep 0 displaysleep 10 womp 1
 **Stop here.** Phase 3 (Cloudflare Tunnel + Access, so staff can reach it away
 from this Wi-Fi) waits for the Owner's answer on a domain name, and is planned
 in the main session.
+
+## Phase 3 · Production copy (Claude over SSH, ~30 min)
+
+**For:** Claude in a session on the Owner's Mac, with the Owner next to the
+MacBook. U0.4a G6 needs it ([G6 plan](../roadmap/units/u0.4a-g6-release.md));
+U0.4b design §10.1 planned it. **The tunnel stays off:** production answers on
+the MacBook only, until U0.4b adds the tunnels, the admin tunnel and the
+uptime check (§6, §8, §9). Production holds **no real data until R1 go-live**.
+
+### 3.1 SSH from the Owner's Mac (Owner, 2 min)
+
+On the same Wi-Fi as the MacBook, on the Owner's Mac:
+
+```bash
+ssh-copy-id sawat@<MacBook address>          # asks for sawat's password once
+```
+
+Then Claude adds to the Mac's `~/.ssh/config` and checks with
+`ssh cucumber-server hostname`:
+
+```text
+Host cucumber-server
+    HostName <MacBook address>
+    User sawat
+    IdentityFile ~/.ssh/id_ed25519
+    IdentitiesOnly yes
+```
+
+### 3.2 Set-up script (Claude; Owner adds the deploy key)
+
+```bash
+scp deploy/setup-production.sh cucumber-server:
+ssh cucumber-server bash setup-production.sh
+```
+
+| # | Step | Why |
+|---|---|---|
+| 1 | Checks git, uv and Docker Desktop, and that Docker can pull an image over SSH | Phases 1–2 installed them; this only checks |
+| 2 | Ports 8000 and 5436 free (the old spike's dev server used 8000) | Production's app and database ports (U0.4a §3) |
+| 3 | Its own **read-only deploy key**, used only through the `github-cucumber` alias, so `sawat`'s own GitHub access is untouched. First run: it prints the public key and stops | The repo is private. Owner adds it at GitHub → Settings → **Deploy keys**, "Allow write access" **unticked**, then Claude runs the script again |
+| 4 | `~/cucumber/production/{backups,logs}`, private to `sawat` | Design §6.1 |
+| 5 | Clones `~/cucumber/tools` (stays on `main`, runs the scripts) and `~/cucumber/production/src` (what gets built) | Design §6.1; G5 finding 3 |
+| 6 | `secrets.env` made **on the MacBook** by `scripts.make_secrets production`: production's name, ports 8000/5436, memory caps 1g/1536m/128m (U0.4b Q3), HSTS 3600, tunnel off, new random secrets. `chmod 600`, never overwritten, values never printed | Production's keys differ from staging's by construction (U0.4a G4). The script prints each secret's fingerprint (first 8 characters of its SHA-256) for the log |
+| — | Prints versions, Docker memory, free disk, sleep, firewall, FileVault | For the Phase 3 log below |
+
+**If docker can't pull over SSH** (step 1 stops): Docker Desktop keeps
+logins in the macOS keychain, which an SSH session may not be able to open,
+even for public images. Either the Owner runs
+`security unlock-keychain ~/Library/Keychains/login.keychain-db` in an
+`ssh -t cucumber-server` session (typing `sawat`'s password), or, with the
+Owner's OK, remove the `"credsStore": "desktop"` line from
+`~/.docker/config.json` on the MacBook (Cucumber only pulls public images).
+
+### 3.3 Secrets into Bitwarden (Owner, 3 min)
+
+At the MacBook, in the Terminal app: `cat ~/cucumber/production/secrets.env`.
+Copy the whole text into a new Bitwarden secure note named **Cucumber
+production secrets.env**, as was done for staging. Then clear the Terminal
+window (⌘K). Restoring production from a copy needs these values.
+
+### 3.4 First deploy
+
+Production's first deploy is the first release: follow the
+[release runbook](release.md). Until then production is set up but not
+running.
+
+### 3.5 Restart test (with the Owner's OK, after the first deploy)
+
+Restart the MacBook; the Owner types the FileVault password at the start-up
+screen and logs in as `sawat` (Docker Desktop starts at login, not before).
+Then, with no other step, `/health/` answers (release runbook, step 6). The
+tunnel part of the test (AC24) comes with U0.4b.
+
+### Phase 3 log
+
+| Item | Result |
+|---|---|
+| Date | |
+| SSH from the Owner's Mac (`ssh cucumber-server hostname`) | |
+| Deploy key added (read-only), title | |
+| Script output: macOS, Docker, Compose, uv, Docker memory | |
+| Free disk / sleep / firewall / FileVault | |
+| Secret fingerprints: production (compare with staging's) | |
+| Secrets saved in Bitwarden | |
+| Restart test | |
+| Problems | |
 
 ## Setup log
 
