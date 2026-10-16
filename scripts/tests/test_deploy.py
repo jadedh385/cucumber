@@ -458,6 +458,34 @@ def test_staging_can_build_a_local_checkout_for_the_ci_rehearsal(
     assert Path(up[up.index("-f") + 1]) == checkout / "deploy" / "compose.server.yaml"
 
 
+def test_a_local_checkout_build_gets_its_own_name(tmp_path: Path) -> None:
+    """G5 finding 1: never `main` or a tag, so no real build is taken over,
+    and the app is always restarted with the new build."""
+    server = FakeServer()
+    checkout = tmp_path / "pull-request"
+    (checkout / "deploy").mkdir(parents=True)
+
+    code, place = deploy(tmp_path, server, "main", "--source", str(checkout))
+
+    assert code == 0, server.output()
+    name = place.current.read_text().strip()
+    assert re.fullmatch(r"source-\d{4}-\d{2}-\d{2}-\d{6}", name)
+    assert f"{place.image}:{name}" in server.first("build").command
+    up_env = server.first("up").env
+    assert up_env is not None and up_env["CUCUMBER_VERSION"] == name
+    assert f"Done: staging now runs {name} (was {PREVIOUS})." in server.output()
+
+
+def test_a_local_checkout_never_takes_a_release_tags_name(tmp_path: Path) -> None:
+    server = FakeServer()
+
+    code, _ = deploy(tmp_path, server, NEW, "--source", str(tmp_path))
+
+    assert code == 1
+    assert "Stopped:" in server.output()
+    assert "build" not in server.kinds()
+
+
 def test_the_source_option_is_not_in_the_help(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
