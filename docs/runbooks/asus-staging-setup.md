@@ -231,10 +231,18 @@ Then, without `sudo`:
 ## Phase 5 · First staging deploy (Claude, ~20 min)
 
 ```bash
-ssh cucumber-staging
-cd ~/cucumber/staging/src
+ssh -t cucumber-staging
+git clone git@github.com:jadedh385/cucumber.git ~/cucumber/tools   # once
+cd ~/cucumber/tools && git pull
 uv run --no-dev python -m scripts.deploy staging main
 ```
+
+The scripts run from `~/cucumber/tools`, a clone that stays on `main`
+(design §6.1), never from `staging/src`: a tag deploy checks out older code in
+`src`, the deploy script included. Type the commands in an SSH session:
+`ssh cucumber-staging 'uv …'` on its own finds no `uv` (it lives in
+`~/.local/bin`, which only a login shell adds); wrap one-off commands in
+`bash -lc '…'`.
 
 Expected: the step lines, then `Done: staging now runs main-<commit>`. The
 first build is slow on an old laptop (5–10 min on a spinning disk); later
@@ -250,8 +258,8 @@ the Mac. Phones reach it once Cloudflare is set up in U0.4b.)
 
 ## Phase 6 · U0.4a G5 checks (Claude + Jade)
 
-Recorded in a G5 note (`docs/roadmap/units/u0.4a-g5-verify.md`), as for
-U0.2a/b:
+Recorded in the [G5 note](../roadmap/units/u0.4a-g5-verify.md) (2026-10-16,
+with the restore steps), as for U0.2a/b:
 
 - **Deploy and refusals on the real host** (AC10–AC12): step lines and log
   file, a second deploy says "no changes", a failed deploy puts the previous
@@ -290,3 +298,5 @@ U0.2a/b:
 | 2026-10-15 | 3 | Asus on Wi-Fi at **192.168.101.20** (router reservation still to do). `ssh-copy-id` with the Mac's `id_ed25519`; Mac `~/.ssh/config` has `Host cucumber-staging`. `ssh cucumber-staging` works without a password: Ubuntu 26.04.1 LTS, `/` = sda4 118 GB (105 GB free), 11 GiB RAM | Jade + Claude |
 | 2026-10-16 | 3 | At the lab: added the lab Wi-Fi to `60-wifi.yaml` (home kept); Asus now **192.168.1.36**, Mac `~/.ssh/config` updated | Jade + Claude |
 | 2026-10-16 | 4 | `deploy/setup-staging.sh` run. First run stopped at step 5 (`sshd -t` failed, likely no `/run/sshd` because SSH starts on demand); script now makes it and shows the error; second run finished. Host name `cucumber-staging`; Docker 29.9.1, Compose v5.6.0, uv 0.13.1; firewall allows SSH from 192.168.1.0/24 and 192.168.101.0/24; password login refused over SSH. Start-up menu found waiting forever after an unclean stop: `GRUB_RECORDFAIL_TIMEOUT=5` fixes it. Deploy key added (read-only); clone, folders and `secrets.env` (chmod 600) made on the Asus. Restart test: came back alone with Docker running. **To do:** Windows not seen in the start-up menu (check `os-prober`); save the secrets in the password manager; router reservation | Jade + Claude |
+| 2026-10-16 | 5 | First deploy of `main` (`e186610`): `Done: staging now runs main-e186610a753c`. A second deploy refused `scripts/__pycache__/` (written by running the deploy itself); fixed in PR #20 (`141c7f9`). `/health/` ok and the banner shown, through an SSH tunnel | Claude |
+| 2026-10-16 | 6 | U0.4a G5 checks all passed ([G5 note](../roadmap/units/u0.4a-g5-verify.md)): deploy and second deploy, rollback of a broken build, production refusals, flags, banner, restore (15 s), release rehearsal with draft tags `2026.10.1`/`2026.10.2`, walk-throughs 65/65 and 42/42. Added `~/cucumber/tools` (scripts run from there now). Staging runs `2026.10.1`. **To do:** Owner sign-off; still open from Phase 4: Windows in the start-up menu, router reservation, secrets in the password manager | Claude |
