@@ -178,3 +178,9 @@ Keep the Cloudflare site for at least 48 h after an undo.
 | 2026-10-16 | **Found** | **This network intercepts DNS over UDP** (a query to unused `192.0.2.1` was answered; "Cloudflare" answers had no `aa` flag). Earlier `--server` runs read GoDaddy's data. Over TCP the real servers answer | Claude |
 | 2026-10-16 | A5 (TCP) | `check_dns.py` with `+tcp` against `harlan` and `susan`: **all records match**; against `ns71.domaincontrol.com`: all match. `instagram` already removed at GoDaddy (SOA 2026101600) | Claude |
 | 2026-10-16 | **Part A done** | Waiting for Part B on a weekday morning | |
+| 2026-10-17 | B1 | **Owner chose to switch on a Saturday** (no important email expected yet). Nameservers changed at GoDaddy to `harlan`/`susan` | Owner |
+| 2026-10-17 | B2 Switched | Within minutes: `.com` registry, WHOIS, 1.1.1.1 and 8.8.8.8 (TCP) show Cloudflare's two names | Claude |
+| 2026-10-17 | B2 Records | `check_dns.py` over TCP via 1.1.1.1, 8.8.8.8 and `harlan`: all records match | Claude |
+| 2026-10-17 | B2 Website | `https://southeastcanopy.com` 200, `www` 301 to it, valid certificates; `pay` certificate valid (bare address 404, as expected for pay links) | Claude |
+| 2026-10-17 | B2 Owner checks | Email in, email out (not spam), Outlook phone and desktop, Microsoft 365 domain page, website on mobile data: Owner reports all fine | Owner |
+| | B2 Next morning | Email again, both ways. Then AC16 is done. Keep GoDaddy's records untouched until 2026-10-31 | Owner |
