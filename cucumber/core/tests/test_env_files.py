@@ -15,10 +15,10 @@ ENV_CALL = re.compile(r'\b(?:env|required)\(\s*"([A-Z0-9_]+)"')
 COMPOSE_VARIABLE = re.compile(r"\$\{([A-Z0-9_]+)")
 
 
-def example_entries() -> dict[str, str]:
-    """`NAME=value` pairs from .env.example, ignoring comments and blank lines."""
+def example_entries(name: str = ".env.example") -> dict[str, str]:
+    """`NAME=value` pairs from an example file, ignoring comments and blank lines."""
     entries = {}
-    for line in (ROOT / ".env.example").read_text().splitlines():
+    for line in (ROOT / name).read_text().splitlines():
         if line.strip() and not line.lstrip().startswith("#"):
             name, _, value = line.partition("=")
             entries[name.strip()] = value.strip()
@@ -72,6 +72,41 @@ def test_example_names_every_variable_compose_reads() -> None:
 
 def test_example_holds_no_values() -> None:
     filled = [name for name, value in example_entries().items() if value]
+    assert filled == []
+
+
+# ----------------------------------------- U0.4a AC4: the servers' secrets
+SERVER_EXAMPLE = "deploy/secrets.env.example"
+SERVER_COMPOSE = "deploy/compose.server.yaml"
+# Read by docker compose itself, not by ${...} in the file.
+COMPOSE_OWN = {"COMPOSE_PROFILES"}
+# Passed by the deploy and flag commands for each run, never kept in the file.
+DEPLOY_SUPPLIED = {"IMAGE_NAME", "CUCUMBER_VERSION"}
+
+
+def test_server_secrets_files_are_git_ignored_but_the_example_is_not() -> None:
+    assert is_git_ignored("deploy/secrets.env")
+    assert is_git_ignored("secrets.env")
+    assert not is_git_ignored(SERVER_EXAMPLE)
+
+
+def test_server_example_names_every_variable_the_server_compose_reads() -> None:
+    read = set(COMPOSE_VARIABLE.findall((ROOT / SERVER_COMPOSE).read_text()))
+    listed = example_entries(SERVER_EXAMPLE).keys()
+
+    assert sorted(read - listed - DEPLOY_SUPPLIED) == []
+    assert sorted(DEPLOY_SUPPLIED & listed) == []
+
+
+def test_server_example_lists_nothing_unused() -> None:
+    read = set(COMPOSE_VARIABLE.findall((ROOT / SERVER_COMPOSE).read_text()))
+    listed = example_entries(SERVER_EXAMPLE).keys()
+
+    assert sorted(listed - read - COMPOSE_OWN) == []
+
+
+def test_server_example_holds_no_values() -> None:
+    filled = [name for name, value in example_entries(SERVER_EXAMPLE).items() if value]
     assert filled == []
 
 

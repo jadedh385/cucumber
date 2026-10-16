@@ -1,0 +1,16 @@
+{% load static %}<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% if environment == "staging" %}[Practice] {% endif %}Page not found · Cucumber</title>
+  <link rel="stylesheet" href="{% static 'core/cucumber.css' %}">
+</head>
+<body class="plain-page">
+  {% include "core/_practice_banner.html" %}
+  <main>
+    <h1>Page not found</h1>
+    <p>There is no page at this address. Check the link, or go back.</p>
+  </main>
+</body>
+</html>

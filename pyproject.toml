@@ -5,7 +5,10 @@ description = "Cucumber: plant lab inventory for SEC"
 requires-python = ">=3.13,<3.14"
 dependencies = [
     "django>=5.2,<5.3",
+    "django-waffle>=5",
+    "gunicorn>=23",
     "psycopg[binary]>=3.2",
+    "whitenoise>=6.9",
 ]
 
 [tool.uv]
@@ -19,8 +22,10 @@ dev = [
     "pytest-cov>=7.1.0",
     "pytest-django>=4.14.0",
     "pytest-playwright>=0.10.0",
+    "pyyaml>=6",
     "ruff>=0.17.0",
     "time-machine>=3.5.1",
+    "types-pyyaml>=6",
 ]
 
 # ---------------------------------------------------------------- lint (AC1)
@@ -59,6 +64,11 @@ exclude = ["^spike/"]
 module = ["*.migrations.*"]
 ignore_errors = true
 
+# django-waffle ships no type information.
+[[tool.mypy.overrides]]
+module = ["waffle", "waffle.*"]
+ignore_missing_imports = true
+
 [tool.django-stubs]
 django_settings_module = "cucumber.settings"
 
@@ -69,6 +79,9 @@ pythonpath = ["."]
 testpaths = ["cucumber", "scripts", "e2e"]
 python_files = ["test_*.py"]
 addopts = "--cov=cucumber --cov=scripts --cov-report=term-missing --strict-markers"
+# Tests never run collectstatic, so whitenoise finds no staticfiles/ folder;
+# Django's test server serves CSS straight from the apps instead.
+filterwarnings = ["ignore:No directory at:UserWarning:django.core.handlers.base"]
 
 [tool.coverage.run]
 branch = true

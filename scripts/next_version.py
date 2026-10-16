@@ -13,7 +13,8 @@ from zoneinfo import ZoneInfo
 from scripts.commands import Runner, run_command
 
 BANGKOK = ZoneInfo("Asia/Bangkok")
-VERSION_PATTERN = re.compile(r"(\d{4})\.(\d{2})\.(\d+)")
+# YYYY.MM.N with a real month; the deploy command accepts exactly these (M6).
+VERSION_PATTERN = re.compile(r"(\d{4})\.(0[1-9]|1[0-2])\.(\d+)")
 GIT_TAGS = ["git", "tag", "--list"]
 GITHUB_RELEASES = [
     "gh", "release", "list", "--limit", "1000",

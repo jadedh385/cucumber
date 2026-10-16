@@ -1,0 +1,34 @@
+# Tell staff what changed when a release is published (U0.4a design §8, AC14).
+# Posts the release's "For staff" section to the staff Discord channel. Runs
+# only when the Owner presses Publish; a draft never triggers it. The workflow
+# file and the script come from the release's own tagged commit.
+name: Announce release
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  announce:
+    name: Post the staff note to Discord
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+
+      # The release text is read from the event file GitHub provides
+      # (GITHUB_EVENT_PATH), never pasted into this line, so text in a release
+      # can't run commands. The webhook address is never printed. The script
+      # needs only Python's own library, so no package is installed while the
+      # webhook is in the environment (--no-project).
+      - name: Post the staff note
+        env:
+          DISCORD_RELEASE_WEBHOOK: ${{ secrets.DISCORD_RELEASE_WEBHOOK }}
+        run: uv run --no-project python -m scripts.announce_release

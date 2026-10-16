@@ -101,9 +101,12 @@ prices or costs (SOP §2 principle 2).
   post to the channel. The Owner stores it as a **GitHub Actions secret**
   (`DISCORD_RELEASE_WEBHOOK`), never in the repo or in chat. If it ever leaks,
   delete the webhook in Discord and make a new one.
-- **No third-party action:** the workflow posts to Discord directly with one
-  `curl` request, with `allowed_mentions: {"parse": []}` so a note containing
-  `@everyone` or a name can't ping people.
+- **No third-party action:** the workflow
+  (`.github/workflows/announce-release.yml`) posts to Discord directly with
+  one plain HTTPS request from a small Python script
+  (`scripts/announce_release.py`), with `allowed_mentions: {"parse": []}` so
+  a note containing `@everyone` or a name can't ping people. It runs only when
+  a release is published, never for a draft.
 - **Length:** a Discord message holds up to 2,000 characters. A staff note
   should be far shorter; if it isn't, the hook posts the first part with a link
   to the full GitHub Release.

@@ -21,3 +21,4 @@ None
 
 - [ ] Every CI check is green (merge rule: GitHub can't block red merges on our plan)
 - [ ] Title is `type: description` (it becomes the squash commit and the release-notes line)
+- [ ] Migrations keep the previous release working: add first, remove in a later release (the old version runs against the new database while a deploy finishes)
