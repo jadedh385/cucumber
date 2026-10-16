@@ -154,3 +154,8 @@ Keep the Cloudflare site for at least 48 h after an undo.
 | 2026-10-16 | Public look-up | NS at GoDaddy; DNSSEC off (no DS); email = Microsoft 365; no DKIM; website on GoDaddy | Claude |
 | 2026-10-16 | A2 export | Saved. 9 names; `@` A is GoDaddy's `WebsiteBuilder Site` placeholder (corrected copy made); `instagram` uses GoDaddy forwarding | Owner, Claude |
 | 2026-10-16 | Baseline | `check_dns.py` on the corrected copy against `ns71.domaincontrol.com`: all records match | Claude |
+| 2026-10-16 | A3.1 DNSSEC | Off ("Turn On DNSSEC" offered) | Owner |
+| 2026-10-16 | A3.2 Forwarding | Domain: not set up. Subdomain `instagram` → `https://www.instagram.com` (GoDaddy's free social subdomain, not the profile). **Dropped**: left out of the corrected copy; stops working after the switch | Owner |
+| 2026-10-16 | A3.3 Website | Products tab: "You connected a website to southeastcanopy.com", SSL certificate active; no nameserver requirement shown | Owner |
+| 2026-10-16 | A3.4 Microsoft 365 | Not bought through GoDaddy (Products tab offers Email "Get Started", none connected) | Owner |
+| 2026-10-16 | Noted | GoDaddy **auto-renew is off**, domain expires 2027-09-08: Owner to decide on turning it on | Owner |
