@@ -53,6 +53,8 @@ PRIVATE_FILE = 0o600
 DB_NAME = "cucumber"  # as deploy/compose.server.yaml names it
 # The clone's own virtual environment is never part of the image.
 NOT_A_STRAY = {".venv/"}
+# Python's cache, written by running this command; .dockerignore drops it.
+PYTHON_CACHE = "__pycache__/"
 
 
 @dataclass(frozen=True)
@@ -256,7 +258,11 @@ def check_before_start(run: Deploy) -> dict[str, str]:
         if not found.strip():
             raise ServerError(f"No tag {run.version} on GitHub.")
     status = run.git("status", "--porcelain", "--ignored").splitlines()
-    strays = [line[3:] for line in status if line[3:] not in NOT_A_STRAY]
+    strays = [
+        line[3:]
+        for line in status
+        if line[3:] not in NOT_A_STRAY and not line.endswith(PYTHON_CACHE)
+    ]
     if strays:
         raise ServerError(
             f"{run.src} has files that would end up in the app: "
