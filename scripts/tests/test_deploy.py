@@ -376,6 +376,28 @@ def test_the_clones_own_virtual_environment_is_not_a_stray(tmp_path: Path) -> No
     assert code == 0, server.output()
 
 
+def test_pythons_own_cache_folders_are_not_strays(tmp_path: Path) -> None:
+    # Running the deploy command itself writes scripts/__pycache__/ (U0.4a G5,
+    # found on the Asus); .dockerignore keeps every __pycache__ out of the image.
+    server = FakeServer(stray_files="!! scripts/__pycache__/\n!! core/__pycache__/\n")
+
+    code, _ = deploy(tmp_path, server)
+
+    assert code == 0, server.output()
+
+
+def test_a_stray_next_to_a_cache_folder_still_stops_the_deploy(
+    tmp_path: Path,
+) -> None:
+    server = FakeServer(stray_files="!! scripts/__pycache__/\n!! staticfiles/\n")
+
+    code, _ = deploy(tmp_path, server)
+
+    assert code == 1
+    assert "staticfiles/" in server.output()
+    assert "__pycache__" not in server.output()
+
+
 def test_a_tag_that_moved_since_checkout_stops_the_deploy(tmp_path: Path) -> None:
     server = FakeServer(head_sha=OTHER_SHA)
 
