@@ -108,10 +108,23 @@ uv run --no-dev python -m scripts.check_dns ~/Documents/southeastcanopy.com.clou
   --server <one of Cloudflare's two nameservers>
 ```
 
-- It must end with **all records match**. A `different` on `@` or `www` with
-  "is it set to DNS only?" means a cloud is still orange.
-- The Owner also exports Cloudflare's records (DNS → Records → *Export*) and
-  Claude compares it line by line with GoDaddy's: any extra is deleted.
+- **Use TCP.** The lab and home networks may intercept ordinary (UDP) DNS
+  and answer from their own cache, which silently gives GoDaddy's answers.
+  Test: `dig +short A example.com @192.0.2.1` must time out. If it answers,
+  run the checker over TCP (until `check_dns.py` gets a `--tcp` option):
+
+  ```bash
+  uv run --no-dev python -c "import sys, scripts.check_dns as c; c.DIG_OPTIONS = [*c.DIG_OPTIONS, '+tcp']; sys.exit(c.main(sys.argv[1:]))" \
+    ~/Documents/southeastcanopy.com.cloudflare.txt --server harlan.ns.cloudflare.com
+  ```
+
+- It must end with **all records match**, for both Cloudflare nameservers.
+- **Before the switch, the checker can't see proxying:** Cloudflare doesn't
+  proxy until the site is active. So the Owner exports Cloudflare's records
+  (DNS → Records → *Import and Export* → *Export*) and Claude reads it:
+  every line `cf-proxied:false`, **no NS lines other than Cloudflare's own**
+  (the import copies GoDaddy's `ns71`/`ns72`; delete them), and no record
+  GoDaddy didn't have.
 - Save the output in the log: it is AC15's evidence.
 
 ## Part B · The switch
@@ -131,8 +144,8 @@ every record change is made at **both** GoDaddy and Cloudflare.
 
 | Check | Who | How |
 |---|---|---|
-| Switched | Claude | `dig NS southeastcanopy.com @1.1.1.1` shows Cloudflare's two names |
-| Records | Claude | `check_dns.py` with `--server <Cloudflare nameserver>`, and again with no `--server` |
+| Switched | Claude | `dig +tcp NS southeastcanopy.com @1.1.1.1` shows Cloudflare's two names |
+| Records | Claude | `check_dns.py` over TCP (A5) with `--server <Cloudflare nameserver>`, and again with no `--server` |
 | Email in | Owner | Send from a personal Gmail to a company address; it arrives |
 | Email out | Owner | Reply from Outlook; it arrives at the Gmail, not in spam |
 | Outlook | Owner | Opens and syncs on phone and desktop |
@@ -159,3 +172,9 @@ Keep the Cloudflare site for at least 48 h after an undo.
 | 2026-10-16 | A3.3 Website | Products tab: "You connected a website to southeastcanopy.com", SSL certificate active; no nameserver requirement shown | Owner |
 | 2026-10-16 | A3.4 Microsoft 365 | Not bought through GoDaddy (Products tab offers Email "Get Started", none connected) | Owner |
 | 2026-10-16 | Noted | GoDaddy **auto-renew is off**, domain expires 2027-09-08: Owner to decide on turning it on | Owner |
+| 2026-10-16 | A4 | Site added at Cloudflare (Free); nameservers `harlan.ns.cloudflare.com`, `susan.ns.cloudflare.com` | Owner |
+| 2026-10-16 | A5 export 1 | Cloudflare export: 6 records **proxied** (`@` ×2, `www`, `autodiscover`, `pay`, `_domainconnect`) and GoDaddy's `ns71`/`ns72` imported as NS records. Owner set all to DNS only and deleted the two NS records | Owner, Claude |
+| 2026-10-16 | A5 export 2 | Every record `cf-proxied:false`, no `domaincontrol.com` NS, no extras: matches GoDaddy's list | Claude |
+| 2026-10-16 | **Found** | **This network intercepts DNS over UDP** (a query to unused `192.0.2.1` was answered; "Cloudflare" answers had no `aa` flag). Earlier `--server` runs read GoDaddy's data. Over TCP the real servers answer | Claude |
+| 2026-10-16 | A5 (TCP) | `check_dns.py` with `+tcp` against `harlan` and `susan`: **all records match**; against `ns71.domaincontrol.com`: all match. `instagram` already removed at GoDaddy (SOA 2026101600) | Claude |
+| 2026-10-16 | **Part A done** | Waiting for Part B on a weekday morning | |
