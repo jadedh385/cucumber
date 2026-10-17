@@ -181,3 +181,5 @@ Production gets the same set at step 6.
 | 2026-10-17 | B2 | `ssh cucumber-staging-remote hostname` → `cucumber-staging`, arriving from `127.0.0.1` (tunnel). Repeat with the Mac on phone data for AC22 | Owner, Claude |
 | 2026-10-17 | B3 | **AC19 (staging) passed:** phone on 5G, email code for `admin@`, Cucumber with the banner; made-up login refused by Cucumber (no 403, no redirect loop). **AC20 passed:** Gmail address got no code | Owner |
 | 2026-10-17 | Bitwarden | Entries as in the table above | Owner |
+| 2026-10-17 | B2 | **AC22 (Asus) passed:** Mac on phone hotspot (`49.230.57.117`), `ssh cucumber-staging-remote hostname` → `cucumber-staging` | Owner |
+| 2026-10-17 | AC21 lab | From the Mac on phone hotspot, `nc -z -G 3` to the lab's IPv4 (`124.120.2.178`) and the Asus's own **public IPv6** address: 22, 80, 443, 5432, 5435, 5436, 8000, 8001, 5900 all closed. The Asus has a public IPv6 address (no NAT), so test IPv6 at every site too. macOS `nc -w` doesn't limit the connect wait; use `-G 3`. **To do:** lab router page: no port forwards, UPnP off; same check at home if the Asus moves back | Claude |
