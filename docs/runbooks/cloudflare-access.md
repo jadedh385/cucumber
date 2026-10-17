@@ -129,4 +129,5 @@ Delete the applications and policies. Nothing points at them yet.
 | 2026-10-17 | A3 | No Lists: addresses go in the policies (see A3) | Owner, Claude |
 | 2026-10-17 | A4 | `Staff` (Allow: `admin@`, `thanapat.s@southeastcanopy.com`), `Admins` (Allow), `Health check` (Bypass, first saved as Allow, fixed) | Owner |
 | 2026-10-17 | A5 | Five applications as in the table; `Cucumber Staging SSH` first saved with no policy, `Admins` added. Saving needed *clientless access* and *WARP authentication* off | Owner |
+| 2026-10-17 | A2, Admins | Owner approved: One-time PIN only; `Admins` = Owner's address only | Owner |
 | 2026-10-17 | A6 | Policy tester can't run before a first login (`invalid_user_id`): moved to step 4 | Owner, Claude |
