@@ -20,12 +20,15 @@ isn't there, use the dashboard's search box with the last word (e.g.
 
 ### A1. Zero Trust account (Owner, 10 min)
 
-`dash.cloudflare.com` → left menu **Zero Trust**.
+`one.dash.cloudflare.com` (Cloudflare One) → **Zero Trust** → **Overview**.
+The *Account details* box shows the team name and plan.
 
+- **Plan:** **Zero Trust Free** (up to 50 people). Cloudflare may ask for a
+  card; nothing is charged on Free.
 - **Team name:** `southeastcanopy`. The login page becomes
-  `southeastcanopy.cloudflareaccess.com`.
-- **Plan:** **Free** (up to 50 people). Cloudflare may ask for a card;
-  nothing is charged on Free.
+  `southeastcanopy.cloudflareaccess.com`. Cloudflare may already have made
+  the account with a random name (e.g. `muddy-sunset-…`): change it with
+  *Account details* → **Settings**. Safe now, since nothing uses it yet.
 - Save the team name in the Bitwarden entry for Cloudflare (notes).
 
 ### A2. Login method (Owner, 2 min)
@@ -36,16 +39,12 @@ Settings → Authentication → **Login methods**.
   new* → One-time PIN.
 - Add no other method (design §7: email code only).
 
-### A3. Email lists (Owner, 5 min)
+### A3. No email lists (decided 2026-10-17)
 
-Reusable components → **Lists** → *Create manual list*, type **Emails**.
-
-| List | Entries now |
-|---|---|
-| `Cucumber staff` | The Owner's work address. Staff addresses can be added now or before they first use Cucumber |
-| `Cucumber admins` | The Owner's work address only |
-
-Type each address in lower case, exactly as the person's mailbox spells it.
+Design §7 planned two Cloudflare *Lists*. Not needed: the addresses go
+straight into the reusable `Staff` and `Admins` policies (A4), and each
+policy is shared by all its applications, so a change is still made in one
+place. Type each address in lower case, exactly as the mailbox spells it.
 
 ### A4. Policies (Owner, 5 min)
 
@@ -53,14 +52,20 @@ Access controls → **Policies** → *Add a policy*. Three reusable policies:
 
 | Policy name | Action | Include | Session |
 |---|---|---|---|
-| `Staff` | Allow | *Emails in list* → `Cucumber staff` | Same as application |
-| `Admins` | Allow | *Emails in list* → `Cucumber admins` | Same as application |
+| `Staff` | Allow | *Emails* → every staff address, Owner included | Same as application |
+| `Admins` | Allow | *Emails* → the Owner's work address **only** | Same as application |
 | `Health check` | **Bypass** | *Everyone* | — |
+
+In the form: name and action at the top; under **Add rules → Include**, the
+selector (*Emails*, or *Everyone*) and then the value. Bypass may ask you
+to confirm: it lets anyone through, which is the point for `/health/` only.
+To change an action later: the policy → **Configure**.
 
 ### A5. Access applications (Owner, 15 min)
 
-Access controls → **Applications** → *Add an application* → **Self-hosted**.
-One per row. Under *Public hostname*: subdomain, then `southeastcanopy.com`,
+Access controls → **Applications** → *Add an application* → **Self-hosted**
+(may read *Self-hosted and private*). One per row; under **Access
+policies**, *Select existing policies*. Under *Public hostname*: subdomain, then `southeastcanopy.com`,
 then the path (blank unless shown).
 
 | Application name | Subdomain | Path | Policy | Session duration |
@@ -69,7 +74,7 @@ then the path (blank unless shown).
 | `Cucumber health` | `cucumber` | `health/` | `Health check` | (default) |
 | `Cucumber staging` | `cucumber-staging` | — | `Staff` | 1 month |
 | `Cucumber SSH` | `cucumber-ssh` | — | `Admins` | 24 hours |
-| `Staging SSH` | `cucumber-staging-ssh` | — | `Admins` | 24 hours |
+| `Cucumber Staging SSH` | `cucumber-staging-ssh` | — | `Admins` | 24 hours |
 
 On each application:
 
@@ -77,7 +82,13 @@ On each application:
   (skips the "choose a method" page).
 - A warning that the name has **no DNS record** is expected: the tunnels add
   the records later. Save anyway.
-- Leave the *App Launcher* off.
+- Leave the *App Launcher* off, and **Allow clientless access** off. If it's
+  on, saving fails with `use_clientless_isolation_app_launcher_url can only
+  be enabled for apps with private destinations` (it's for private IPs, not
+  public names).
+- Leave **authenticate via WARP / Cloudflare One Client** off (staff use the
+  email code, not the device client). If it's on, saving fails with
+  `allow_authenticate_via_warp cannot be set until …`.
 
 `Cucumber health` covers only `/health/` and anything under it (design §7).
 Access uses the most specific match, so the rest of `cucumber.…` still asks
@@ -87,9 +98,8 @@ for the code.
 
 | Check | Who | How |
 |---|---|---|
-| Login page | Claude | `curl -sI https://southeastcanopy.cloudflareaccess.com` answers (not a DNS error) |
-| Policy test | Owner | In `Cucumber`'s policies, *Test policies* (if offered): the Owner's address is **allowed**; a personal Gmail is **blocked** |
-| Setup | Owner | Screenshot of the Applications list, the two Lists and Login methods, for Claude to compare with A3–A5 |
+| Policy test | Owner | **Skip until step 4.** Cloudflare's *Test policies* only works for an address that has logged in once (else `invalid_user_id`, "0 policies evaluated"). Nobody can log in before a tunnel exists |
+| Setup | Owner | Screenshots of the Applications list, the Policies list and each policy's rule, for Claude to compare with A4–A5 |
 
 The real AC19/AC20 test (a phone gets a code, a stranger doesn't) needs a
 tunnel. It runs at step 4 (staging) and step 6 (production).
@@ -101,13 +111,13 @@ only watches production, so it can wait until step 6.
 
 ### Undo
 
-Delete the applications, policies and lists. Nothing points at them yet.
+Delete the applications and policies. Nothing points at them yet.
 
-## Day to day: the staff list
+## Day to day: who can get in
 
-- **Someone joins:** Lists → `Cucumber staff` → add their address.
-- **Someone leaves:** remove them from `Cucumber staff` (and `Cucumber
-  admins`), then Team & Resources → **Users** → that person → **Revoke
+- **Someone joins:** Access controls → Policies → `Staff` → **Configure** →
+  add their address to *Emails*.
+- **Someone leaves:** remove them from `Staff` (and `Admins`), then Team & Resources → **Users** → that person → **Revoke
   session**. Without the revoke, an open session lasts up to a month.
 - Log both in the table below.
 
@@ -115,4 +125,8 @@ Delete the applications, policies and lists. Nothing points at them yet.
 
 | Date | Step | Result | By |
 |---|---|---|---|
-| | A1 | | |
+| 2026-10-17 | A1 | Zero Trust Free; Cloudflare's random team name changed to `southeastcanopy` | Owner |
+| 2026-10-17 | A3 | No Lists: addresses go in the policies (see A3) | Owner, Claude |
+| 2026-10-17 | A4 | `Staff` (Allow: `admin@`, `thanapat.s@southeastcanopy.com`), `Admins` (Allow), `Health check` (Bypass, first saved as Allow, fixed) | Owner |
+| 2026-10-17 | A5 | Five applications as in the table; `Cucumber Staging SSH` first saved with no policy, `Admins` added. Saving needed *clientless access* and *WARP authentication* off | Owner |
+| 2026-10-17 | A6 | Policy tester can't run before a first login (`invalid_user_id`): moved to step 4 | Owner, Claude |
