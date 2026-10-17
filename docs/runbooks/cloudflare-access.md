@@ -3,8 +3,8 @@
 **For:** the Owner, with Claude checking from the Owner's Mac. **Why:** U0.4b
 AC19–AC23 ([design §6–§9](../roadmap/units/u0.4b-design.md#7-access-the-email-check-ac19-ac20)).
 This is step 2 of the design's order of work (§12): the account, the email
-lists and the Access applications. Tunnels (steps 4 and 6) are added to this
-runbook when their turn comes.
+lists and the Access applications. Part B is step 4 (staging tunnels and
+the first phone login); production's tunnels (step 6) come later.
 
 **What it changes:** nothing anyone can see yet. No name points at a tunnel,
 so the Access applications guard addresses that don't answer. Email, the
@@ -117,6 +117,46 @@ only watches production, so it can wait until step 6.
 
 Delete the applications and policies. Nothing points at them yet.
 
+## Part B · Staging tunnels and the first phone login (step 4)
+
+### B1. Tunnels
+
+Made and started as in the [Asus runbook, Phase 7](asus-staging-setup.md#phase-7--cloudflare-tunnels-u04b-jade--claude-45-min):
+`cucumber-staging` (app, in Docker) and `cucumber-staging-admin` (SSH,
+systemd). Each route is a **Published application**, never *Private
+hostname*. Delete any tunnel made by mistake (the dashboard names it
+*Cloudflared* if the name box was left alone) with its saved token.
+
+### B2. SSH from away (AC22)
+
+Mac set-up in Phase 7 step 4. Test with the Mac **on the phone's hotspot**:
+`ssh cucumber-staging-remote hostname` → `cucumber-staging`.
+
+### B3. Phone test (AC19, AC20)
+
+Phone with **Wi-Fi off** (mobile data):
+
+| # | Do | Expect |
+|---|---|---|
+| 1 | Open `https://cucumber-staging.southeastcanopy.com`, enter a staff address, type the emailed code | Cucumber with the *Practice data* banner. `/` is *Page not found* until the app has a home page; that's still Cucumber |
+| 2 | Open `/accounts/login/`, log in with a made-up name and password | "Please enter a correct username and password". A 403 here would mean the HTTPS header isn't trusted (design §6.2) |
+| 3 | Private tab, an address **not** on `Staff` (e.g. a personal Gmail) | Cloudflare says a code was sent; **none arrives** (inbox and Spam, 3 min) |
+
+Then *Test policies* (A6) works, since the Owner has logged in once.
+
+### Bitwarden entries
+
+All in one Bitwarden folder, **Cucumber**:
+
+| Entry (secure note) | Holds |
+|---|---|
+| Cucumber staging secrets.env | The whole file from the Asus, incl. the `cucumber-staging` tunnel token. Copy it again after any change: `ssh cucumber-staging 'cat ~/cucumber/staging/secrets.env' \| pbcopy`, paste over the note, then copy any word to clear the clipboard |
+| Cloudflare tunnel · cucumber-staging-admin | Token, tunnel ID, route, where it lives (`/etc/cloudflared/admin-tunnel.env`), the re-install command |
+| Cloudflare tunnel · cucumber-staging | Tunnel ID only; token is in the `secrets.env` note |
+| Cloudflare (login) | Notes: Zero Trust team `southeastcanopy` |
+
+Production gets the same set at step 6.
+
 ## Day to day: who can get in
 
 - **Someone joins:** Access controls → Policies → `Staff` → **Configure** →
@@ -137,3 +177,9 @@ Delete the applications and policies. Nothing points at them yet.
 | 2026-10-17 | A2 | Account had only the *Cloudflare* provider (new-account default). One-time PIN added; all five apps set to One-time PIN only | Owner |
 | 2026-10-17 | Decided | One-time PIN only for now. Microsoft 365 (Entra ID) login considered for later: one place to remove a leaver, but a secret to renew | Owner |
 | 2026-10-17 | A6 | Policy tester can't run before a first login (`invalid_user_id`): moved to step 4 | Owner, Claude |
+| 2026-10-17 | B1 | `cucumber-staging` and `cucumber-staging-admin` tunnels up, routes added (Asus runbook Phase 7). A mistaken first tunnel (*Cloudflared*) deleted. The new dashboard waits for a connection before the route step; first route attempt was *Private hostname*, cancelled | Owner, Claude |
+| 2026-10-17 | B2 | `ssh cucumber-staging-remote hostname` → `cucumber-staging`, arriving from `127.0.0.1` (tunnel). Repeat with the Mac on phone data for AC22 | Owner, Claude |
+| 2026-10-17 | B3 | **AC19 (staging) passed:** phone on 5G, email code for `admin@`, Cucumber with the banner; made-up login refused by Cucumber (no 403, no redirect loop). **AC20 passed:** Gmail address got no code | Owner |
+| 2026-10-17 | Bitwarden | Entries as in the table above | Owner |
+| 2026-10-17 | B2 | **AC22 (Asus) passed:** Mac on phone hotspot (`49.230.57.117`), `ssh cucumber-staging-remote hostname` → `cucumber-staging` | Owner |
+| 2026-10-17 | AC21 lab | From the Mac on phone hotspot, `nc -z -G 3` to the lab's IPv4 (`124.120.2.178`) and the Asus's own **public IPv6** address: 22, 80, 443, 5432, 5435, 5436, 8000, 8001, 5900 all closed. The Asus has a public IPv6 address (no NAT), so test IPv6 at every site too. macOS `nc -w` doesn't limit the connect wait; use `-G 3`. **To do:** lab router page: no port forwards, UPnP off; same check at home if the Asus moves back | Claude |
