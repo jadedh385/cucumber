@@ -13,6 +13,14 @@ x-logging: &logging
     max-size: "10m"
     max-file: "3"
 
+# Limits for the app, the migrations and the tunnel (U0.4b design §11.1):
+# nothing written outside /tmp, no Linux powers, no way to gain new ones.
+x-locked-down: &locked-down
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+  pids_limit: 200
+
 # Settings the app and the migrations share. DB_USER and DB_PASSWORD differ.
 x-django: &django
   DJANGO_ENVIRONMENT: "${DJANGO_ENVIRONMENT:?DJANGO_ENVIRONMENT missing from secrets.env}"
@@ -32,6 +40,15 @@ services:
   db:
     image: postgres:17@sha256:2d2b8998d31037bf721cfdf764d76ba74171b4fab3431b7f72c27c56ddbdf9e3
     restart: unless-stopped
+    # Not read-only: PostgreSQL writes outside its volume (/var/run/postgresql).
+    # Its start-up needs only these powers back (U0.4b design §11.1).
+    cap_drop: [ALL]
+    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, SETGID, SETUID]
+    security_opt: ["no-new-privileges:true"]
+    pids_limit: 300
+    # backend for the app; db-port only so the port below opens (Docker opens
+    # none for a container that is only on an internal network).
+    networks: [backend, db-port]
     environment:
       POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD missing from secrets.env}"
       DB_NAME: cucumber
@@ -49,7 +66,7 @@ services:
       - log_min_duration_statement=500ms
       - -c
       - log_min_error_statement=panic
-    # This Mac only, for walk-throughs and backups with plain tools.
+    # This Mac only, for desktop database tools (from away: over SSH).
     ports:
       - "127.0.0.1:${DB_LOCAL_PORT:?DB_LOCAL_PORT missing from secrets.env}:5432"
     volumes:
@@ -66,7 +83,10 @@ services:
   # One-off: always `docker compose run --rm migrate`, so no stopped
   # container keeps the owner password. Never restarts by itself.
   migrate:
+    <<: *locked-down
     image: *app-image
+    tmpfs: [/tmp]
+    networks: [backend]
     pull_policy: never
     profiles: [migrate]
     restart: "no"
@@ -80,7 +100,11 @@ services:
         condition: service_healthy
 
   app:
+    <<: *locked-down
     image: *app-image
+    tmpfs: [/tmp]
+    # backend to reach the database; edge so the tunnel can reach the app.
+    networks: [backend, edge]
     pull_policy: never
     restart: unless-stopped
     environment:
@@ -101,12 +125,15 @@ services:
   # COMPOSE_PROFILES=tunnel. The token is a variable, never an argument
   # (an argument would show in `ps`).
   tunnel:
+    <<: *locked-down
     image: cloudflare/cloudflared:2026.10.0@sha256:9b49eed8f62806d5d45ddf59ecefb5710429598ea6d3fcccd2af938f621b2b07
     profiles: [tunnel]
     restart: unless-stopped
     command: ["tunnel", "--no-autoupdate", "run"]
     environment:
       TUNNEL_TOKEN: "${TUNNEL_TOKEN:?TUNNEL_TOKEN missing from secrets.env}"
+    # edge only: the tunnel reaches the app and nothing else (U0.4b §11.1).
+    networks: [edge]
     depends_on:
       - app
     mem_limit: ${TUNNEL_MEMORY_LIMIT:-0}
@@ -115,3 +142,12 @@ services:
 
 volumes:
   db-data:
+
+networks:
+  # The database, the app and the migrations; no way out to anywhere.
+  backend:
+    internal: true
+  # The app and the tunnel; the tunnel's way out to Cloudflare.
+  edge:
+  # The database alone, for its port on this Mac.
+  db-port:
