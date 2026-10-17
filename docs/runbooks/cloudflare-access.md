@@ -33,10 +33,12 @@ The *Account details* box shows the team name and plan.
 
 ### A2. Login method (Owner, 2 min)
 
-Settings → Authentication → **Login methods**.
+Zero Trust → **Integrations → Identity providers** → *Add new identity
+provider* → **One-time PIN**.
 
-- **One-time PIN** is listed (Cloudflare adds it by default). If not: *Add
-  new* → One-time PIN.
+- New accounts since mid-2026 start with only **Cloudflare** (sign in with a
+  Cloudflare account), not One-time PIN. Staff have no Cloudflare accounts,
+  so it is left on the account but **unticked on every application** (A5).
 - Add no other method (design §7: email code only).
 
 ### A3. No email lists (decided 2026-10-17)
@@ -78,8 +80,10 @@ then the path (blank unless shown).
 
 On each application:
 
-- **Login methods:** only *One-time PIN*; turn on **Instant Auth** if offered
-  (skips the "choose a method" page).
+- **Login methods** tab: *Accept all available identity providers* off; in
+  *Choose available identity providers* tick only **One-time PIN** (not
+  *Cloudflare*); turn on **Instant Auth** if offered (skips the "choose a
+  method" page).
 - A warning that the name has **no DNS record** is expected: the tunnels add
   the records later. Save anyway.
 - Leave the *App Launcher* off, and **Allow clientless access** off. If it's
@@ -130,5 +134,6 @@ Delete the applications and policies. Nothing points at them yet.
 | 2026-10-17 | A4 | `Staff` (Allow: `admin@`, `thanapat.s@southeastcanopy.com`), `Admins` (Allow), `Health check` (Bypass, first saved as Allow, fixed) | Owner |
 | 2026-10-17 | A5 | Five applications as in the table; `Cucumber Staging SSH` first saved with no policy, `Admins` added. Saving needed *clientless access* and *WARP authentication* off | Owner |
 | 2026-10-17 | Admins | Owner approved: `Admins` = Owner's address only | Owner |
-| | A2 | **Open:** One-time PIN only, on the account and on each app | |
+| 2026-10-17 | A2 | Account had only the *Cloudflare* provider (new-account default). One-time PIN added; all five apps set to One-time PIN only | Owner |
+| 2026-10-17 | Decided | One-time PIN only for now. Microsoft 365 (Entra ID) login considered for later: one place to remove a leaver, but a secret to renew | Owner |
 | 2026-10-17 | A6 | Policy tester can't run before a first login (`invalid_user_id`): moved to step 4 | Owner, Claude |
