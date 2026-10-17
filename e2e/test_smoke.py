@@ -2,7 +2,6 @@
 
 import pytest
 from playwright.sync_api import Page, expect
-from pytest_django.live_server_helper import LiveServer
 
 pytestmark = pytest.mark.django_db(transaction=True)
 
@@ -14,16 +13,14 @@ def test_browser_is_phone_sized(page: Page) -> None:
     assert page.viewport_size["width"] == PHONE_WIDTH
 
 
-def test_health_page_says_ok(live_server: LiveServer, page: Page) -> None:
-    page.goto(f"{live_server.url}/health/")
+def test_health_page_says_ok(site_url: str, page: Page) -> None:
+    page.goto(f"{site_url}/health/")
 
     expect(page.locator("body")).to_have_text("ok")
 
 
-def test_login_page_opens_and_fits_the_screen(
-    live_server: LiveServer, page: Page
-) -> None:
-    response = page.goto(f"{live_server.url}/accounts/login/")
+def test_login_page_opens_and_fits_the_screen(site_url: str, page: Page) -> None:
+    response = page.goto(f"{site_url}/accounts/login/")
 
     assert response is not None and response.ok
     expect(page.get_by_label("Username")).to_be_visible()
