@@ -18,6 +18,7 @@ Phase 3  Connect from the Mac          Jade    10 min
 Phase 4  Server set-up over SSH        Claude  ~45 min  (Jade types the password once)
 Phase 5  First staging deploy          Claude  ~20 min
 Phase 6  U0.4a G5 checks               Claude + Jade    (one sitting, G5 note)
+Phase 7  Cloudflare tunnels (U0.4b)    Jade + Claude    ~45 min (dashboard, one sudo script)
 ```
 
 **Why keep Windows (dual boot):** the disk is split in two. Windows keeps its
@@ -277,6 +278,84 @@ with the restore steps), as for U0.2a/b:
 - **Timings** on the Asus: deploy time, and the 10× data check from U0.2.
 - **Owner sign-off.**
 
+## Phase 7 · Cloudflare tunnels (U0.4b, Jade + Claude, ~45 min)
+
+Two tunnels ([U0.4b design §6.1, §8](../roadmap/units/u0.4b-design.md#61-four-tunnels-one-job-each)),
+made in the dashboard (`one.dash.cloudflare.com` → Zero Trust → **Networks →
+Tunnels** → *Create a tunnel* → **Cloudflared**). Tokens never go in chat:
+each is pasted at a hidden prompt on the Asus and saved in Bitwarden
+([list](cloudflare-access.md#bitwarden-entries)).
+
+**The dashboard waits for the tunnel to connect** before it offers the route
+step. So: name the tunnel, copy only the long `eyJ…` token from the install
+screen (don't run Cloudflare's command), start it on the Asus, then come back
+and add the route.
+
+| Tunnel | Install screen | Started by | Route (type **Published application**) |
+|---|---|---|---|
+| `cucumber-staging` | Docker | `tunnel` service in staging's compose project | `cucumber-staging` . `southeastcanopy.com` → **HTTP** `http://app:8000` |
+| `cucumber-staging-admin` | Debian | systemd service `cucumber-admin-tunnel`, outside Docker | `cucumber-staging-ssh` . `southeastcanopy.com` → **SSH** `ssh://localhost:22` |
+
+- **Not *Private hostname*:** that one needs Cloudflare's device app on every
+  phone. Staff use a plain browser.
+- **`app`, not `localhost`, for the app tunnel:** it runs in its own
+  container, where `localhost` is the tunnel itself. The SSH tunnel runs on
+  the Asus, so there `localhost` is right.
+- The route adds its own DNS record. Check the record's tunnel ID matches
+  the tunnel the Asus runs (step 3).
+
+**1. App tunnel token** (Terminal app on the Mac; paste at the prompt):
+```bash
+ssh -t cucumber-staging 'read -rsp "Token: " t; echo; cd ~/cucumber/staging && sed -i "s|^TUNNEL_TOKEN=.*|TUNNEL_TOKEN=$t|; s|^COMPOSE_PROFILES=.*|COMPOSE_PROFILES=tunnel|" secrets.env && echo saved'
+```
+Then Claude deploys the same version again (`scripts.deploy staging main`);
+compose reads `COMPOSE_PROFILES` from `secrets.env` and starts `tunnel`.
+
+**2. Admin tunnel** with [`deploy/setup-staging-admin-tunnel.sh`](../../deploy/setup-staging-admin-tunnel.sh)
+(Claude copies it to the Asus; the Owner types the Ubuntu password, then
+pastes the token):
+```bash
+scp deploy/setup-staging-admin-tunnel.sh cucumber-staging:
+ssh -t cucumber-staging sudo bash setup-staging-admin-tunnel.sh
+```
+It installs `cloudflared` from Cloudflare's apt source, adds Docker's and
+Cloudflare's sources to automatic updates, keeps the token in
+`/etc/cloudflared/admin-tunnel.env` (root only) and runs the tunnel as a
+throwaway user with no powers. Not `cloudflared service install <token>`:
+that leaves the token in a unit file anyone on the Asus can read.
+
+**3. Checks** (Claude):
+- Token's tunnel ID = the route's DNS record (prints the ID, never the token):
+  `grep ^TUNNEL_TOKEN= secrets.env | cut -d= -f2- | base64 -d | python3 -c 'import json,sys; print(json.load(sys.stdin)["t"])'`
+- `docker logs cucumber-staging-tunnel-1` and
+  `journalctl -u cucumber-admin-tunnel`: four *Registered tunnel connection*
+  lines each.
+- `curl -sI https://cucumber-staging.southeastcanopy.com/` → 302 to
+  `southeastcanopy.cloudflareaccess.com` (Access is in front).
+
+**4. SSH from away** (Mac, once): `brew install cloudflared`, then in
+`~/.ssh/config`:
+```
+Host cucumber-staging-remote
+    HostName cucumber-staging-ssh.southeastcanopy.com
+    User staging-admin
+    IdentityFile ~/.ssh/id_ed25519
+    IdentitiesOnly yes
+    ProxyCommand /opt/homebrew/bin/cloudflared access ssh --hostname %h
+```
+`ssh cucumber-staging-remote hostname` opens the browser for the email code
+the first time; then plain SSH for 24 hours. On the Asus, such a login comes
+from `127.0.0.1` (through the tunnel), not the Wi-Fi.
+
+**5. Phone and HSTS:** the AC19/AC20 phone test is in the
+[Access runbook](cloudflare-access.md#b3-phone-test-ac19-ac20). Once it
+passes, `DJANGO_HSTS_SECONDS=604800` in `secrets.env` and the same version
+deployed again (design §6.3); 31536000 after two weeks with no HTTPS trouble.
+
+**6. Restart test (AC24):** `ssh -t cucumber-staging sudo reboot`; no
+keyboard; within a few minutes `cucumber-staging.…` loads on a phone on
+mobile data and `ssh cucumber-staging-remote hostname` works.
+
 ## If something goes wrong
 
 | Problem | What to do |
@@ -300,3 +379,5 @@ with the restore steps), as for U0.2a/b:
 | 2026-10-16 | 4 | `deploy/setup-staging.sh` run. First run stopped at step 5 (`sshd -t` failed, likely no `/run/sshd` because SSH starts on demand); script now makes it and shows the error; second run finished. Host name `cucumber-staging`; Docker 29.9.1, Compose v5.6.0, uv 0.13.1; firewall allows SSH from 192.168.1.0/24 and 192.168.101.0/24; password login refused over SSH. Start-up menu found waiting forever after an unclean stop: `GRUB_RECORDFAIL_TIMEOUT=5` fixes it. Deploy key added (read-only); clone, folders and `secrets.env` (chmod 600) made on the Asus. Restart test: came back alone with Docker running. **To do:** Windows not seen in the start-up menu (check `os-prober`); save the secrets in the password manager; router reservation | Jade + Claude |
 | 2026-10-16 | 5 | First deploy of `main` (`e186610`): `Done: staging now runs main-e186610a753c`. A second deploy refused `scripts/__pycache__/` (written by running the deploy itself); fixed in PR #20 (`141c7f9`). `/health/` ok and the banner shown, through an SSH tunnel | Claude |
 | 2026-10-16 | 6 | U0.4a G5 checks all passed ([G5 note](../roadmap/units/u0.4a-g5-verify.md)): deploy and second deploy, rollback of a broken build, production refusals, flags, banner, restore (15 s), release rehearsal with draft tags `2026.10.1`/`2026.10.2`, walk-throughs 65/65 and 42/42. Added `~/cucumber/tools` (scripts run from there now). Staging runs `2026.10.1`. **To do:** Owner sign-off; still open from Phase 4: Windows in the start-up menu, router reservation, secrets in the password manager | Claude |
+| 2026-10-17 | 5 | U0.4b step 3 (container hardening, PR #30) deployed: `main-0c3c1f73dd03`, 1 min 37 s. Checked on the running containers: app read-only, user 10001, all capabilities dropped, 512 MB cap; database on the internal `backend` network plus `db-port`; `/health/` ok. Left over: an empty `cucumber-staging_default` network from before the split (harmless; remove with `docker network rm` when convenient) | Claude |
+| 2026-10-17 | 7 | Tunnel `cucumber-staging` (`9265130d…`) in compose, 4 connections (Bangkok, Singapore); route `cucumber-staging.…` → `http://app:8000`. A first tunnel made by mistake (named *Cloudflared*, `ee00fe18…`) deleted. Tunnel `cucumber-staging-admin` (`81f13387…`) as systemd service `cucumber-admin-tunnel`, enabled, 4 connections; route `cucumber-staging-ssh.…` → `ssh://localhost:22`. `cloudflared` 2026.10.1 from Cloudflare's apt source; Docker and Cloudflare sources in automatic updates (`53cucumber-origins`). Mac: `cloudflared` from Homebrew, `cucumber-staging-remote` in `~/.ssh/config`; first login through the browser, then `hostname` → `cucumber-staging`, from `127.0.0.1`. Phone test passed (Access runbook). HSTS raised to 604800, same version deployed again, header checked. Tokens and the updated `secrets.env` in Bitwarden. **To do:** AC24 restart test; AC21 port check; AC22 again with the Mac on phone data | Jade + Claude |
