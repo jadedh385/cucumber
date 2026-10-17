@@ -255,6 +255,101 @@ def test_the_database_logs_lock_waits_and_slow_statements_without_values(
         assert command[command.index(flag) - 1] == "-c", flag
 
 
+# --------------------------------- U0.4b §11.1: limits on every container
+APP_LIKE = ["app", "migrate", "tunnel"]
+# Only what PostgreSQL's start-up needs (owning and switching to its user).
+DB_CAPABILITIES = {"CHOWN", "DAC_OVERRIDE", "FOWNER", "SETGID", "SETUID"}
+
+
+@pytest.mark.parametrize("name", [*APP_LIKE, "db"])
+def test_no_container_can_gain_new_privileges(
+    services: dict[str, dict[str, Any]], name: str
+) -> None:
+    service = services[name]
+
+    assert service["security_opt"] == ["no-new-privileges:true"]
+    assert service["cap_drop"] == ["ALL"]
+
+
+@pytest.mark.parametrize("name", APP_LIKE)
+def test_app_like_containers_are_read_only_with_no_extra_powers(
+    services: dict[str, dict[str, Any]], name: str
+) -> None:
+    service = services[name]
+
+    assert service["read_only"] is True
+    assert "cap_add" not in service
+    assert service["pids_limit"] == 200
+
+
+@pytest.mark.parametrize("name", ["app", "migrate"])
+def test_python_gets_a_scratch_folder_in_memory(
+    services: dict[str, dict[str, Any]], name: str
+) -> None:
+    # The path inside the container, not a temp file made by this test.
+    assert services[name]["tmpfs"] == ["/tmp"]  # noqa: S108
+
+
+def test_the_database_gets_back_only_what_its_start_up_needs(
+    services: dict[str, dict[str, Any]],
+) -> None:
+    db = services["db"]
+
+    assert set(db["cap_add"]) == DB_CAPABILITIES
+    assert db["pids_limit"] == 300
+    assert "read_only" not in db
+
+
+# ------------------------------------- U0.4b §11.1: who can reach whom
+NETWORKS = {
+    "db": {"backend", "db-port"},
+    "migrate": {"backend"},
+    "app": {"backend", "edge"},
+    "tunnel": {"edge"},
+}
+
+
+@pytest.mark.parametrize(("name", "networks"), NETWORKS.items())
+def test_each_service_joins_only_its_networks(
+    services: dict[str, dict[str, Any]], name: str, networks: set[str]
+) -> None:
+    assert set(services[name]["networks"]) == networks
+
+
+def test_the_tunnel_and_the_database_share_no_network(
+    services: dict[str, dict[str, Any]],
+) -> None:
+    shared = set(services["tunnel"]["networks"]) & set(services["db"]["networks"])
+
+    assert shared == set()
+
+
+def test_the_app_network_has_no_way_out(compose: dict[str, Any]) -> None:
+    networks = compose["networks"]
+
+    assert networks["backend"]["internal"] is True
+    assert set(networks) == {"backend", "edge", "db-port"}
+
+
+def test_the_database_port_network_holds_only_the_database(
+    services: dict[str, dict[str, Any]],
+) -> None:
+    """Docker opens no host port for a container only on an internal network."""
+    on_it = {
+        name for name, service in services.items() if "db-port" in service["networks"]
+    }
+
+    assert on_it == {"db"}
+
+
+# --------------------------------------- U0.4b §11.2: production caps
+def test_the_secrets_example_gives_production_its_memory_caps() -> None:
+    example = (ROOT / "deploy" / "secrets.env.example").read_text()
+
+    assert "Production: 1g, 1536m, 128m" in example
+    assert "Production: leave blank" not in example
+
+
 # ------------------------------------------- compose itself reads the file
 def has_docker_compose() -> bool:
     if shutil.which("docker") is None:
