@@ -1,9 +1,13 @@
-"""Browser-test set-up: Django's live server plus a phone-sized Chromium."""
+"""Browser-test set-up: the site under test plus a phone-sized Chromium."""
 
+import os
 from collections.abc import Iterator
 from typing import Any
 
 import pytest
+from playwright.sync_api import BrowserContext, Route
+
+from e2e.site import access_headers, remote_site
 
 PHONE_VIEWPORT = {"width": 375, "height": 812}
 
@@ -27,3 +31,29 @@ def allow_django_inside_playwright() -> Iterator[None]:
 def browser_context_args(browser_context_args: dict[str, Any]) -> dict[str, Any]:
     """Every browser test runs at phone width (U0.3 AC10)."""
     return {**browser_context_args, "viewport": PHONE_VIEWPORT}
+
+
+@pytest.fixture
+def context(context: BrowserContext) -> BrowserContext:
+    """Add the Access service token (AC25) to requests for the site under test
+    only, so no other host (a font, a redirect) ever sees it."""
+    site = remote_site(os.environ)
+    headers = access_headers(os.environ)
+    if site is None or not headers:
+        return context
+
+    def add_token(route: Route) -> None:
+        route.continue_(headers={**route.request.headers, **headers})
+
+    context.route(f"{site}/**", add_token)
+    return context
+
+
+@pytest.fixture
+def site_url(request: pytest.FixtureRequest) -> str:
+    """`E2E_SITE_URL` if set (see e2e/site.py), else Django's live server."""
+    remote = remote_site(os.environ)
+    if remote is not None:
+        return remote
+    url: str = request.getfixturevalue("live_server").url
+    return url
