@@ -156,7 +156,13 @@ even for public images. Either the Owner runs
 `security unlock-keychain ~/Library/Keychains/login.keychain-db` in an
 `ssh -t cucumber-server` session (typing `sawat`'s password), or, with the
 Owner's OK, remove the `"credsStore": "desktop"` line from
-`~/.docker/config.json` on the MacBook (Cucumber only pulls public images).
+`~/.docker/config.json` on the MacBook (Cucumber only pulls public images)
+**and** add `"credHelpers": {"unused.invalid": "desktop"}`. Without some
+login setting in the file, Docker on macOS picks the keychain helper by
+itself and fails the same way; the made-up name is never used, so Docker
+Hub falls back to the (empty) file. Done 2026-10-18; the original is
+`~/.docker/config.json.bak`. Docker Desktop may put `credsStore` back when
+it starts: check after a restart (`grep credsStore ~/.docker/config.json`).
 
 ### 3.3 Secrets into Bitwarden (Owner, 3 min)
 
@@ -182,15 +188,79 @@ tunnel part of the test (AC24) comes with U0.4b.
 
 | Item | Result |
 |---|---|
-| Date | |
-| SSH from the Owner's Mac (`ssh cucumber-server hostname`) | |
-| Deploy key added (read-only), title | |
-| Script output: macOS, Docker, Compose, uv, Docker memory | |
-| Free disk / sleep / firewall / FileVault | |
-| Secret fingerprints: production (compare with staging's) | |
+| Date | 2026-10-18 |
+| SSH from the Owner's Mac (`ssh cucumber-server hostname`) | `cucumber-server.local`, key from the Owner's Mac (`ssh-copy-id`), MacBook at 192.168.101.12 |
+| Deploy key added (read-only), title | `cucumber-server production`, write access unticked |
+| Script output: macOS, Docker, Compose, uv, Docker memory | 27.0.1 · Docker 29.8.2 · Compose 5.5.1 · uv 0.13.0 · 3,916 MiB |
+| Free disk / sleep / firewall / FileVault | 32 GB / `sleep 0` / on / on |
+| Secret fingerprints: production (compare with staging's) | `DJANGO_SECRET_KEY` 91395a3b, `POSTGRES_PASSWORD` a86b2bd8, `DB_OWNER_PASSWORD` 1d812cc1, `DB_APP_PASSWORD` fd4544b9. Staging's: 59af0d41, d37d5028, 3d3523e0, 032994c0. All differ |
 | Secrets saved in Bitwarden | |
+| U0.3 AC7 (fresh clone, README steps, `scripts/check.sh`) | Passed: clone to all checks green in 82 s (`check.sh` 46 s; 967 passed, 96.6 %), commit 7328a7e, throwaway `~/cucumber-ac7`, removed after |
 | Restart test | |
-| Problems | |
+| Problems | 1. Docker couldn't pull over SSH (keychain): fixed as in *If docker can't pull* above, with the Owner's OK. 2. The set-up script stopped silently at step 2 when the ports were **free**: `lsof` exits 1 when nothing listens, which `set -e` + `pipefail` turned into a stop. Fixed (`\|\| true`), proved before/after |
+| First deploy (2026.10.1, release runbook steps 3–6) | Staging: 2026.10.1 → `main` → 2026.10.1, each `Done` (35 s, 26 s, 30 s); `main` is the tag's own commit here, since the build before (`main-19d89e8d68b4`) can't be named. Production: `Done: production now runs 2026.10.1`, 31 s, 33 migrations. Copy `2026-10-18-0852-before-2026.10.1.dump` reads (`pg_restore --list`; no table data, taken from the empty database). Smoke: `/health/` ok, login 200, no *Practice* banner, `flag production list` runs |
+
+## Phase 4 · Tunnels (U0.4b, Owner + Claude, ~30 min)
+
+The same as the [Asus Phase 7](asus-staging-setup.md#phase-7--cloudflare-tunnels-u04b-jade--claude-45-min):
+two tunnels made in the dashboard (Networks → Tunnels → *Create a tunnel*
+→ **Cloudflared**; any OS: only the `eyJ…` token is used). The dashboard
+waits for a connection before it offers the route step.
+
+| Tunnel | Started by | Route (**Published application**, Service URL) |
+|---|---|---|
+| `cucumber-production` | `tunnel` service in production's compose project | `cucumber` . `southeastcanopy.com` → `http://app:8000` |
+| `cucumber-admin` | launchd service `com.southeastcanopy.cucumber-admin-tunnel`, outside Docker, at boot | `cucumber-ssh` . `southeastcanopy.com` → `ssh://localhost:22` |
+
+The route form has no type box: the type is the start of the Service URL
+(`http://`, `ssh://`). **Copy each token from its own tunnel's page**: on
+2026-10-18 the production token went into the admin service first, so the
+dashboard showed `cucumber-production` healthy and `cucumber-admin` down.
+
+**1. App tunnel token** with [`deploy/set-app-tunnel-token.sh`](../../deploy/set-app-tunnel-token.sh)
+(a bash script: the production Mac's shell is zsh, where `read -p` doesn't
+prompt). On this Mac, Terminal app:
+```bash
+scp deploy/set-app-tunnel-token.sh cucumber-server:
+ssh -t cucumber-server bash set-app-tunnel-token.sh
+```
+It saves `TUNNEL_TOKEN` and `COMPOSE_PROFILES=tunnel` in `secrets.env` and
+refuses anything that isn't a token. Then Claude deploys the same version
+again, which starts `tunnel`.
+
+**2. Admin tunnel** with [`deploy/setup-production-admin-tunnel.sh`](../../deploy/setup-production-admin-tunnel.sh):
+```bash
+ssh cucumber-server 'zsh -lc "brew install cloudflared"'
+scp deploy/setup-production-admin-tunnel.sh cucumber-server:
+ssh -t cucumber-server sudo bash setup-production-admin-tunnel.sh   # sawat's password, then the token
+```
+Not `cloudflared service install <token>`: that puts the token in a launchd
+file anyone on the Mac can read. Here it is in `/etc/cloudflared/admin-tunnel.token`
+(readable by `nobody` only, which runs the service). Log:
+`/var/log/cucumber-admin-tunnel.log`. `brew upgrade cloudflared` in the
+monthly check.
+
+**3. Checks** (Claude): `curl -s http://127.0.0.1:20241/ready` on the
+production Mac (`readyConnections: 4`); `docker logs cucumber-production-tunnel-1`;
+`https://cucumber.southeastcanopy.com/` → 302 to `southeastcanopy.cloudflareaccess.com`;
+`/health/` → `ok` with no login. SSH from away: `Host cucumber-server-remote`
+in this Mac's `~/.ssh/config` (design §8), `ssh cucumber-server-remote hostname`.
+
+**4. Phone, HSTS, restart:** as the Asus Phase 7 steps 5–6, with
+`cucumber.…` and the FileVault password typed after the restart.
+
+### Phase 4 log
+
+| Item | Result |
+|---|---|
+| Tunnels | 2026-10-18: both connected (4 connections each); routes added; DNS records made by the routes; Access: `/` → 302 to the email check, only `/health/` passes |
+| `/health/` public | |
+| AC22 (`ssh cucumber-server-remote hostname` on phone data) | |
+| AC19, AC20 (phone) | |
+| AC21 (home IPv4 + IPv6 scan) | |
+| HSTS 604800 | |
+| Restart test (AC24) | |
+| Problems | Production token pasted into the admin service first (fixed, see above). A first zsh token command saved an empty token (replaced by the bash script). Routes first saved with no effect (0 apps); added again. Production Mac went offline before `/health/` and AC22 could be checked (Cloudflare error 1033) |
 
 ## Setup log
 
