@@ -20,6 +20,8 @@ from django.test import RequestFactory, override_settings
 from waffle import flag_is_active
 from waffle.models import Flag
 
+from cucumber.core.tests.rows import staff_email
+
 pytestmark = pytest.mark.django_db
 
 # Waffle types its Flag model as the abstract base, which lacks the groups.
@@ -177,7 +179,8 @@ def test_list_shows_every_flag_and_who_it_is_on_for(owner_group: Group) -> None:
 # ---------------------------------------------------- seen on the next page
 def test_a_change_shows_on_the_very_next_page_load(owner_group: Group) -> None:
     make_flag("needs_attention")
-    owner = User.objects.create_user(username="jade")
+    email = staff_email("jade")
+    owner = User.objects.create_user(username=email, email=email)
     owner.groups.add(owner_group)
     page = RequestFactory().get("/")
     page.user = owner

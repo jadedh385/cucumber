@@ -7,9 +7,11 @@ from typing import Any
 import pytest
 from playwright.sync_api import BrowserContext, Route
 
-from e2e.site import access_headers, remote_site
+from cucumber.core.tests.stock import make_staff
+from e2e.site import access_headers, login_account, remote_site
 
 PHONE_VIEWPORT = {"width": 375, "height": 812}
+E2E_PASSWORD = "plum-orchid-42"  # noqa: S105 (a local test account)
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -57,3 +59,28 @@ def site_url(request: pytest.FixtureRequest) -> str:
         return remote
     url: str = request.getfixturevalue("live_server").url
     return url
+
+
+@pytest.fixture
+def is_remote() -> bool:
+    return remote_site(os.environ) is not None
+
+
+@pytest.fixture
+def local_only(is_remote: bool) -> None:
+    """For tests that add or change accounts: never on staging's practice data."""
+    if is_remote:
+        pytest.skip("changes accounts: runs against the local live server only")
+
+
+@pytest.fixture
+def account(request: pytest.FixtureRequest, is_remote: bool) -> tuple[str, str]:
+    """An Admin to log in as: staging's practice account, or a fresh local one."""
+    if is_remote:
+        found = login_account(os.environ)
+        if found is None:
+            pytest.skip("set E2E_LOGIN_EMAIL and E2E_LOGIN_PASSWORD (see e2e/site.py)")
+        return found
+    request.getfixturevalue("transactional_db")
+    owner = make_staff("jade", "admin", E2E_PASSWORD)
+    return owner.username, E2E_PASSWORD

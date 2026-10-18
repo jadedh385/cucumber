@@ -23,7 +23,7 @@ def test_login_page_opens_and_fits_the_screen(site_url: str, page: Page) -> None
     response = page.goto(f"{site_url}/accounts/login/")
 
     assert response is not None and response.ok
-    expect(page.get_by_label("Username")).to_be_visible()
+    expect(page.get_by_label("Email")).to_be_visible()
     expect(page.get_by_label("Password")).to_be_visible()
     page_width = page.evaluate("document.documentElement.scrollWidth")
     assert page_width <= PHONE_WIDTH, "login page scrolls sideways on a phone"

@@ -2,7 +2,7 @@
 
 import pytest
 
-from e2e.site import access_headers, remote_site
+from e2e.site import access_headers, login_account, remote_site
 
 STAGING = "https://cucumber-staging.example.com"
 
@@ -41,3 +41,24 @@ def test_access_token_becomes_cloudflare_headers() -> None:
 def test_half_an_access_token_is_refused(name: str) -> None:
     with pytest.raises(ValueError, match="both"):
         access_headers({name: "value"})
+
+
+# ------------------------------------------------ U0.5 practice account
+def test_no_login_account_means_none() -> None:
+    assert login_account({}) is None
+    assert login_account({"E2E_LOGIN_EMAIL": " ", "E2E_LOGIN_PASSWORD": ""}) is None
+
+
+def test_the_login_account_is_read_from_the_environment() -> None:
+    environ = {
+        "E2E_LOGIN_EMAIL": " practice@example.com ",
+        "E2E_LOGIN_PASSWORD": "pw with spaces kept ",
+    }
+
+    assert login_account(environ) == ("practice@example.com", "pw with spaces kept ")
+
+
+@pytest.mark.parametrize("name", ["E2E_LOGIN_EMAIL", "E2E_LOGIN_PASSWORD"])
+def test_half_a_login_account_is_refused(name: str) -> None:
+    with pytest.raises(ValueError, match="both"):
+        login_account({name: "value"})
