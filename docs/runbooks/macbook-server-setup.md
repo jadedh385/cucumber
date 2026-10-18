@@ -194,7 +194,7 @@ tunnel part of the test (AC24) comes with U0.4b.
 | Script output: macOS, Docker, Compose, uv, Docker memory | 27.0.1 · Docker 29.8.2 · Compose 5.5.1 · uv 0.13.0 · 3,916 MiB |
 | Free disk / sleep / firewall / FileVault | 32 GB / `sleep 0` / on / on |
 | Secret fingerprints: production (compare with staging's) | `DJANGO_SECRET_KEY` 91395a3b, `POSTGRES_PASSWORD` a86b2bd8, `DB_OWNER_PASSWORD` 1d812cc1, `DB_APP_PASSWORD` fd4544b9. Staging's: 59af0d41, d37d5028, 3d3523e0, 032994c0. All differ |
-| Secrets saved in Bitwarden | |
+| Secrets saved in Bitwarden | 2026-10-18 (Owner), folder **Cucumber**: *Cucumber production secrets.env*, *Cloudflare tunnel · cucumber-admin* (token, ID, route, file, re-install), *Cloudflare tunnel · cucumber-production* (ID) |
 | U0.3 AC7 (fresh clone, README steps, `scripts/check.sh`) | Passed: clone to all checks green in 82 s (`check.sh` 46 s; 967 passed, 96.6 %), commit 7328a7e, throwaway `~/cucumber-ac7`, removed after |
 | Restart test | |
 | Problems | 1. Docker couldn't pull over SSH (keychain): fixed as in *If docker can't pull* above, with the Owner's OK. 2. The set-up script stopped silently at step 2 when the ports were **free**: `lsof` exits 1 when nothing listens, which `set -e` + `pipefail` turned into a stop. Fixed (`\|\| true`), proved before/after |
