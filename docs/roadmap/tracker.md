@@ -12,9 +12,9 @@ Mark each cell with the sign-off date (e.g. `10-14`) when the gate passes.
 | U0.1 | Decisions & stack | M | D-01, D-10, D-17 | 10-11 | 10-11 | 10-11 | 10-11 | 10-11 | ▶ | · |
 | U0.2a | Domain model: schema | M | D-02, D-05, D-07, D-15; U0.3 | 10-11 | 10-11 | 10-12 | 10-12 | 10-12 | 10-12 | · |
 | U0.2b | Domain model: event core services | M | U0.2a | 10-11 | 10-11 | 10-12 | 10-12 | 10-12 | 10-12 | · |
-| U0.3 | Repo, CI, test harness | M | | 10-11 | 10-11 | 10-12 | 10-12 | 10-12 | ▶ | · |
-| U0.4a | Environments: app packaging & deploy | M | D-10, D-25, D-26; U0.3 | 10-13 | 10-13 | 10-13 | 10-13 | 10-13 | 10-16 | ▶ |
-| U0.4b | Environments: hosts, Cloudflare & go-live | M | D-10, D-25, D-26; U0.4a | 10-13 | 10-16 | · | · | · | · | · |
+| U0.3 | Repo, CI, test harness | M | | 10-11 | 10-11 | 10-12 | 10-12 | 10-12 | 10-19 | · |
+| U0.4a | Environments: app packaging & deploy | M | D-10, D-25, D-26; U0.3 | 10-13 | 10-13 | 10-13 | 10-13 | 10-13 | 10-16 | 10-19 |
+| U0.4b | Environments: hosts, Cloudflare & go-live | M | D-10, D-25, D-26; U0.4a | 10-13 | 10-16 | · | · | · | 10-19 | · |
 | U0.5 | Authentication | M | | · | · | · | · | · | · | · |
 | U0.6 | Roles & permissions | M | D-03 | · | · | · | · | · | · | · |
 | U0.7 | Audit trail & append-only store | M | D-07 | · | · | · | · | · | · | · |
@@ -123,6 +123,9 @@ Record every failed gate and every sign-off with notes.
 | 2026-10-16 | U0.4b / G1 | Passed | Design signed off after architect fixes; Q4 (DNS switch date) to be set before the switch | Jade |
 | 2026-10-16 | U0.4a / G5 | Passed with notes | Checks on the Asus staging server, all passed ([G5 note](units/u0.4a-g5-verify.md), PR #22): deploy and second deploy ("no changes"), rollback of a broken build, production tags-only, flags as `cucumber_app`, Practice banner at 375/1280 px, restore rehearsal (15 s, steps in the note), release rehearsal with draft tags `2026.10.1`/`2026.10.2`, walk-throughs 65/65 and 42/42 on staging. Scripts now run from `~/cucumber/tools`. Open: finding 1 (`--source` can re-tag a real version's image: fix now or U0.4b), 10× timing on the production MacBook (U0.4b), keep or delete the two draft releases, staging secrets into the password manager. AC25 (E2E on staging) is U0.4b. Next: U0.4a G6 | Jade |
 | 2026-10-16 | U0.4a / G6 | In progress | [G6 plan](units/u0.4a-g6-release.md): G6 is the first production release on the MacBook. Blocked by: U0.3 not at G6 (AC7 open; dependency rule), no production copy yet, no SSH from this Mac to the MacBook, no Discord webhook secret. Left: Owner Q1–Q5 | Claude |
+| 2026-10-19 | U0.3 / G5 | Passed | Last check AC7 done 2026-10-18: fresh clone on the production Mac to all checks green in 82 s (967 passed, 96.6 %), commit 7328a7e ([MacBook runbook](../runbooks/macbook-server-setup.md) Phase 3 log). AC14, AC15 done 2026-10-12 | Jade |
+| 2026-10-19 | U0.4a / G6 | Passed | First production release: `2026.10.1` (tag `7328a7e`) rehearsed on staging (tag → `main` → tag), deployed to the production Mac (backup, 33 migrations, `/health/` ok, smoke test), published 2026-10-18 21:09; *Announce release* ran and posted nothing, as planned ("nothing for staff"). Secrets in Bitwarden. [Results](units/u0.4a-g6-release.md#results). U0.2a/U0.2b are in this release too (Q5) | Jade |
+| 2026-10-19 | U0.4b / G5 | Passed with notes | Steps 1–6 (PRs #23, #28–#31, #33, #34): DNS on Cloudflare, Access on both copies, staging on the Asus and production on the MacBook behind tunnels, AC15–AC27 all pass; 10× timing on the production Mac (`uat/timing_10x.sh`, every save < 30 ms p95); restart back in 48 s; uptime alert (HetrixTools) emails in ~1 min. [G5 note](units/u0.4b-g5-verify.md). Notes: Mac sleeps on battery (keep it on the charger), `/` shows *Not Found* (later unit: send to login), one Access login covers both copies, tunnel SSH times out now and then, production deploys run by the Owner. Router pages: home now, lab at next visit. G2–G4 were done inside the step PRs (tests first for `check_dns.py` and the hardening) but not signed off as gates; how to record them is open (Owner) | Jade |
 | 2026-10-11 | U0.2 / G0 | Passed | Spec signed off; Q1–Q8 answered; D-05 Resolved. Size L confirmed, not split | Jade |
 | 2026-10-11 | U0.2 / G1 | Owner approved | Design note approved; G1 passes after the architect review | Jade |
 | 2026-10-11 | U0.2 / G1 | Fixes required | Architect review: pass with fixes (H1–H5, M1–M6). Split into U0.2a / U0.2b; the count wins; record both who did and who saved an event | Jade |
