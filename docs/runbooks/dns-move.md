@@ -183,4 +183,4 @@ Keep the Cloudflare site for at least 48 h after an undo.
 | 2026-10-17 | B2 Records | `check_dns.py` over TCP via 1.1.1.1, 8.8.8.8 and `harlan`: all records match | Claude |
 | 2026-10-17 | B2 Website | `https://southeastcanopy.com` 200, `www` 301 to it, valid certificates; `pay` certificate valid (bare address 404, as expected for pay links) | Claude |
 | 2026-10-17 | B2 Owner checks | Email in, email out (not spam), Outlook phone and desktop, Microsoft 365 domain page, website on mobile data: Owner reports all fine | Owner |
-| | B2 Next morning | Email again, both ways. Then AC16 is done. Keep GoDaddy's records untouched until 2026-10-31 | Owner |
+| 2026-10-18 | B2 Next morning | Email in and out normally since the switch, no bounces: **AC16 done**. Keep GoDaddy's records untouched until 2026-10-31 | Owner |
