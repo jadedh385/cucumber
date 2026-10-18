@@ -284,6 +284,22 @@ the default contact. Free plan: one email address only.
 | Restart test (AC24) | **Passed** 2026-10-18, on the charger at home: Apple menu → Restart at 22:40:48 (`/health/` down, watched from outside every 5 s); Owner typed the FileVault password ~22:41 and nothing else; `/health/` `ok` again at **22:41:36** (48 s in all). With no other step: Docker Desktop started at login, `db` (healthy, `pg_isready`), `app` and `tunnel` up (`restart: unless-stopped`), admin tunnel service running, `ssh cucumber-server-remote hostname` → `cucumber-server.local`, `credsStore` still absent, `sleep 0`, IP 192.168.101.12. Owner's phone on mobile data: login page shows. The spike's `spike-db-1` (no restart policy) stayed stopped, as expected |
 | Problems | Production token pasted into the admin service first (fixed, see above). A first zsh token command saved an empty token (replaced by the bash script). Routes first saved with no effect (0 apps); added again. Production Mac went offline before `/health/` and AC22 could be checked (Cloudflare error 1033). **Cause (2026-10-18):** it was on battery (charger out, `pmset -g batt`: discharging), where `sleep 1` applies, so it slept after 1 minute idle and the tunnels dropped; uptime 6 days, so it never shut down. On the charger `sleep 0` holds. It was also on the iPhone hotspot (`172.20.10.3`), not the home Wi-Fi |
 
+## When to rethink where Cucumber runs (D-26)
+
+From the [decisions register](../roadmap/decisions.md) (D-26) and
+[ADR-0001](../roadmap/adr/0001-stack-selection.md). Look again at the hosting
+choice, with the cost and effort table in the
+[U0.4 spec](../roadmap/units/u0.4-spec.md#staging-host-options-compared-2026-10-12), when any of these happens:
+
+- **U0.10 G0** (screens arrive for staff UAT): planned check.
+- **The production Mac runs short:** free disk under the 80–100 GB needed
+  before R1, or memory pressure high with production running (AC17 numbers
+  below are the baseline).
+- **Staging slows production**, or keeping the Mac or the Asus going feels
+  like too much work.
+- **Outages** (HetrixTools history, monthly check): one over 4 hours, or more
+  than two in a month (ADR-0001's move-to-the-cloud triggers).
+
 ## Setup log
 
 Fill this in as you go, then commit and push it (last step).

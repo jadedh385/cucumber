@@ -356,6 +356,22 @@ deployed again (design §6.3); 31536000 after two weeks with no HTTPS trouble.
 keyboard; within a few minutes `cucumber-staging.…` loads on a phone on
 mobile data and `ssh cucumber-staging-remote hostname` works.
 
+## When to rethink where Cucumber runs (D-26)
+
+From the [decisions register](../roadmap/decisions.md) (D-26) and
+[ADR-0001](../roadmap/adr/0001-stack-selection.md). Look again at the hosting
+choice, with the cost and effort table in the
+[U0.4 spec](../roadmap/units/u0.4-spec.md#staging-host-options-compared-2026-10-12), when any of these happens:
+
+- **U0.10 G0** (screens arrive for staff UAT): planned check.
+- **The production Mac runs short:** free disk under the 80–100 GB needed
+  before R1, or memory pressure high with production running (AC17 numbers
+  below are the baseline).
+- **Staging slows production**, or keeping the Mac or the Asus going feels
+  like too much work.
+- **Outages** (HetrixTools history, monthly check): one over 4 hours, or more
+  than two in a month (ADR-0001's move-to-the-cloud triggers).
+
 ## If something goes wrong
 
 | Problem | What to do |
