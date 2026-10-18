@@ -111,7 +111,7 @@ exits · *Gate focus* = unit-specific checks on top of [the standard gates](gate
   Django's `/accounts/profile/`, a 404); replace U0.3's minimal login template;
   login rate limiting. Password rules (Django's four validators) are already on.
 - **Gate focus:** G4 **security review mandatory** · G2 tests for lockout and session expiry.
-- **Unit files:** [spec (G0 passed)](units/u0.5-spec.md)
+- **Unit files:** [spec (G0 passed)](units/u0.5-spec.md) · [design note (G1 passed)](units/u0.5-design.md)
 
 ### U0.6 · Roles & permissions
 - **Size:** M · **Deps:** U0.5 · **Decisions:** D-03
@@ -134,7 +134,8 @@ exits · *Gate focus* = unit-specific checks on top of [the standard gates](gate
 | Edit reference lists | ✅ | — | — | — |
 | See Zoho references | ✅ | — | — | — |
 | View dashboards | ✅ | ✅ | ✅ | ✅ |
-| Manage users | ✅ | — | — | — |
+| Manage users: add, deactivate, give a new password, lift a lock (U0.5) | ✅ | — | — | — |
+| Log in, log out, change own password (U0.5) | ✅ | ✅ | ✅ | ✅ |
 
 - **Acceptance:** every endpoint has a permission test for each role (allowed and denied);
   a Supervisor can't review or correct an event they did or saved (D-03).
