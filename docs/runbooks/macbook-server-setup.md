@@ -249,6 +249,24 @@ in this Mac's `~/.ssh/config` (design §8), `ssh cucumber-server-remote hostname
 **4. Phone, HSTS, restart:** as the Asus Phase 7 steps 5–6, with
 `cucumber.…` and the FileVault password typed after the restart.
 
+**5. Uptime alert (AC23, design §9).** [HetrixTools](https://hetrixtools.com)
+free plan, chosen 2026-10-18: its pricing page puts no personal or non-profit
+limit on the free plan (UptimeRobot's says "hobby and non-profit", Better
+Stack's "personal projects"), checks every minute from 4 places, and has
+keyword checks. Account `admin@southeastcanopy.com`, login in Bitwarden.
+Monitor **Cucumber production**: type *Website*, URL
+`https://cucumber.southeastcanopy.com/health/`, keyword `ok` (a Cloudflare
+error page also answers, so any answer isn't enough), every 1 minute, email to
+the default contact. Free plan: one email address only.
+
+**Monthly check** (first Monday of the month, 5 min):
+
+- Log in to HetrixTools: the free account is paused after **90 days** without
+  a login. Glance at the outage history (ADR-0001 cloud triggers: an outage
+  over 4 hours, or more than two a month).
+- `brew upgrade cloudflared` on the production Mac, then check both tunnels
+  are healthy in the Cloudflare dashboard.
+
 ### Phase 4 log
 
 | Item | Result |
@@ -259,9 +277,10 @@ in this Mac's `~/.ssh/config` (design §8), `ssh cucumber-server-remote hostname
 | AC17 (disk, memory) | 2026-10-18, production running (staging is on the Asus now): 29 GB free of 228 GB; memory 43 % free of 8 GB; containers: app 106 MB / 1 GB cap, db 37 MB / 1.5 GB, tunnel 28 MB / 128 MB. The spike's `spike-db-1` still runs (72 MB) |
 | AC19, AC20 (phone) | 2026-10-18: **AC19 passed** (private tab: email, code, login page; made-up login refused, no 403); **AC20 passed** (Gmail, no code); details in the [Access log](cloudflare-access.md#log) |
 | AC21 (home IPv4 + IPv6 scan) | **Passed** 2026-10-18 22:45. From this Mac on the iPhone hotspot (`49.230.62.73`), `nc -z -G 3` to the home's IPv4 `159.192.181.27`: 22, 80, 443, 5432, 5435, 5436, 8000, 8001, 5900 all closed, while `/health/` answered `ok` through the tunnel. The home network gives the production Mac no public IPv6 address (none on `en0`, no IPv6 route out), so there is nothing to scan on IPv6. **To do:** home router page: no port forwards, UPnP off |
+| AC23 (uptime alert) | **Passed** 2026-10-18 with the Owner's OK: `docker stop cucumber-production-app-1` at 23:32:27 (`/health/` → 502 from outside); HetrixTools **down** email at 23:33 (~1 min); `docker start` at 23:33:53, `/health/` `ok` at 23:33:54; **back up** email at 23:34 (~1 min). Cucumber unreachable ~1.5 min in all |
 | HSTS 604800 | |
 | 10× timing (`uat/timing_10x.sh`, design §13) | Baseline on this Mac 2026-10-18 (85 s in all): load 19.3 s; typical save 4.5 / 8.5 ms (median / p95), busy batch 39 / 69 ms, split 8.9 / 11 ms, void 8.6 / 9.9 ms, correction 8.5 / 11 ms, review queue (7,000 waiting) 1.60 / 1.81 s, `check_projections` 11.8 s. **Production Mac 2026-10-18 20:36** (on battery, production running beside it; throwaway copy `~/cucumber-timing` + its `inventory` database, both removed after; 95 s in all): load 14.6 s; typical save 4.2 / 4.4 ms, busy batch 23 / 29 ms, open a batch 4.5 / 5.1 ms, split 8.4 / 15 ms, void 20 / 26 ms, correction 24 / 27 ms, mark reviewed 8.0 / 10 ms, review queue 1.48 / 1.51 s, plain-SQL look-ups under 3 ms, `check_projections` 31.8 s. Every save far under the half-second a phone user notices; review queue as in U0.2b (paging logged to U1.8); the nightly check is slower here but runs once a night |
-| AC18 (ADR checklist, 2026-10-18) | **Still holds from 2026-10-11:** macOS 27.0.1; FileVault on; firewall on; `sleep 0` on AC (`sleep 1` on battery, see Problems); macOS auto-install off, downloads and security responses on; SSH and Screen Sharing on, Administrators only (`com.apple.access_ssh` / `access_screensharing` nest the `admin` group); battery Normal, 87 %, 205 cycles. **Done now:** remote management through `cucumber-ssh` (AC22). **Still to do:** uptime alert (AC23). **Before R1 go-live** (spec Q3, tracked, not blocking): USB-C Ethernet adapter, router UPS, 80–100 GB free (28 GB now), off-site backup (U0.11) |
+| AC18 (ADR checklist, 2026-10-18) | **Still holds from 2026-10-11:** macOS 27.0.1; FileVault on; firewall on; `sleep 0` on AC (`sleep 1` on battery, see Problems); macOS auto-install off, downloads and security responses on; SSH and Screen Sharing on, Administrators only (`com.apple.access_ssh` / `access_screensharing` nest the `admin` group); battery Normal, 87 %, 205 cycles. **Done now:** remote management through `cucumber-ssh` (AC22). **Done now:** uptime alert (AC23, HetrixTools). **Before R1 go-live** (spec Q3, tracked, not blocking): USB-C Ethernet adapter, router UPS, 80–100 GB free (28 GB now), off-site backup (U0.11) |
 | Restart test (AC24) | **Passed** 2026-10-18, on the charger at home: Apple menu → Restart at 22:40:48 (`/health/` down, watched from outside every 5 s); Owner typed the FileVault password ~22:41 and nothing else; `/health/` `ok` again at **22:41:36** (48 s in all). With no other step: Docker Desktop started at login, `db` (healthy, `pg_isready`), `app` and `tunnel` up (`restart: unless-stopped`), admin tunnel service running, `ssh cucumber-server-remote hostname` → `cucumber-server.local`, `credsStore` still absent, `sleep 0`, IP 192.168.101.12. Owner's phone on mobile data: login page shows. The spike's `spike-db-1` (no restart policy) stayed stopped, as expected |
 | Problems | Production token pasted into the admin service first (fixed, see above). A first zsh token command saved an empty token (replaced by the bash script). Routes first saved with no effect (0 apps); added again. Production Mac went offline before `/health/` and AC22 could be checked (Cloudflare error 1033). **Cause (2026-10-18):** it was on battery (charger out, `pmset -g batt`: discharging), where `sleep 1` applies, so it slept after 1 minute idle and the tunnels dropped; uptime 6 days, so it never shut down. On the charger `sleep 0` holds. It was also on the iPhone hotspot (`172.20.10.3`), not the home Wi-Fi |
 
