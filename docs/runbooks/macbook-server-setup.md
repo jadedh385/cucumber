@@ -260,6 +260,7 @@ in this Mac's `~/.ssh/config` (design §8), `ssh cucumber-server-remote hostname
 | AC19, AC20 (phone) | |
 | AC21 (home IPv4 + IPv6 scan) | |
 | HSTS 604800 | |
+| 10× timing (`uat/timing_10x.sh`, design §13) | Baseline on this Mac 2026-10-18 (85 s in all): load 19.3 s; typical save 4.5 / 8.5 ms (median / p95), busy batch 39 / 69 ms, split 8.9 / 11 ms, void 8.6 / 9.9 ms, correction 8.5 / 11 ms, review queue (7,000 waiting) 1.60 / 1.81 s, `check_projections` 11.8 s. Production Mac: |
 | Restart test (AC24) | |
 | Problems | Production token pasted into the admin service first (fixed, see above). A first zsh token command saved an empty token (replaced by the bash script). Routes first saved with no effect (0 apps); added again. Production Mac went offline before `/health/` and AC22 could be checked (Cloudflare error 1033). **Cause (2026-10-18):** it was on battery (charger out, `pmset -g batt`: discharging), where `sleep 1` applies, so it slept after 1 minute idle and the tunnels dropped; uptime 6 days, so it never shut down. On the charger `sleep 0` holds. It was also on the iPhone hotspot (`172.20.10.3`), not the home Wi-Fi |
 
