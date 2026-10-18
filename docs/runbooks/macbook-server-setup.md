@@ -254,13 +254,14 @@ in this Mac's `~/.ssh/config` (design §8), `ssh cucumber-server-remote hostname
 | Item | Result |
 |---|---|
 | Tunnels | 2026-10-18: both connected (4 connections each); routes added; DNS records made by the routes; Access: `/` → 302 to the email check, only `/health/` passes |
-| `/health/` public | |
-| AC22 (`ssh cucumber-server-remote hostname` on phone data) | |
+| `/health/` public | 2026-10-18 11:08: `ok` (200), no login; HSTS header still `max-age=3600` |
+| AC22 (`ssh cucumber-server-remote hostname` on phone data) | **Passed** 2026-10-18 11:12: this Mac on the iPhone hotspot (`172.20.10.2`, public `49.230.57.105`) → `cucumber-server.local`. Host key first fetched to a scratch file and matched the one already trusted for `192.168.101.12` before saving it |
+| AC17 (disk, memory) | 2026-10-18, production running (staging is on the Asus now): 29 GB free of 228 GB; memory 43 % free of 8 GB; containers: app 106 MB / 1 GB cap, db 37 MB / 1.5 GB, tunnel 28 MB / 128 MB. The spike's `spike-db-1` still runs (72 MB) |
 | AC19, AC20 (phone) | |
 | AC21 (home IPv4 + IPv6 scan) | |
 | HSTS 604800 | |
 | Restart test (AC24) | |
-| Problems | Production token pasted into the admin service first (fixed, see above). A first zsh token command saved an empty token (replaced by the bash script). Routes first saved with no effect (0 apps); added again. Production Mac went offline before `/health/` and AC22 could be checked (Cloudflare error 1033) |
+| Problems | Production token pasted into the admin service first (fixed, see above). A first zsh token command saved an empty token (replaced by the bash script). Routes first saved with no effect (0 apps); added again. Production Mac went offline before `/health/` and AC22 could be checked (Cloudflare error 1033). **Cause (2026-10-18):** it was on battery (charger out, `pmset -g batt`: discharging), where `sleep 1` applies, so it slept after 1 minute idle and the tunnels dropped; uptime 6 days, so it never shut down. On the charger `sleep 0` holds. It was also on the iPhone hotspot (`172.20.10.3`), not the home Wi-Fi |
 
 ## Setup log
 
