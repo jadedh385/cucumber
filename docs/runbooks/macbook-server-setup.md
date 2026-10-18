@@ -156,7 +156,13 @@ even for public images. Either the Owner runs
 `security unlock-keychain ~/Library/Keychains/login.keychain-db` in an
 `ssh -t cucumber-server` session (typing `sawat`'s password), or, with the
 Owner's OK, remove the `"credsStore": "desktop"` line from
-`~/.docker/config.json` on the MacBook (Cucumber only pulls public images).
+`~/.docker/config.json` on the MacBook (Cucumber only pulls public images)
+**and** add `"credHelpers": {"unused.invalid": "desktop"}`. Without some
+login setting in the file, Docker on macOS picks the keychain helper by
+itself and fails the same way; the made-up name is never used, so Docker
+Hub falls back to the (empty) file. Done 2026-10-18; the original is
+`~/.docker/config.json.bak`. Docker Desktop may put `credsStore` back when
+it starts: check after a restart (`grep credsStore ~/.docker/config.json`).
 
 ### 3.3 Secrets into Bitwarden (Owner, 3 min)
 
@@ -182,15 +188,101 @@ tunnel part of the test (AC24) comes with U0.4b.
 
 | Item | Result |
 |---|---|
-| Date | |
-| SSH from the Owner's Mac (`ssh cucumber-server hostname`) | |
-| Deploy key added (read-only), title | |
-| Script output: macOS, Docker, Compose, uv, Docker memory | |
-| Free disk / sleep / firewall / FileVault | |
-| Secret fingerprints: production (compare with staging's) | |
-| Secrets saved in Bitwarden | |
+| Date | 2026-10-18 |
+| SSH from the Owner's Mac (`ssh cucumber-server hostname`) | `cucumber-server.local`, key from the Owner's Mac (`ssh-copy-id`), MacBook at 192.168.101.12 |
+| Deploy key added (read-only), title | `cucumber-server production`, write access unticked |
+| Script output: macOS, Docker, Compose, uv, Docker memory | 27.0.1 · Docker 29.8.2 · Compose 5.5.1 · uv 0.13.0 · 3,916 MiB |
+| Free disk / sleep / firewall / FileVault | 32 GB / `sleep 0` / on / on |
+| Secret fingerprints: production (compare with staging's) | `DJANGO_SECRET_KEY` 91395a3b, `POSTGRES_PASSWORD` a86b2bd8, `DB_OWNER_PASSWORD` 1d812cc1, `DB_APP_PASSWORD` fd4544b9. Staging's: 59af0d41, d37d5028, 3d3523e0, 032994c0. All differ |
+| Secrets saved in Bitwarden | 2026-10-18 (Owner), folder **Cucumber**: *Cucumber production secrets.env*, *Cloudflare tunnel · cucumber-admin* (token, ID, route, file, re-install), *Cloudflare tunnel · cucumber-production* (ID) |
+| U0.3 AC7 (fresh clone, README steps, `scripts/check.sh`) | Passed: clone to all checks green in 82 s (`check.sh` 46 s; 967 passed, 96.6 %), commit 7328a7e, throwaway `~/cucumber-ac7`, removed after |
 | Restart test | |
-| Problems | |
+| Problems | 1. Docker couldn't pull over SSH (keychain): fixed as in *If docker can't pull* above, with the Owner's OK. 2. The set-up script stopped silently at step 2 when the ports were **free**: `lsof` exits 1 when nothing listens, which `set -e` + `pipefail` turned into a stop. Fixed (`\|\| true`), proved before/after |
+| First deploy (2026.10.1, release runbook steps 3–6) | Staging: 2026.10.1 → `main` → 2026.10.1, each `Done` (35 s, 26 s, 30 s); `main` is the tag's own commit here, since the build before (`main-19d89e8d68b4`) can't be named. Production: `Done: production now runs 2026.10.1`, 31 s, 33 migrations. Copy `2026-10-18-0852-before-2026.10.1.dump` reads (`pg_restore --list`; no table data, taken from the empty database). Smoke: `/health/` ok, login 200, no *Practice* banner, `flag production list` runs |
+
+## Phase 4 · Tunnels (U0.4b, Owner + Claude, ~30 min)
+
+The same as the [Asus Phase 7](asus-staging-setup.md#phase-7--cloudflare-tunnels-u04b-jade--claude-45-min):
+two tunnels made in the dashboard (Networks → Tunnels → *Create a tunnel*
+→ **Cloudflared**; any OS: only the `eyJ…` token is used). The dashboard
+waits for a connection before it offers the route step.
+
+| Tunnel | Started by | Route (**Published application**, Service URL) |
+|---|---|---|
+| `cucumber-production` | `tunnel` service in production's compose project | `cucumber` . `southeastcanopy.com` → `http://app:8000` |
+| `cucumber-admin` | launchd service `com.southeastcanopy.cucumber-admin-tunnel`, outside Docker, at boot | `cucumber-ssh` . `southeastcanopy.com` → `ssh://localhost:22` |
+
+The route form has no type box: the type is the start of the Service URL
+(`http://`, `ssh://`). **Copy each token from its own tunnel's page**: on
+2026-10-18 the production token went into the admin service first, so the
+dashboard showed `cucumber-production` healthy and `cucumber-admin` down.
+
+**1. App tunnel token** with [`deploy/set-app-tunnel-token.sh`](../../deploy/set-app-tunnel-token.sh)
+(a bash script: the production Mac's shell is zsh, where `read -p` doesn't
+prompt). On this Mac, Terminal app:
+```bash
+scp deploy/set-app-tunnel-token.sh cucumber-server:
+ssh -t cucumber-server bash set-app-tunnel-token.sh
+```
+It saves `TUNNEL_TOKEN` and `COMPOSE_PROFILES=tunnel` in `secrets.env` and
+refuses anything that isn't a token. Then Claude deploys the same version
+again, which starts `tunnel`.
+
+**2. Admin tunnel** with [`deploy/setup-production-admin-tunnel.sh`](../../deploy/setup-production-admin-tunnel.sh):
+```bash
+ssh cucumber-server 'zsh -lc "brew install cloudflared"'
+scp deploy/setup-production-admin-tunnel.sh cucumber-server:
+ssh -t cucumber-server sudo bash setup-production-admin-tunnel.sh   # sawat's password, then the token
+```
+Not `cloudflared service install <token>`: that puts the token in a launchd
+file anyone on the Mac can read. Here it is in `/etc/cloudflared/admin-tunnel.token`
+(readable by `nobody` only, which runs the service). Log:
+`/var/log/cucumber-admin-tunnel.log`. `brew upgrade cloudflared` in the
+monthly check.
+
+**3. Checks** (Claude): `curl -s http://127.0.0.1:20241/ready` on the
+production Mac (`readyConnections: 4`); `docker logs cucumber-production-tunnel-1`;
+`https://cucumber.southeastcanopy.com/` → 302 to `southeastcanopy.cloudflareaccess.com`;
+`/health/` → `ok` with no login. SSH from away: `Host cucumber-server-remote`
+in this Mac's `~/.ssh/config` (design §8), `ssh cucumber-server-remote hostname`.
+
+**4. Phone, HSTS, restart:** as the Asus Phase 7 steps 5–6, with
+`cucumber.…` and the FileVault password typed after the restart.
+
+**5. Uptime alert (AC23, design §9).** [HetrixTools](https://hetrixtools.com)
+free plan, chosen 2026-10-18: its pricing page puts no personal or non-profit
+limit on the free plan (UptimeRobot's says "hobby and non-profit", Better
+Stack's "personal projects"), checks every minute from 4 places, and has
+keyword checks. Account `admin@southeastcanopy.com`, login in Bitwarden.
+Monitor **Cucumber production**: type *Website*, URL
+`https://cucumber.southeastcanopy.com/health/`, keyword `ok` (a Cloudflare
+error page also answers, so any answer isn't enough), every 1 minute, email to
+the default contact. Free plan: one email address only.
+
+**Monthly check** (first Monday of the month, 5 min):
+
+- Log in to HetrixTools: the free account is paused after **90 days** without
+  a login. Glance at the outage history (ADR-0001 cloud triggers: an outage
+  over 4 hours, or more than two a month).
+- `brew upgrade cloudflared` on the production Mac, then check both tunnels
+  are healthy in the Cloudflare dashboard.
+
+### Phase 4 log
+
+| Item | Result |
+|---|---|
+| Tunnels | 2026-10-18: both connected (4 connections each); routes added; DNS records made by the routes; Access: `/` → 302 to the email check, only `/health/` passes |
+| `/health/` public | 2026-10-18 11:08: `ok` (200), no login; HSTS header still `max-age=3600` |
+| AC22 (`ssh cucumber-server-remote hostname` on phone data) | **Passed** 2026-10-18 11:12: this Mac on the iPhone hotspot (`172.20.10.2`, public `49.230.57.105`) → `cucumber-server.local`. Host key first fetched to a scratch file and matched the one already trusted for `192.168.101.12` before saving it |
+| AC17 (disk, memory) | 2026-10-18, production running (staging is on the Asus now): 29 GB free of 228 GB; memory 43 % free of 8 GB; containers: app 106 MB / 1 GB cap, db 37 MB / 1.5 GB, tunnel 28 MB / 128 MB. The spike's `spike-db-1` still runs (72 MB) |
+| AC19, AC20 (phone) | 2026-10-18: **AC19 passed** (private tab: email, code, login page; made-up login refused, no 403); **AC20 passed** (Gmail, no code); details in the [Access log](cloudflare-access.md#log) |
+| AC21 (home IPv4 + IPv6 scan) | **Passed** 2026-10-18 22:45. From this Mac on the iPhone hotspot (`49.230.62.73`), `nc -z -G 3` to the home's IPv4 `159.192.181.27`: 22, 80, 443, 5432, 5435, 5436, 8000, 8001, 5900 all closed, while `/health/` answered `ok` through the tunnel. The home network gives the production Mac no public IPv6 address (none on `en0`, no IPv6 route out), so there is nothing to scan on IPv6. **To do:** home router page: no port forwards, UPnP off |
+| AC23 (uptime alert) | **Passed** 2026-10-18 with the Owner's OK: `docker stop cucumber-production-app-1` at 23:32:27 (`/health/` → 502 from outside); HetrixTools **down** email at 23:33 (~1 min); `docker start` at 23:33:53, `/health/` `ok` at 23:33:54; **back up** email at 23:34 (~1 min). Cucumber unreachable ~1.5 min in all |
+| HSTS 604800 | 2026-10-18 ~23:45, after every other check passed: `DJANGO_HSTS_SECONDS=604800` in `secrets.env` and 2026.10.1 deployed again (Owner ran it: the auto-mode classifier stops Claude deploying to production); `Done`; header `strict-transport-security: max-age=604800; includeSubDomains`, `/health/` ok. 31536000 after two weeks with no HTTPS trouble (design §6.3) |
+| 10× timing (`uat/timing_10x.sh`, design §13) | Baseline on this Mac 2026-10-18 (85 s in all): load 19.3 s; typical save 4.5 / 8.5 ms (median / p95), busy batch 39 / 69 ms, split 8.9 / 11 ms, void 8.6 / 9.9 ms, correction 8.5 / 11 ms, review queue (7,000 waiting) 1.60 / 1.81 s, `check_projections` 11.8 s. **Production Mac 2026-10-18 20:36** (on battery, production running beside it; throwaway copy `~/cucumber-timing` + its `inventory` database, both removed after; 95 s in all): load 14.6 s; typical save 4.2 / 4.4 ms, busy batch 23 / 29 ms, open a batch 4.5 / 5.1 ms, split 8.4 / 15 ms, void 20 / 26 ms, correction 24 / 27 ms, mark reviewed 8.0 / 10 ms, review queue 1.48 / 1.51 s, plain-SQL look-ups under 3 ms, `check_projections` 31.8 s. Every save far under the half-second a phone user notices; review queue as in U0.2b (paging logged to U1.8); the nightly check is slower here but runs once a night |
+| AC18 (ADR checklist, 2026-10-18) | **Still holds from 2026-10-11:** macOS 27.0.1; FileVault on; firewall on; `sleep 0` on AC (`sleep 1` on battery, see Problems); macOS auto-install off, downloads and security responses on; SSH and Screen Sharing on, Administrators only (`com.apple.access_ssh` / `access_screensharing` nest the `admin` group); battery Normal, 87 %, 205 cycles. **Done now:** remote management through `cucumber-ssh` (AC22). **Done now:** uptime alert (AC23, HetrixTools). **Before R1 go-live** (spec Q3, tracked, not blocking): USB-C Ethernet adapter, router UPS, 80–100 GB free (28 GB now), off-site backup (U0.11) |
+| Restart test (AC24) | **Passed** 2026-10-18, on the charger at home: Apple menu → Restart at 22:40:48 (`/health/` down, watched from outside every 5 s); Owner typed the FileVault password ~22:41 and nothing else; `/health/` `ok` again at **22:41:36** (48 s in all). With no other step: Docker Desktop started at login, `db` (healthy, `pg_isready`), `app` and `tunnel` up (`restart: unless-stopped`), admin tunnel service running, `ssh cucumber-server-remote hostname` → `cucumber-server.local`, `credsStore` still absent, `sleep 0`, IP 192.168.101.12. Owner's phone on mobile data: login page shows. The spike's `spike-db-1` (no restart policy) stayed stopped, as expected |
+| Problems | Production token pasted into the admin service first (fixed, see above). A first zsh token command saved an empty token (replaced by the bash script). Routes first saved with no effect (0 apps); added again. Production Mac went offline before `/health/` and AC22 could be checked (Cloudflare error 1033). **Cause (2026-10-18):** it was on battery (charger out, `pmset -g batt`: discharging), where `sleep 1` applies, so it slept after 1 minute idle and the tunnels dropped; uptime 6 days, so it never shut down. On the charger `sleep 0` holds. It was also on the iPhone hotspot (`172.20.10.3`), not the home Wi-Fi |
 
 ## Setup log
 

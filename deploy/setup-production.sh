@@ -22,7 +22,7 @@ export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 
 step() { printf '\n== %s\n' "$*"; }
 fail() { printf 'STOPPED: %s\n' "$*" >&2; exit 1; }
-port_owner() { lsof -nP -iTCP:"$1" -sTCP:LISTEN 2>/dev/null | awk 'NR==2 {print $1" (pid "$2")"}'; }
+port_owner() { lsof -nP -iTCP:"$1" -sTCP:LISTEN 2>/dev/null | awk 'NR==2 {print $1" (pid "$2")"}' || true; }
 
 [[ $(uname) == Darwin ]] || fail "this is for the MacBook (macOS)"
 [[ $EUID -ne 0 ]] || fail "run as the admin account, not with sudo"
