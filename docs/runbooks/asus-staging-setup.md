@@ -380,6 +380,7 @@ choice, with the cost and effort table in the
 | The laptop starts Windows only | F2 → Boot → put *ubuntu* first; or tell Claude |
 | The installer shows no free space | Phase 1 step 6 didn't leave it unallocated; go back to Windows and check Disk Management |
 | Ubuntu doesn't work out at all | In Windows Disk Management, delete the Ubuntu partition and *Extend* C: into the space; Windows is untouched. Claude helps remove the leftover Ubuntu start-up entry |
+| No Admin can log in to Cucumber | `cucumber_admin`: [release runbook](release.md#admin-account-the-first-one-or-a-rescue) |
 | Old battery swells or won't hold charge | Unplug, stop using it, and tell Claude. The battery is optional (it covers short power cuts) |
 
 ## Setup log

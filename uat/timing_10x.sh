@@ -21,5 +21,9 @@ fresh_database
   echo "# 10× timing, $(hostname -s), $(date '+%Y-%m-%d %H:%M')"
   echo
   .venv/bin/python -m scripts.timing_10x
+  echo
+  echo "## Logging in (U0.5)"
+  echo
+  .venv/bin/python -m scripts.timing_login
 } | tee uat/timing_10x-result.md
 fresh_database   # leave no 362,000-entry database behind
