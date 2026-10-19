@@ -16,9 +16,18 @@ from scripts.commands import Runner, run_command
 NO_NOTES = "Nothing staff will notice in this release."
 PR_ENDING = re.compile(r"\(#(\d+)\)\s*$")
 STAFF_NOTE_HEADING = re.compile(r"##\s+staff note\s*", re.IGNORECASE)
-NEXT_HEADING = re.compile(r"#{1,2}\s")
+# What ends a note besides a heading: a line rule, or the "🤖 Generated with
+# Claude Code" footer that Claude Code adds to the end of a pull request body.
+END_OF_NOTE = re.compile(r"#{1,2}\s|-{3,}\s*$|🤖")
 HTML_COMMENT = re.compile(r"<!--.*?-->", re.DOTALL)
-NOTHING_TO_SAY = {"", "none", "none."}
+NOTHING_TO_SAY = {
+    "",
+    "none",
+    "none.",
+    "nothing for staff",
+    "nothing for staff.",
+    NO_NOTES.lower(),
+}
 
 
 def pr_numbers(log: str) -> list[int]:
@@ -29,12 +38,12 @@ def pr_numbers(log: str) -> list[int]:
 
 
 def _section_lines(body: str) -> list[str] | None:
-    """The lines under `## Staff note`, up to the next heading; None if absent."""
+    """The lines under `## Staff note`, up to a heading or footer; None if absent."""
     lines = HTML_COMMENT.sub(" ", body).splitlines()
     for index, line in enumerate(lines):
         if STAFF_NOTE_HEADING.fullmatch(line.strip()):
             section = lines[index + 1 :]
-            ends = [i for i, text in enumerate(section) if NEXT_HEADING.match(text)]
+            ends = [i for i, text in enumerate(section) if END_OF_NOTE.match(text)]
             return section[: ends[0]] if ends else section
     return None
 

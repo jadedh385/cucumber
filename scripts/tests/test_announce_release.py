@@ -98,7 +98,7 @@ def test_the_staff_part_can_be_the_last_section() -> None:
     assert staff_section(f"## For staff\n\n{STAFF_NOTE}\n") == STAFF_NOTE
 
 
-@pytest.mark.parametrize("staff", ["None", "none.", "", NO_NOTES])
+@pytest.mark.parametrize("staff", ["None", "none.", "", NO_NOTES, "Nothing for staff."])
 def test_nothing_for_staff_means_no_section(staff: str) -> None:
     assert staff_section(release_body(staff)) is None
 

@@ -12,7 +12,7 @@ import re
 import time
 from collections.abc import Callable, Mapping
 
-from scripts.staff_notes import NO_NOTES
+from scripts.staff_notes import NOTHING_TO_SAY
 from scripts.web import request
 
 DISCORD_LIMIT = 2000
@@ -23,7 +23,6 @@ TOO_MANY_REQUESTS = 429
 USER_AGENT = "Cucumber release announcer (https://github.com/jadedh385/cucumber)"
 STAFF_HEADING = re.compile(r"##\s+for staff\s*", re.IGNORECASE)
 NEXT_SECTION = re.compile(r"#{1,2}\s")
-NOTHING_FOR_STAFF = {"", "none", "none.", NO_NOTES.lower()}
 BY_HAND = "The release is published; post the staff note in Discord by hand."
 
 # url, body, headers -> (status, body)
@@ -41,7 +40,7 @@ def staff_section(body: str) -> str | None:
     section = lines[starts[0] + 1 :]
     ends = [i for i, line in enumerate(section) if NEXT_SECTION.match(line)]
     text = "\n".join(section[: ends[0]] if ends else section).strip()
-    return None if text.lower() in NOTHING_FOR_STAFF else text
+    return None if text.lower() in NOTHING_TO_SAY else text
 
 
 def build_message(version: str, section: str, release_url: str) -> str:
