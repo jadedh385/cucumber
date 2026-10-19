@@ -24,7 +24,6 @@ ACCESS_CLIENT_ID = "E2E_ACCESS_CLIENT_ID"
 ACCESS_CLIENT_SECRET = "E2E_ACCESS_CLIENT_SECRET"  # noqa: S105 (a variable name)
 LOGIN_EMAIL = "E2E_LOGIN_EMAIL"
 LOGIN_PASSWORD = "E2E_LOGIN_PASSWORD"  # noqa: S105 (a variable name)
-NOT_BUILT = "U0.5 G3"
 
 # The suite is only ever pointed at staging: production holds real data, and
 # a running site can't be switched to another environment for one test.
@@ -55,5 +54,14 @@ def access_headers(environ: Mapping[str, str]) -> dict[str, str]:
 
 
 def login_account(environ: Mapping[str, str]) -> tuple[str, str] | None:
-    """The practice account's email and password, or None if not set."""
-    raise NotImplementedError(NOT_BUILT)
+    """The practice account's email and password, or None if not set.
+
+    The password is used exactly as given: spaces can be part of it.
+    """
+    email = environ.get(LOGIN_EMAIL, "").strip()
+    password = environ.get(LOGIN_PASSWORD, "")
+    if not email and not password.strip():
+        return None
+    if not email or not password:
+        raise ValueError(f"Set both {LOGIN_EMAIL} and {LOGIN_PASSWORD}, or neither")
+    return email, password

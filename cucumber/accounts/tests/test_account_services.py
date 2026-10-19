@@ -73,7 +73,7 @@ def test_require_admin_refuses_anyone_else(gene: User) -> None:
     with pytest.raises(PermissionDenied):
         require_admin(gene)
     with pytest.raises(PermissionDenied):
-        require_admin(AnonymousUser())  # type: ignore[arg-type]
+        require_admin(AnonymousUser())
 
 
 ADMIN_ONLY: list[Callable[[User, User], Any]] = [

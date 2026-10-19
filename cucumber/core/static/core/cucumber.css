@@ -1,4 +1,4 @@
-/* Cucumber's own styles. U0.5 adds the real screens' styles here. */
+/* Cucumber's own styles, until U0.10 brings the UI kit. */
 
 /* "Practice data" banner on staging (U0.4a AC9): amber, dark text, stays at
    the top while scrolling. */
@@ -30,14 +30,150 @@
   }
 }
 
-/* Plain pages: login (until U0.5), 404 and 500. */
+/* Every page: one column, phone first (U0.5 design §6.1). */
 .plain-page {
   margin: 0;
   font-family: system-ui, sans-serif;
 }
 
 .plain-page main {
-  max-width: 24rem;
+  max-width: 28rem;
   margin: 0 auto;
   padding: 16px;
+}
+
+/* Signed-in pages: the name and Log out across the top (U0.5 AC21). */
+.top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  max-width: 28rem;
+  margin: 0 auto;
+  padding: 8px 16px;
+  border-bottom: 1px solid #ddd;
+}
+
+.app-name {
+  font-weight: 700;
+  color: inherit;
+  text-decoration: none;
+}
+
+.signed-in,
+.quiet,
+.email {
+  color: #555;
+}
+
+/* Forms: big boxes and buttons, easy to tap on a phone. */
+.field {
+  margin-bottom: 1rem;
+}
+
+.field label {
+  display: block;
+  margin-bottom: 0.25rem;
+  font-weight: 600;
+}
+
+.field input {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 0.6rem;
+  font-size: 1rem;
+}
+
+.help {
+  font-size: 0.85rem;
+  color: #555;
+}
+
+.help ul {
+  margin: 0.25rem 0;
+  padding-left: 1.25rem;
+}
+
+button,
+.button {
+  display: inline-block;
+  box-sizing: border-box;
+  padding: 0.75rem 1rem;
+  border: 1px solid #2f6f3e;
+  border-radius: 6px;
+  background: #2f6f3e;
+  color: #fff;
+  font-size: 1rem;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+main form button {
+  width: 100%;
+}
+
+.top-bar .quiet-button {
+  width: auto;
+  padding: 0.4rem 0.75rem;
+  background: transparent;
+  color: #2f6f3e;
+}
+
+button.danger {
+  border-color: #a12b2b;
+  background: #a12b2b;
+}
+
+.form-error {
+  margin: 0.25rem 0;
+  color: #a12b2b;
+}
+
+.messages {
+  margin: 0 0 1rem;
+  padding: 0;
+  list-style: none;
+}
+
+.message {
+  padding: 0.6rem 0.75rem;
+  border-radius: 6px;
+  background: #e8f3ea;
+}
+
+.message-error {
+  background: #fbe9e9;
+}
+
+/* Staff pages (U0.5 AC22-AC25). */
+.page-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.staff-list {
+  padding: 0;
+  list-style: none;
+}
+
+.staff-list li {
+  display: grid;
+  gap: 0.15rem;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid #ddd;
+  overflow-wrap: anywhere;
+}
+
+.actions form {
+  margin-bottom: 0.75rem;
+}
+
+.temporary-password {
+  padding: 1rem;
+  border-radius: 6px;
+  background: #f3f3f3;
+  font-family: ui-monospace, monospace;
+  font-size: 1.5rem;
+  text-align: center;
+  letter-spacing: 0.05em;
 }

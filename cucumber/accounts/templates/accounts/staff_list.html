@@ -1,0 +1,21 @@
+{% extends "base.html" %}{% load i18n %}
+{% comment %}
+  Every account and its state, for the Admin (U0.5 AC22-AC24, design §6.1).
+{% endcomment %}
+{% block title %}{% translate "Staff" %}{% endblock %}
+{% block content %}
+<p class="page-nav">
+  <a href="{% url 'home' %}">← {% translate "Home" %}</a>
+  <a class="button" href="{% url 'staff_new' %}">{% translate "Add" %}</a>
+</p>
+<h1>{% translate "Staff" %}</h1>
+<ul class="staff-list">
+  {% for row in rows %}
+  <li>
+    <a href="{% url 'staff_detail' row.account.pk %}"><strong>{{ row.account.first_name|default:row.account.email }}</strong>{% if row.is_you %} {% translate "(you)" %}{% endif %}</a>
+    <span class="email">{{ row.account.email }}</span>
+    <span class="state">{% if row.account.is_active %}{% translate "Active" %}{% else %}{% translate "Deactivated" %}{% endif %}{% if row.locked_until %} · {% blocktranslate with time=row.locked_until|time:"H:i" %}Locked until {{ time }}{% endblocktranslate %}{% endif %}</span>
+  </li>
+  {% endfor %}
+</ul>
+{% endblock %}

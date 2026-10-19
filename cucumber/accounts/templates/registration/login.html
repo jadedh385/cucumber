@@ -1,30 +1,16 @@
+{% extends "base.html" %}{% load i18n %}
 {% comment %}
-  Minimal login page so Django's LoginView has something to show (U0.3).
-  U0.5 replaces it with the real, phone-first screen.
-{% endcomment %}{% load static %}<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% if environment == "staging" %}[Practice] {% endif %}Log in · Cucumber</title>
-  <link rel="stylesheet" href="{% static 'core/cucumber.css' %}">
-  <style>
-    form div { margin-bottom: 1rem; }
-    label { display: block; margin-bottom: 0.25rem; }
-    input { box-sizing: border-box; width: 100%; padding: 0.6rem; font-size: 1rem; }
-    button { width: 100%; padding: 0.75rem; font-size: 1rem; }
-  </style>
-</head>
-<body class="plain-page">
-  {% include "core/_practice_banner.html" %}
-  <main>
-    <h1>Cucumber</h1>
-    <form method="post">
-      {% csrf_token %}
-      {{ form.as_div }}
-      <input type="hidden" name="next" value="{{ next }}">
-      <button type="submit">Log in</button>
-    </form>
-  </main>
-</body>
-</html>
+  Logging in with an email and password (U0.5 AC1-AC6). The same message for a
+  wrong password, an unknown email and a deactivated account (design §2.2).
+{% endcomment %}
+{% block title %}{% translate "Log in" %}{% endblock %}
+{% block content %}
+<h1>Cucumber</h1>
+<form method="post">
+  {% csrf_token %}
+  {% for error in form.non_field_errors %}<p class="form-error" role="alert">{{ error }}</p>{% endfor %}
+  {% for field in form %}{% include "accounts/_field.html" %}{% endfor %}
+  <input type="hidden" name="next" value="{{ next }}">
+  <button type="submit">{% translate "Log in" %}</button>
+</form>
+{% endblock %}

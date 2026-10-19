@@ -1,5 +1,6 @@
 """Core pages. Kept thin: the checks live in services.py."""
 
+from django.contrib.auth.decorators import login_not_required
 from django.db import connection
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
@@ -10,6 +11,7 @@ from django.views.decorators.http import require_safe
 from cucumber.core.services import database_is_reachable
 
 
+@login_not_required
 @never_cache
 @require_safe
 def health(request: HttpRequest) -> HttpResponse:
