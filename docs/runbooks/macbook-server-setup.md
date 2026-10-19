@@ -87,7 +87,7 @@ sudo pmset -c sleep 0 disksleep 0 displaysleep 10 womp 1
    uv sync
    uv run pytest -q                   # expect 18 passed
    uv run python manage.py migrate
-   uv run python manage.py createsuperuser   # the Owner types username and password
+   uv run python manage.py createsuperuser   # spike only; Cucumber accounts: cucumber_admin (U0.5)
    uv run python manage.py runserver 0.0.0.0:8000
    ```
 5. **Allow incoming connections:** if macOS asks whether Python may accept

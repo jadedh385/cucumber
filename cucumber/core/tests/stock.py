@@ -24,7 +24,7 @@ from django.utils import timezone
 
 from cucumber.batches.models import Batch
 from cucumber.core.refusals import Refused
-from cucumber.core.tests.rows import run
+from cucumber.core.tests.rows import run, staff_email
 from cucumber.events.services import NewBatch, NewEvent, Saved, save_operation
 
 BANGKOK = ZoneInfo("Asia/Bangkok")
@@ -33,9 +33,16 @@ BANGKOK = ZoneInfo("Asia/Bangkok")
 # --------------------------------------------------------------------- staff
 
 
-def make_staff(username: str, role: str) -> User:
-    """A user in the role's group: `admin`, `supervisor` or `tech` (design §2.7)."""
-    staff = User.objects.create_user(username=username)
+def make_staff(name: str, role: str, password: str | None = None) -> User:
+    """A user in the role's group: `admin`, `supervisor` or `tech` (design §2.7).
+
+    The user name is an email, as U0.5's `auth_user` rule requires; `name` is
+    the person's name. Without a password the account can't log in.
+    """
+    email = staff_email(name)
+    staff = User.objects.create_user(
+        username=email, email=email, password=password, first_name=name
+    )
     group, _ = Group.objects.get_or_create(name=role)
     staff.groups.add(group)
     return staff

@@ -77,6 +77,15 @@ MESSAGES: dict[str, str] = {
         "A correction can't change what kind of entry this is."
         " Void it and log the right entry instead."
     ),
+    # Staff accounts (U0.5 design §7.1)
+    "account_email_taken": "Another account already uses this email.",
+    "account_email_invalid": "Enter a whole email address, like name@example.com.",
+    "account_cannot_deactivate_self": "You can't deactivate your own account.",
+    "account_cannot_reset_self": "Change your own password on the Password page.",
+    "account_last_admin": "At least one Admin must stay active.",
+    "password_same_as_temporary": (
+        "Choose a password different from the one you were given."
+    ),
 }
 
 

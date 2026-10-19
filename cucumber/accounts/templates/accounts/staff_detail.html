@@ -1,0 +1,41 @@
+{% extends "base.html" %}{% load i18n %}
+{% comment %}
+  One account and its buttons (U0.5 AC11, AC23-AC25). Your own account has no
+  Deactivate or new-password button; the services refuse both anyway (AC24).
+{% endcomment %}
+{% block title %}{% translate "Staff" %}{% endblock %}
+{% block content %}
+{% with account=row.account %}
+<p><a href="{% url 'staff' %}">← {% translate "Staff" %}</a></p>
+<h1>{{ account.first_name|default:account.email }}</h1>
+<p class="email">{{ account.email }}</p>
+<p class="state">{% if account.is_active %}{% translate "Active" %}{% else %}{% translate "Deactivated" %}{% endif %}{% if row.locked_until %} · {% blocktranslate with time=row.locked_until|time:"H:i" %}Locked until {{ time }}{% endblocktranslate %}{% endif %}</p>
+<div class="actions">
+  {% if row.is_you %}
+  <p><a href="{% url 'password' %}">{% translate "Change your own password" %}</a></p>
+  {% else %}
+  <form method="post" action="{% url 'staff_new_password' account.pk %}">
+    {% csrf_token %}
+    <button type="submit">{% translate "Give a new password" %}</button>
+  </form>
+  {% endif %}
+  <form method="post" action="{% url 'staff_unlock' account.pk %}">
+    {% csrf_token %}
+    <button type="submit">{% translate "Lift the lock" %}</button>
+  </form>
+  {% if not row.is_you %}
+  {% if account.is_active %}
+  <form method="post" action="{% url 'staff_deactivate' account.pk %}">
+    {% csrf_token %}
+    <button type="submit" class="danger">{% translate "Deactivate" %}</button>
+  </form>
+  {% else %}
+  <form method="post" action="{% url 'staff_reactivate' account.pk %}">
+    {% csrf_token %}
+    <button type="submit">{% translate "Reactivate" %}</button>
+  </form>
+  {% endif %}
+  {% endif %}
+</div>
+{% endwith %}
+{% endblock %}

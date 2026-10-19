@@ -123,8 +123,14 @@ def refused_for_app(app_db: AppConnection, sql: str) -> None:
 # changes only the one value it is about. Column names are the design's (§2).
 
 
-def make_user(username: str = "tech") -> int:
-    return as_int(User.objects.create_user(username=username).pk)
+def staff_email(name: str) -> str:
+    """A test account's email, which is also its user name (U0.5 design §3.4)."""
+    return f"{name}@example.com"
+
+
+def make_user(name: str = "tech") -> int:
+    email = staff_email(name)
+    return as_int(User.objects.create_user(username=email, email=email).pk)
 
 
 def make_operation(recorded_by: int) -> uuid.UUID:

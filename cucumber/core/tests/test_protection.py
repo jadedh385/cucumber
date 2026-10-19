@@ -47,6 +47,12 @@ FLAG_GRANTS = {
     "waffle_switch": {"SELECT"},
     "waffle_sample": {"SELECT"},
 }
+# U0.5 design §3.2: lock counts and change-due marks are added and removed,
+# never edited.
+ACCOUNT_GRANTS = {
+    "accounts_login_failure": {"SELECT", "INSERT", "DELETE"},
+    "accounts_password_change_due": {"SELECT", "INSERT", "DELETE"},
+}
 
 # Design §4, "App user permissions". Every table in the database must be listed:
 # a new table without a decision here fails the matrix test.
@@ -66,6 +72,7 @@ APP_GRANTS: dict[str, set[str]] = (
         "django_migrations": {"SELECT"},
     }
     | FLAG_GRANTS
+    | ACCOUNT_GRANTS
 )
 
 # A harmless column to "update" on each insert-only table.

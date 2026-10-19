@@ -1,0 +1,10 @@
+{% extends "base.html" %}{% load i18n %}
+{% comment %}
+  The home page: empty until U0.10 brings the app shell (U0.5 AC18).
+{% endcomment %}
+{% block title %}{% translate "Home" %}{% endblock %}
+{% block content %}
+{% if is_admin %}<p><a class="button" href="{% url 'staff' %}">{% translate "Staff" %}</a></p>{% endif %}
+<p><a href="{% url 'password' %}">{% translate "Change your password" %}</a></p>
+<p class="quiet">{% translate "More pages are coming soon." %}</p>
+{% endblock %}

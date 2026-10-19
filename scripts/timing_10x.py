@@ -147,8 +147,10 @@ def run_sql(query: str, params: SqlParams | None = None) -> None:
 
 
 def make_staff() -> Staff:
-    def member(username: str, role: str) -> User:
-        user, _ = User.objects.get_or_create(username=f"timing_{username}")
+    def member(name: str, role: str) -> User:
+        # The user name is the email (U0.5's auth_user rule).
+        email = f"timing-{name}@example.com"
+        user, _ = User.objects.get_or_create(username=email, defaults={"email": email})
         user.groups.add(Group.objects.get_or_create(name=role)[0])
         return user
 

@@ -78,8 +78,10 @@ def check_refused(what: str, message: str, attempt: Callable[[], object]) -> Non
 # ------------------------------------------------------------------ helpers
 
 
-def staff(username: str, role: str) -> User:
-    user, _ = User.objects.get_or_create(username=username)
+def staff(name: str, role: str) -> User:
+    # The user name is the email (U0.5's auth_user rule).
+    email = f"{name.lower().replace('_', '-')}@example.com"
+    user, _ = User.objects.get_or_create(username=email, defaults={"email": email})
     user.groups.add(Group.objects.get_or_create(name=role)[0])
     return user
 
@@ -341,7 +343,7 @@ class Story:
         event = Event.objects.get(pk=for_tech)
         check(
             "Did it / saved it",
-            ("tech_a", "supervisor"),
+            ("tech-a@example.com", "supervisor@example.com"),
             (event.staff.username, event.recorded_by.username),
         )
         check("In the Supervisor's queue", False, for_tech in queued(self.supervisor))

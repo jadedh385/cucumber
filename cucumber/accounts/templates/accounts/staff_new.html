@@ -1,0 +1,15 @@
+{% extends "base.html" %}{% load i18n %}
+{% comment %}
+  Adding an account (U0.5 AC22). Cucumber makes its first password.
+{% endcomment %}
+{% block title %}{% translate "Add an account" %}{% endblock %}
+{% block content %}
+<p><a href="{% url 'staff' %}">← {% translate "Staff" %}</a></p>
+<h1>{% translate "Add an account" %}</h1>
+<form method="post">
+  {% csrf_token %}
+  {% for error in form.non_field_errors %}<p class="form-error" role="alert">{{ error }}</p>{% endfor %}
+  {% for field in form %}{% include "accounts/_field.html" %}{% endfor %}
+  <button type="submit">{% translate "Add account" %}</button>
+</form>
+{% endblock %}

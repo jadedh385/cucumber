@@ -15,3 +15,5 @@ uat/*-result.md
 # collectstatic output (built into the image) and server secrets (U0.4a)
 staticfiles/
 secrets.env
+# VS Code workspace file (personal editor setup)
+cucumber.code-workspace

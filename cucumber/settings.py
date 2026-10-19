@@ -118,6 +118,11 @@ MIDDLEWARE = [
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
+    # U0.5 design §5, in this order: the 30-day limit, then every page needs a
+    # login, then a temporary password must be changed first.
+    "cucumber.accounts.middleware.SessionLimit",
+    "cucumber.accounts.middleware.LoginRequired",
+    "cucumber.accounts.middleware.PasswordChangeDue",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
@@ -175,6 +180,17 @@ AUTH_PASSWORD_VALIDATORS = [
     ]
 ]
 
+# Logging in (U0.5 design §4). Staff use their own phones (spec Q2): a session
+# ends after 7 days without a page, and always 30 days after logging in
+# (SESSION_MAX_AGE in accounts/services.py, checked by SessionLimit).
+LOGIN_URL = "login"
+LOGIN_REDIRECT_URL = "home"
+LOGOUT_REDIRECT_URL = "login"
+SESSION_COOKIE_AGE = 7 * 24 * 60 * 60
+SESSION_SAVE_EVERY_REQUEST = True
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = "Lax"
+
 # CSS and images. `collectstatic` gathers them into staticfiles/ for the image.
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
@@ -205,6 +221,9 @@ LOGGING = {
     "root": {"handlers": ["console"], "level": "WARNING"},
     "loggers": {
         "django": {"handlers": ["console"], "level": "WARNING", "propagate": False},
+        # Cucumber's own lines, e.g. logins and account changes (U0.5 design §8),
+        # written through the root's console handler.
+        "cucumber": {"level": "INFO"},
     },
 }
 

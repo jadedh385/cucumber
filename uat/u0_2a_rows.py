@@ -100,8 +100,13 @@ class Story:
 
     def __init__(self, app: App) -> None:
         self.app = app
-        self.admin = User.objects.create_user(username="admin").pk
-        self.tech = User.objects.create_user(username="tech_a").pk
+        # User names are emails (U0.5's auth_user rule).
+        self.admin = self.person("admin@example.com")
+        self.tech = self.person("tech-a@example.com")
+
+    @staticmethod
+    def person(email: str) -> int:
+        return User.objects.create_user(username=email, email=email).pk
 
     # Times, from the database clock
 

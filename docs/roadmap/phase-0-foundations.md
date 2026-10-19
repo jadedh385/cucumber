@@ -153,6 +153,12 @@ exits · *Gate focus* = unit-specific checks on top of [the standard gates](gate
   trust their caller (design §3.1); no screen reaches them before then.
   Also: a resent `operation_id` returns the original result to anyone;
   check it is the same `recorded_by` (U0.2b G4 security L3).
+  **From the U0.5 G4 review:** "Lift the lock" clears only the email's count,
+  not the 50-per-address lock, and the page says "can log in again" (M6):
+  lift both, or say so; `add_account` and `cucumber_admin` check the name is
+  at most 150 characters (today only the form does); a database refusal in
+  `add_account` is read by its rule name, so only a taken email says "taken";
+  emails are Unicode-normalised (NFKC) when added, as the login form does.
 - **Gate focus:** G2 role × endpoint test matrix generated, not hand-written · G4 security review.
 
 ### U0.7 · Audit trail & append-only event store
@@ -204,6 +210,12 @@ exits · *Gate focus* = unit-specific checks on top of [the standard gates](gate
   **From the U0.4a G4 review:** a database `statement_timeout` and
   `idle_in_transaction_session_timeout` (only `lock_timeout` is set), shown
   with the same "Busy, please try again" message.
+  **From the U0.5 G4 review:** the Password page answers only GET and POST,
+  and an empty POST shows the form's errors (`request.POST or None` treats it
+  as unsent); saving a password and clearing its change-due mark in one
+  transaction; top-bar buttons 44 px tall; a comment on `help_text|safe` in
+  `accounts/_field.html` (safe only while help text comes from Django's
+  validators); the Staff list reads every lock in one query, not one per person.
 - **Acceptance:** all components usable one-handed at 375 px width; date and week
   never typed; no UI text hard-coded outside the translation function (checked by
   a lint rule or test).
