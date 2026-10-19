@@ -59,8 +59,7 @@ dc exec -T db psql -U postgres -d cucumber -c "
 ```
 
 Then run the check again. After the release, give the Owner's account the
-Admin role and a password with `dc run --rm migrate python manage.py
-cucumber_admin` (U0.5 design §9; no `-T`: it asks questions).
+Admin role and a password: [Admin account](#admin-account-the-first-one-or-a-rescue).
 
 ## 1. Draft (Claude)
 
@@ -154,6 +153,31 @@ staff note by hand.
   Claude.
 - **Wrong wording after publishing:** edit the release on GitHub; Discord
   keeps the first post, so post a short correction there.
+
+## Admin account: the first one, or a rescue
+
+`cucumber_admin` (U0.5 design §9) adds the first Admin after U0.5's first
+release, and gets an Admin back in when nobody can log in: a forgotten
+password, a lock, or a deactivated account. For an existing account it sets
+the new password, reactivates it, lifts the lock and clears a pending
+password change. It asks for the email, the name and the password (twice,
+hidden), and asks before making someone an Admin who isn't one yet.
+
+**The Owner types it** in the Terminal app on the Owner's Mac (it asks for a
+password, and the auto-mode classifier blocks Claude on production). It runs
+inside the running app container, as `cucumber_app`, like the app:
+
+```bash
+# staging
+ssh -t cucumber-staging 'bash -lc "cd ~/cucumber/staging/src && export IMAGE_NAME=cucumber-staging CUCUMBER_VERSION=\$(cat ../current) && docker compose -p cucumber-staging --env-file ../secrets.env -f deploy/compose.server.yaml exec app python manage.py cucumber_admin"'
+# production
+ssh -t cucumber-server 'bash -lc "cd ~/cucumber/production/src && export IMAGE_NAME=cucumber-production CUCUMBER_VERSION=\$(cat ../current) && docker compose -p cucumber-production --env-file ../secrets.env -f deploy/compose.server.yaml exec app python manage.py cucumber_admin"'
+```
+
+Away from the home or lab network, use `cucumber-staging-remote` or
+`cucumber-server-remote`. Use a different password on staging and
+production, and save each in Bitwarden. First used on staging 2026-10-19
+(U0.5 G5).
 
 ## Restore a copy (production)
 
