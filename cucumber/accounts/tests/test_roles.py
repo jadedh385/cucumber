@@ -9,6 +9,7 @@ import importlib
 import logging
 from types import ModuleType
 from typing import Any
+from unittest import mock
 
 import pytest
 from django.apps import apps
@@ -71,7 +72,7 @@ def test_undoing_the_roles_is_refused_while_anyone_holds_one(role: str) -> None:
     """Dropping a group would silently take people's roles away (§6.1)."""
     make_staff("gene", role)
 
-    with pytest.raises(RuntimeError, match="1"):
+    with pytest.raises(RuntimeError, match=r"\b1\b.*(account|role)"):
         migration("0005_roles").remove_roles(apps, None)
 
     assert Group.objects.filter(name=role).exists()
@@ -354,6 +355,42 @@ def test_adding_an_account_logs_its_role_after_it(
         f"account added account={pk} by={owner.pk}",
         f"role changed account={pk} from=none to=tech by={owner.pk}",
     ]
+
+
+# ------------------------------------- AC7: the last Admin, step by step
+def test_the_last_active_admin_keeps_the_role_even_past_a_stale_check(
+    owner: User,
+) -> None:
+    """The check made after the locks, not only the one at the door (§5.1).
+
+    Mali passed the Admin check a moment ago (a stale page, or two Admins at
+    once) and has since lost the role: the Owner is now the last Admin.
+    """
+    mali = make_staff("mali", "tech")
+    stale = Standing(mali.pk, True, Role.ADMIN)
+
+    with (
+        mock.patch("cucumber.accounts.services.require", return_value=stale),
+        refused("account_last_admin"),
+    ):
+        set_role(mali, owner, Role.TECH)
+
+    assert roles_of(owner) == ["admin"]
+
+
+def test_the_last_active_admin_is_not_deactivated_past_a_stale_check(
+    owner: User,
+) -> None:
+    mali = make_staff("mali", "tech")
+    stale = Standing(mali.pk, True, Role.ADMIN)
+
+    with (
+        mock.patch("cucumber.accounts.services.require", return_value=stale),
+        refused("account_last_admin"),
+    ):
+        deactivate(mali, owner)
+
+    assert User.objects.get(pk=owner.pk).is_active
 
 
 # ------------------------------------------------- AC7: two Admins at once

@@ -4,13 +4,20 @@ The form field is `role`, one radio button per role by its group name, and
 on an existing account also `none` for no role. Adding offers only the four.
 """
 
+import html
 import re
 
 import pytest
 from django.contrib.auth.models import User
 from django.test import Client
 
-from cucumber.accounts.tests.helpers import PASSWORD, STAFF, signed_in, text
+from cucumber.accounts.tests.helpers import (
+    PASSWORD,
+    STAFF,
+    Response,
+    signed_in,
+    text,
+)
 from cucumber.core.tests.stock import make_staff
 
 pytestmark = pytest.mark.django_db
@@ -27,18 +34,52 @@ def roles_of(user: User) -> list[str]:
     return sorted(User.objects.get(pk=user.pk).groups.values_list("name", flat=True))
 
 
+def role_radios(html: str) -> list[str]:
+    """Every `<input>` tag that is a radio button named `role`, any attribute order."""
+    tags = re.findall(r"<input\b[^>]*>", html)
+    return [
+        tag
+        for tag in tags
+        if re.search(r'\btype="radio"', tag) and re.search(r'\bname="role"', tag)
+    ]
+
+
 def radio_values(html: str) -> set[str]:
-    return set(re.findall(r'type="radio"[^>]*name="role"[^>]*value="([^"]*)"', html))
+    return {
+        match.group(1)
+        for tag in role_radios(html)
+        if (match := re.search(r'\bvalue="([^"]*)"', tag))
+    }
+
+
+def checked_values(html: str) -> set[str]:
+    return {
+        match.group(1)
+        for tag in role_radios(html)
+        if re.search(r"\bchecked\b", tag)
+        and (match := re.search(r'\bvalue="([^"]*)"', tag))
+    }
+
+
+def page_text(response: Response) -> str:
+    """The page as a person reads it: `&#x27;` back to an apostrophe."""
+    return html.unescape(text(response))
+
+
+def list_row_of(page: str, email: str) -> str:
+    """The Staff list's `<li>` for the account with this email."""
+    [row] = [item for item in page.split("<li") if email in item]
+    return row
 
 
 # ------------------------------------------------------------- adding (AC4)
 def test_the_add_form_asks_for_one_of_the_four_roles(owner_client: Client) -> None:
-    html = text(owner_client.get(f"{STAFF}new/"))
+    page = page_text(owner_client.get(f"{STAFF}new/"))
 
-    assert radio_values(html) == set(ROLE_LABELS)
+    assert radio_values(page) == set(ROLE_LABELS)
     for label in ROLE_LABELS.values():
-        assert label in html
-    assert "checked" not in html  # no default
+        assert label in page
+    assert checked_values(page) == set()  # no default
 
 
 def test_adding_without_a_role_is_refused_on_the_page(owner_client: Client) -> None:
@@ -74,32 +115,34 @@ def test_adding_with_a_role_gives_it(owner_client: Client) -> None:
 # ---------------------------------------------- the list and the page (AC4)
 def test_the_list_shows_each_account_s_role(owner_client: Client, gene: User) -> None:
     make_staff("mali", None)
+    make_staff("pim", "read_only")
 
-    html = text(owner_client.get(STAFF))
+    page = page_text(owner_client.get(STAFF))
 
-    assert "Admin" in html
-    assert "Tech" in html
-    assert "No role" in html
+    assert "Admin" in list_row_of(page, "jade@example.com")
+    assert "Tech" in list_row_of(page, "gene@example.com")
+    assert "Read Only" in list_row_of(page, "pim@example.com")
+    assert "No role" in list_row_of(page, "mali@example.com")
 
 
 def test_an_account_s_page_offers_every_role_and_no_role(
     owner_client: Client, gene: User
 ) -> None:
-    html = text(owner_client.get(f"{STAFF}{gene.pk}/"))
+    page = page_text(owner_client.get(f"{STAFF}{gene.pk}/"))
 
-    assert f'action="{STAFF}{gene.pk}/role/"' in html
-    assert radio_values(html) == {*ROLE_LABELS, "none"}
-    assert re.search(r'value="tech"[^>]*checked|checked[^>]*value="tech"', html)
+    assert f'action="{STAFF}{gene.pk}/role/"' in page
+    assert radio_values(page) == {*ROLE_LABELS, "none"}
+    assert checked_values(page) == {"tech"}
 
 
 def test_your_own_page_shows_your_role_without_a_form(
     owner_client: Client, owner: User
 ) -> None:
-    html = text(owner_client.get(f"{STAFF}{owner.pk}/"))
+    page = page_text(owner_client.get(f"{STAFF}{owner.pk}/"))
 
-    assert "You can't change your own role." in html
-    assert f"{STAFF}{owner.pk}/role/" not in html
-    assert radio_values(html) == set()
+    assert "You can't change your own role." in page
+    assert f"{STAFF}{owner.pk}/role/" not in page
+    assert radio_values(page) == set()
 
 
 # ---------------------------------------------------- changing it (AC4, AC7)
@@ -120,7 +163,7 @@ def test_changing_a_role_saves_it_and_says_so(
     assert response.status_code == 302
     assert response["Location"] == f"{STAFF}{gene.pk}/"
     assert roles_of(gene) == ([] if role == "none" else [role])
-    assert message in text(owner_client.get(response["Location"]))
+    assert message in page_text(owner_client.get(response["Location"]))
 
 
 def test_changing_your_own_role_is_refused_on_the_page(
@@ -132,7 +175,7 @@ def test_changing_your_own_role_is_refused_on_the_page(
         f"{STAFF}{owner.pk}/role/", {"role": "tech"}, follow=True
     )
 
-    assert "You can't change your own role." in text(response)
+    assert "You can't change your own role." in page_text(response)
     assert roles_of(owner) == ["admin"]
 
 

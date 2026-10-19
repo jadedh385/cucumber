@@ -109,13 +109,36 @@ def test_every_named_row_is_a_matrix_row() -> None:
             assert row_name(address) in ROWS, name
 
 
-def test_the_role_page_is_for_managing_users() -> None:
-    assert row_name("/staff/1/role/") == Permission.MANAGE_USERS
+# Design §7, typed in again, so a page can't pass with the wrong row.
+PAGE_ROWS = {
+    "home": Permission.OWN_ACCOUNT,
+    "logout": Permission.OWN_ACCOUNT,
+    "password": Permission.OWN_ACCOUNT,
+    "staff": Permission.MANAGE_USERS,
+    "staff_new": Permission.MANAGE_USERS,
+    "staff_detail": Permission.MANAGE_USERS,
+    "staff_deactivate": Permission.MANAGE_USERS,
+    "staff_reactivate": Permission.MANAGE_USERS,
+    "staff_new_password": Permission.MANAGE_USERS,
+    "staff_role": Permission.MANAGE_USERS,
+    "staff_unlock": Permission.MANAGE_USERS,
+}
 
 
-@pytest.mark.parametrize("address", ["/", "/accounts/logout/", "/accounts/password/"])
-def test_your_own_account_pages_are_for_everyone_signed_in(address: str) -> None:
-    assert row_name(address) == Permission.OWN_ACCOUNT
+def test_each_page_has_the_row_the_design_gives_it() -> None:
+    rows = {
+        name: row_name(address)
+        for name, address in every_page()
+        if name not in OPEN_PAGES
+    }
+
+    assert rows == PAGE_ROWS
+
+
+@override_settings(ROOT_URLCONF="cucumber.accounts.tests.urls")
+def test_the_test_only_save_page_has_a_row_too() -> None:
+    """It stands in for a page that saves, so the walk covers it (§3.2)."""
+    assert row_name("/test-only/save/") == Permission.LOG_WORK
 
 
 @override_settings(ROOT_URLCONF="cucumber.accounts.tests.urls_without_row")
@@ -278,4 +301,6 @@ def test_nothing_about_the_role_is_kept_in_the_session() -> None:
 
     stored = dict(client.session.items())
 
-    assert not any("role" in key or "tech" == value for key, value in stored.items())
+    role_names = {str(role) for role in Role}
+    assert not any("role" in key for key in stored)
+    assert not any(str(value) in role_names for value in stored.values())

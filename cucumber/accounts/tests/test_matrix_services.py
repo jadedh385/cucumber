@@ -22,13 +22,20 @@ from cucumber.accounts.permissions import (
     Role,
     Row,
 )
-from cucumber.accounts.services import add_account
+from cucumber.accounts.services import (
+    add_account,
+    deactivate,
+    give_new_password,
+    lift_lock,
+    reactivate,
+    set_role,
+)
 from cucumber.core.refusals import Refused
 from cucumber.core.tests.rows import as_int, fetch_one, insert, make_event
 from cucumber.core.tests.stock import intake_into_new_batch, log, make_staff
 from cucumber.events.models import Event
 from cucumber.events.reviews import review
-from cucumber.events.services import correct, void
+from cucumber.events.services import close, correct, split, void
 from cucumber.plants.services import issue_next_sku, reclassify_genus
 
 pytestmark = pytest.mark.django_db
@@ -206,8 +213,87 @@ def test_each_person_may_do_exactly_what_their_row_allows(
     got = outcome(probe, who, stock, prepared)
 
     assert got == want
-    if want != SAVED:
+    if want == SAVED:
+        assert written() != before, "allowed, yet nothing was written"
+    else:
         assert written() == before
+
+
+# Every other way into a row's action, so no service can skip the check.
+# Only the refused cells are tried: an allowed Close would need a batch at 0.
+OTHER_WAYS_IN: dict[str, tuple[Permission, Probe]] = {
+    "split": (
+        Permission.SPLIT_CLOSE_LOSS,
+        Probe(lambda who, s, _: split(uuid.uuid4(), who, s.batch, 1, note="sold")),
+    ),
+    "close": (
+        Permission.SPLIT_CLOSE_LOSS,
+        Probe(lambda who, s, _: close(uuid.uuid4(), who, s.batch)),
+    ),
+    "quarantine": (
+        Permission.SPLIT_CLOSE_LOSS,
+        Probe(lambda who, s, _: log(who, s.batch, "quarantine", qty_out=1)),
+    ),
+    "void others": (
+        Permission.VOID_OR_CORRECT,
+        Probe(lambda who, s, _: void(who, s.others_entry, "void_wrong_batch")),
+        # A Tech meets the Void tree here, not the row (its own tests).
+    ),
+    "deactivate": (
+        Permission.MANAGE_USERS,
+        Probe(lambda who, s, _: deactivate(who, other_tech())),
+    ),
+    "reactivate": (
+        Permission.MANAGE_USERS,
+        Probe(lambda who, s, _: reactivate(who, other_tech())),
+    ),
+    "give_new_password": (
+        Permission.MANAGE_USERS,
+        Probe(lambda who, s, _: give_new_password(who, other_tech())),
+    ),
+    "lift_lock": (
+        Permission.MANAGE_USERS,
+        Probe(lambda who, s, _: lift_lock(who, other_tech())),
+    ),
+    "set_role": (
+        Permission.MANAGE_USERS,
+        Probe(lambda who, s, _: set_role(who, other_tech(), Role.SUPERVISOR)),
+    ),
+}
+
+
+def other_tech() -> User:
+    return User.objects.get(username=OTHER_TECH)
+
+
+def refused_cells() -> list[tuple[str, Person]]:
+    cells = []
+    for way, (permission, _) in OTHER_WAYS_IN.items():
+        for person in PEOPLE:
+            refused_role = person.role not in ROWS[permission].allowed
+            if way == "void others" and person.role == Role.TECH:
+                continue
+            if refused_role or not person.is_active:
+                cells.append((way, person))
+    return cells
+
+
+@pytest.mark.parametrize(
+    ("way", "person"),
+    refused_cells(),
+    ids=[f"{way}-{person.fixture}" for way, person in refused_cells()],
+)
+def test_every_way_into_a_row_is_refused_the_same(
+    way: str, person: Person, stock: Stock, request: pytest.FixtureRequest
+) -> None:
+    who: User = request.getfixturevalue(person.fixture)
+    permission, probe = OTHER_WAYS_IN[way]
+    before = written()
+
+    got = outcome(probe, who, stock, 0)
+
+    assert got == expected(ROWS[permission], probe, person)
+    assert written() == before
 
 
 @pytest.mark.parametrize(
