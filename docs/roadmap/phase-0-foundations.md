@@ -115,6 +115,7 @@ exits · *Gate focus* = unit-specific checks on top of [the standard gates](gate
 
 ### U0.6 · Roles & permissions
 - **Size:** M · **Deps:** U0.5 · **Decisions:** D-03
+- **Spec:** [u0.6-spec.md](units/u0.6-spec.md) (G0 passed 2026-10-19)
 - **Source:** SOP §7, deck 05 "Role Access Control"
 - **Scope:** 4 tiers enforced server-side on every endpoint. Master permission
   matrix lives here; every later unit adds rows at its G1.
@@ -123,14 +124,14 @@ exits · *Gate focus* = unit-specific checks on top of [the standard gates](gate
 |---|:-:|:-:|:-:|:-:|
 | Register plant, create batch, log events | ✅ | ✅ | ✅ | — |
 | Promote / demote / retire plant, assign SKU | ✅ | — | — | — |
-| Review events, add corrections | ✅ | ✅ except events they did or saved (D-03, U0.2 M5) | — | — |
+| Review events; void or correct them (SOP §7) | ✅ | ✅ except events they did or saved (D-03, U0.2 M5) | — | — |
 | Split, close, record loss | ✅ | ✅ | ✅ | — |
 | Undo an entry they saved, within 10 minutes (D-07) | ✅ | ✅ | ✅ | — |
 | Review Voids (including Undo) | ✅ | — | — | — |
 | Reclassify a plant's genus (new SKU) | ✅ | — | — | — |
 | Complete the Zoho link (vendor, `zoho_ref`) | ✅ | — | — | — |
 | Enter work done by another staff member | ✅ | ✅ | — | — |
-| Release a batch from quarantine | ✅ | ? | ? | — |
+| Release a batch from quarantine (SOP-9, U0.6 Q2) | ✅ | ✅ | ✅ | — |
 | Edit reference lists | ✅ | — | — | — |
 | See Zoho references | ✅ | — | — | — |
 | View dashboards | ✅ | ✅ | ✅ | ✅ |
@@ -139,7 +140,8 @@ exits · *Gate focus* = unit-specific checks on top of [the standard gates](gate
 
 - **Acceptance:** every endpoint has a permission test for each role (allowed and denied);
   a Supervisor can't review or correct an event they did or saved (D-03).
-  Rows marked **?** are decided at U0.6 G1 (added by U0.2 architect review M6).
+  The quarantine-release row was **?** (U0.2 architect review M6); settled at U0.6 G0 (Q2).
+  One role per account (Q1); more than one Admin allowed (Q3).
 - **Granting and removing roles** (Owner 2026-10-12): the Admin gives, changes
   or removes a user's role; the change applies on the user's next request
   (no stale session keeps the old role); every change is recorded (who, when,
