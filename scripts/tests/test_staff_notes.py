@@ -25,6 +25,15 @@ def pr_body(note: str) -> str:
     )
 
 
+CLAUDE_FOOTER = "🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+
+
+def pr_body_with_footer(note: str) -> str:
+    """A body ending like PRs #36 and #37: the staff note is last, then the footer."""
+    summary = "## Summary\n\nTechnical summary.\n\n"
+    return f"{summary}## Staff note\n{note}\n\n{CLAUDE_FOOTER}\n"
+
+
 def test_pr_numbers_come_from_squash_commit_endings() -> None:
     log = (
         "feat: split a batch (#12)\n"
@@ -48,6 +57,33 @@ def test_a_note_over_several_lines_becomes_one_line() -> None:
 @pytest.mark.parametrize("note", ["None", "none", "None.", ""])
 def test_none_or_empty_note_is_skipped(note: str) -> None:
     assert staff_note(pr_body(note)) is None
+
+
+@pytest.mark.parametrize(
+    "note", ["Nothing for staff", "Nothing for staff.", "NOTHING FOR STAFF."]
+)
+def test_nothing_for_staff_counts_as_no_note(note: str) -> None:
+    assert staff_note(pr_body(note)) is None
+
+
+def test_the_footer_is_never_part_of_a_note() -> None:
+    # PRs #36 and #37 (release 2026.10.2) ended exactly like this.
+    assert staff_note(pr_body_with_footer("Nothing for staff.")) is None
+
+
+def test_a_real_note_keeps_only_the_note_when_a_footer_follows() -> None:
+    body = pr_body_with_footer("You can now split a batch for a pre-order.")
+    assert staff_note(body) == "You can now split a batch for a pre-order."
+
+
+def test_a_note_over_several_lines_still_works_with_a_footer() -> None:
+    body = pr_body_with_footer("Losses now need a reason.\nSee SOP §6.4.")
+    assert staff_note(body) == "Losses now need a reason. See SOP §6.4."
+
+
+def test_a_horizontal_rule_ends_the_note() -> None:
+    body = "## Staff note\n\nStaff can now log in.\n\n---\nSigned off by Jade\n"
+    assert staff_note(body) == "Staff can now log in."
 
 
 def test_a_sentence_starting_with_none_is_kept() -> None:
