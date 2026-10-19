@@ -9,6 +9,7 @@ from django.conf import settings
 from django.contrib.auth.models import User
 from django.test import Client
 
+from cucumber.accounts.permissions import Role
 from cucumber.accounts.services import (
     add_account,
     deactivate,
@@ -109,7 +110,7 @@ def test_a_logout(gene: User, lines: Lines) -> None:
 def test_account_changes_name_the_account_and_who_did_it(
     owner: User, gene: User, lines: Lines
 ) -> None:
-    mali = add_account(owner, "Mali", "mali@example.com").account
+    mali = add_account(owner, "Mali", "mali@example.com", Role.TECH).account
     deactivate(owner, gene)
     reactivate(owner, gene)
     give_new_password(owner, gene)
@@ -117,10 +118,11 @@ def test_account_changes_name_the_account_and_who_did_it(
 
     assert lines() == [
         f"account added account={mali.pk} by={owner.pk}",
+        f"role changed account={mali.pk} from=none to=tech by={owner.pk}",
         f"account deactivated account={gene.pk} by={owner.pk}",
         f"account reactivated account={gene.pk} by={owner.pk}",
         f"password given account={gene.pk} by={owner.pk}",
-        f"lock lifted account={gene.pk} by={owner.pk}",
+        f"lock lifted account={gene.pk} by={owner.pk} addresses=0",
     ]
 
 

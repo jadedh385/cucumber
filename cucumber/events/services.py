@@ -120,13 +120,18 @@ def save_operation(
     written, when they depend on a batch read under its lock (see `split`).
     """
     return save_once(
-        operation_id, lambda: write_operation(operation_id, recorded_by, entries)
+        operation_id,
+        recorded_by,
+        lambda: write_operation(operation_id, recorded_by, entries),
     )
 
 
-def save_once(operation_id: uuid.UUID, write: Callable[[], Saved]) -> Saved:
+def save_once(
+    operation_id: uuid.UUID, recorded_by: User, write: Callable[[], Saved]
+) -> Saved:
     """Run `write` in one transaction. A resent `operation_id` writes nothing
-    and gets the original result instead (§3.3)."""
+    and gets the original result instead (§3.3), but only if `recorded_by`
+    saved it first (U0.6 design §4.3: `operation_saved_by_other`)."""
     try:
         with database_refusals(), transaction.atomic():
             return write()
@@ -383,6 +388,7 @@ def void(
     operation_id = operation_id or uuid.uuid4()
     return save_once(
         operation_id,
+        recorded_by,
         lambda: write_void(operation_id, recorded_by, event_id, reason_code, note),
     )
 
@@ -482,6 +488,7 @@ def correct(
     changes = Restated(qty_in, qty_out, counted_qty, media_code, stage_to, occurred_at)
     return save_once(
         operation_id,
+        recorded_by,
         lambda: write_correction(
             operation_id, recorded_by, event_id, reason_code, changes, note
         ),

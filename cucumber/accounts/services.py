@@ -29,6 +29,7 @@ from django.db.models.functions import Now
 from django.http import HttpRequest
 
 from cucumber.accounts.models import LoginFailure, PasswordChangeDue
+from cucumber.accounts.permissions import Role
 from cucumber.core.refusals import refuse
 
 logger = logging.getLogger(__name__)
@@ -110,10 +111,10 @@ def checked_email(email: str) -> str:
     return key
 
 
-def add_account(by: User, name: str, email: str) -> NewAccount:
-    """Add an account with a temporary password it must change (AC22).
+def add_account(by: User, name: str, email: str, role: Role | None) -> NewAccount:
+    """Add an account with a role and a temporary password it must change.
 
-    The account has no role yet (U0.6), so it sees only the home page.
+    U0.5 AC22; the role is U0.6 AC4 (required: one of the four).
     """
     require_admin(by)
     key = checked_email(email)
@@ -149,6 +150,15 @@ def deactivate(by: User, account: User) -> None:
         User.objects.filter(pk=account.pk).update(is_active=False)
         end_sessions_of(account)
     logger.info("account deactivated account=%s by=%s", account.pk, by.pk)
+
+
+def set_role(by: User, account: User, role: Role | None) -> None:
+    """Give `account` one role, or none (U0.6 design §5.1, AC4–AC7).
+
+    Never your own (`account_cannot_change_own_role`), and never takes the
+    Admin role from the last active Admin (`account_last_admin`).
+    """
+    raise NotImplementedError("U0.6 G3")
 
 
 def is_last_active_admin(account: User) -> bool:

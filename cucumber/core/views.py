@@ -33,3 +33,9 @@ def server_error(request: HttpRequest) -> HttpResponse:
     processors, and with them the "Practice data" banner, never run.
     """
     return render(request, "500.html", status=500)
+
+
+@requires_csrf_token
+def permission_denied(request: HttpRequest, exception: Exception) -> HttpResponse:
+    """The 403 page: "You don't have access to this page." (U0.6 AC10)."""
+    raise NotImplementedError("U0.6 G3")

@@ -183,6 +183,66 @@ def test_a_closed_keyboard_stops_cleanly_and_adds_nothing() -> None:
     assert User.objects.count() == 0
 
 
+def roles_of(user: User) -> list[str]:
+    return sorted(User.objects.get(pk=user.pk).groups.values_list("name", flat=True))
+
+
+# ------------------------------------------------ U0.6 AC9: one role only
+def test_the_first_admin_has_only_the_admin_role() -> None:
+    run_command(Answers("jade@example.com"))
+
+    assert roles_of(User.objects.get(username="jade@example.com")) == ["admin"]
+
+
+@pytest.mark.parametrize("role", ["tech", "supervisor", "read_only"])
+def test_promoting_replaces_the_role_the_account_had(role: str) -> None:
+    gene = make_staff("gene", role, "genes-own-pw-55")
+
+    run_command(Answers("gene@example.com", "Gene", promote="y"))
+
+    assert roles_of(gene) == ["admin"]
+
+
+def test_promoting_an_account_without_a_role_gives_it_admin() -> None:
+    gene = make_staff("gene", None, "genes-own-pw-55")
+
+    run_command(Answers("gene@example.com", "Gene", promote="y"))
+
+    assert roles_of(gene) == ["admin"]
+
+
+def test_promoting_logs_the_role_change_by_the_command(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    gene = make_staff("gene", "tech", "genes-own-pw-55")
+    caplog.set_level(logging.INFO, logger="cucumber.accounts")
+
+    run_command(Answers("gene@example.com", "Gene", promote="y"))
+
+    assert f"role changed account={gene.pk} from=tech to=admin by=command" in (
+        caplog.messages
+    )
+
+
+def test_rescuing_an_admin_logs_no_role_change(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    make_staff("jade", "admin", "forgotten-pw-77")
+    caplog.set_level(logging.INFO, logger="cucumber.accounts")
+
+    run_command(Answers("jade@example.com"))
+
+    assert not any(m.startswith("role changed") for m in caplog.messages)
+
+
+# -------------------------------------------- U0.6 AC17: name too long
+def test_a_name_over_150_characters_is_refused_and_nothing_is_added() -> None:
+    with pytest.raises(CommandError, match="150"):
+        run_command(Answers("jade@example.com", "J" * 151))
+
+    assert not User.objects.filter(username="jade@example.com").exists()
+
+
 def test_a_closed_keyboard_at_the_password_stops_cleanly() -> None:
     def no_more_input(prompt: str = "") -> str:
         raise EOFError

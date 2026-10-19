@@ -109,7 +109,10 @@ def staff_new(request: HttpRequest) -> HttpResponse:
     if request.method == "POST" and form.is_valid():
         try:
             added = services.add_account(
-                by, form.cleaned_data["name"], form.cleaned_data["email"]
+                by,
+                form.cleaned_data["name"],
+                form.cleaned_data["email"],
+                form.cleaned_data.get("role"),
             )
         except Refused as refusal:
             form.add_error("email", refusal.message)
@@ -190,6 +193,12 @@ def staff_new_password(request: HttpRequest, account_id: int) -> HttpResponse:
         messages.error(request, refusal_text(refusal))
         return redirect("staff_detail", account_id=account.pk)
     return temporary_password_page(request, account, temporary)
+
+
+@require_POST
+def staff_role(request: HttpRequest, account_id: int) -> HttpResponse:
+    """Change or remove an account's role (U0.6 AC4); back to its page."""
+    raise NotImplementedError("U0.6 G3")
 
 
 @require_POST

@@ -9,7 +9,7 @@ import pytest
 from django.contrib.auth.models import User
 
 from cucumber.core.tests.rows import give_sku, insert, issue_sku, make_plant, refused_by
-from cucumber.core.tests.stock import refused
+from cucumber.core.tests.stock import not_allowed, refused
 from cucumber.plants.models import Plant, PlantStatusChange, Sku
 from cucumber.plants.services import find_by_sku, former_skus, reclassify_genus
 
@@ -111,7 +111,7 @@ def test_a_plant_without_an_sku_changes_genus_without_one(
 
 
 def test_only_the_admin_can_reclassify(phl005: int, ant: str, supervisor: User) -> None:
-    with refused("admin_only"):
+    with not_allowed("role_not_allowed"):
         reclassify_genus(supervisor, phl005, ant)
     stored = Plant.objects.get(pk=phl005)
     assert (stored.genus_id, stored.sku_id) == ("PHL", "PHL005")

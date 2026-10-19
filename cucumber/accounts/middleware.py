@@ -128,3 +128,20 @@ class PasswordChangeDue(MiddlewareMixin):
         if is_htmx(request):
             return htmx_redirect(request, password_page)
         return HttpResponseRedirect(password_page)
+
+
+class RoleRequired(MiddlewareMixin):
+    """Each page's matrix row must allow the person's role (U0.6 design §3.1).
+
+    After PasswordChangeDue. A page with no row is refused too, and logged.
+    Refusals raise PermissionDenied, so `handler403` makes the page (AC10).
+    """
+
+    def process_view(
+        self,
+        request: HttpRequest,
+        view_func: Callable[..., Any],
+        view_args: tuple[Any, ...],
+        view_kwargs: dict[str, Any],
+    ) -> HttpResponse | None:
+        raise NotImplementedError("U0.6 G3")

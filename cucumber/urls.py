@@ -38,5 +38,6 @@ urlpatterns = [
         accounts.staff_new_password,
         name="staff_new_password",
     ),
+    path("staff/<int:account_id>/role/", accounts.staff_role, name="staff_role"),
     path("staff/<int:account_id>/unlock/", accounts.staff_unlock, name="staff_unlock"),
 ]

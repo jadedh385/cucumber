@@ -131,12 +131,12 @@ def test_a_void_that_takes_the_batch_below_zero_is_refused(
 
 
 def test_a_correction_restates_a_value_and_the_count_follows(
-    plant: int, tech: User
+    plant: int, tech: User, supervisor: User
 ) -> None:
     batch = intake_into_new_batch(tech, plant, 10)
     out = log(tech, batch, "out", qty_out=3)
 
-    saved = correct(tech, out, "correction_wrong_quantity", qty_out=1)
+    saved = correct(supervisor, out, "correction_wrong_quantity", qty_out=1)
 
     [fix] = Event.objects.filter(pk__in=saved.event_ids)
     assert (fix.action, fix.corrects_event_id, fix.batch_id) == (
@@ -149,11 +149,11 @@ def test_a_correction_restates_a_value_and_the_count_follows(
 
 
 def test_m1_a_correction_that_doesn_t_fix_the_date_keeps_the_original_s(
-    plant: int, tech: User
+    plant: int, tech: User, supervisor: User
 ) -> None:
     batch = intake_into_new_batch(tech, plant, 10, occurred_at=days_ago(4, 9))
     out = log(tech, batch, "out", qty_out=3, occurred_at=days_ago(3, 9))
-    saved = correct(tech, out, "correction_wrong_quantity", qty_out=2)
+    saved = correct(supervisor, out, "correction_wrong_quantity", qty_out=2)
     fix = Event.objects.get(pk=saved.event_ids[0])
     assert fix.occurred_at == days_ago(3, 9)
 
@@ -169,11 +169,13 @@ def test_q5_a_reviewer_s_date_fix_may_go_back_more_than_7_days(
     assert (effective.id, effective.occurred_at) == (first, three_weeks_ago)
 
 
-def test_a_second_correction_keeps_the_first_one_s_fix(plant: int, tech: User) -> None:
+def test_a_second_correction_keeps_the_first_one_s_fix(
+    plant: int, tech: User, supervisor: User
+) -> None:
     batch = new_lab_batch(tech, plant, 10)
     added = log(tech, batch, "intake", qty_in=5, stage_to="P2", media_code="M001")
-    correct(tech, added, "correction_wrong_media_code", media_code="M002")
-    correct(tech, added, "correction_wrong_quantity", qty_in=4)
+    correct(supervisor, added, "correction_wrong_media_code", media_code="M002")
+    correct(supervisor, added, "correction_wrong_quantity", qty_in=4)
     effective = next(e for e in Event.objects.effective_events(batch) if e.id == added)
     assert (effective.qty_in, effective.media_code) == (4, "M002")
     assert live_count(batch) == 14
@@ -184,7 +186,7 @@ def test_a_second_correction_keeps_the_first_one_s_fix(plant: int, tech: User) -
 
 @pytest.mark.parametrize("side", ["split", "intake"])
 def test_ac16f_correcting_a_split_corrects_both_sides(
-    plant: int, tech: User, side: str
+    plant: int, tech: User, side: str, supervisor: User
 ) -> None:
     parent = intake_into_new_batch(tech, plant, 100)  # B010
     saved = split(uuid.uuid4(), tech, parent, 40, note="pre-order")
@@ -193,9 +195,13 @@ def test_ac16f_correcting_a_split_corrects_both_sides(
     moved_in = Event.objects.get(operation_id=saved.operation_id, action="intake")
 
     if side == "split":
-        result = correct(tech, moved_out.pk, "correction_wrong_quantity", qty_out=30)
+        result = correct(
+            supervisor, moved_out.pk, "correction_wrong_quantity", qty_out=30
+        )
     else:
-        result = correct(tech, moved_in.pk, "correction_wrong_quantity", qty_in=30)
+        result = correct(
+            supervisor, moved_in.pk, "correction_wrong_quantity", qty_in=30
+        )
 
     fixes = Event.objects.filter(pk__in=result.event_ids)
     assert {(f.batch_id, f.corrects_event_id, f.qty_in, f.qty_out) for f in fixes} == {
@@ -207,17 +213,17 @@ def test_ac16f_correcting_a_split_corrects_both_sides(
 
 
 def test_a_quantity_correction_of_a_subculture_leaves_its_children(
-    subcultured: Subcultured, tech: User
+    subcultured: Subcultured, tech: User, supervisor: User
 ) -> None:
     used = subcultured.saved.event_ids[0]
-    result = correct(tech, used, "correction_wrong_quantity", qty_out=2)
+    result = correct(supervisor, used, "correction_wrong_quantity", qty_out=2)
     assert len(result.event_ids) == 1
     assert live_count(subcultured.parent) == 8
     assert [live_count(child) for child in subcultured.children] == [4, 4, 4]
 
 
 def test_a_paired_correction_that_takes_the_child_below_zero_is_refused(
-    plant: int, tech: User
+    plant: int, tech: User, supervisor: User
 ) -> None:
     parent = intake_into_new_batch(tech, plant, 100)
     saved = split(uuid.uuid4(), tech, parent, 40, note="pre-order")
@@ -225,7 +231,7 @@ def test_a_paired_correction_that_takes_the_child_below_zero_is_refused(
     log(tech, child, "out", qty_out=35)
     moved_out = Event.objects.get(operation_id=saved.operation_id, action="split")
     with refused("batch_count_not_negative"):
-        correct(tech, moved_out.pk, "correction_wrong_quantity", qty_out=30)
+        correct(supervisor, moved_out.pk, "correction_wrong_quantity", qty_out=30)
     assert (live_count(parent), live_count(child)) == (60, 5)
 
 
@@ -263,43 +269,46 @@ def test_voiding_an_event_before_a_count_changes_only_the_difference(
 
 
 def test_correcting_an_event_before_a_count_changes_only_the_difference(
-    loss_before_count: Counted, tech: User
+    loss_before_count: Counted, tech: User, supervisor: User
 ) -> None:
-    correct(tech, loss_before_count.loss, "correction_wrong_quantity", qty_out=2)
+    correct(supervisor, loss_before_count.loss, "correction_wrong_quantity", qty_out=2)
     assert live_count(loss_before_count.batch) == 98
     assert count_difference(loss_before_count.count_event) == 0
 
 
-def test_correcting_a_count_sets_the_total(plant: int, tech: User) -> None:
+def test_correcting_a_count_sets_the_total(
+    plant: int, tech: User, supervisor: User
+) -> None:
     batch = intake_into_new_batch(tech, plant, 10)
     count = log(tech, batch, "count", counted_qty=8)
-    correct(tech, count, "correction_wrong_quantity", counted_qty=9)
+    correct(supervisor, count, "correction_wrong_quantity", counted_qty=9)
     assert live_count(batch) == 9
     assert count_difference(count) == -1
 
 
 def test_a_correction_that_takes_the_batch_below_zero_is_refused(
-    plant: int, tech: User
+    plant: int, tech: User, supervisor: User
 ) -> None:
     batch = intake_into_new_batch(tech, plant, 5)
     out = log(tech, batch, "out", qty_out=3)
     with refused("batch_count_not_negative"):
-        correct(tech, out, "correction_wrong_quantity", qty_out=6)
+        correct(supervisor, out, "correction_wrong_quantity", qty_out=6)
     assert live_count(batch) == 2
 
 
 def test_corrections_point_at_the_original_never_at_a_fix(
-    plant: int, tech: User
+    plant: int, tech: User, admin: User
 ) -> None:
+    """By the Admin, who has no "not your own" rule to meet first (U0.6)."""
     batch = intake_into_new_batch(tech, plant, 10)
     out = log(tech, batch, "out", qty_out=3)
-    fix = correct(tech, out, "correction_wrong_quantity", qty_out=2).event_ids[0]
+    fix = correct(admin, out, "correction_wrong_quantity", qty_out=2).event_ids[0]
     with refused("event_not_correctable"):
-        correct(tech, fix, "correction_wrong_quantity", qty_out=1)
+        correct(admin, fix, "correction_wrong_quantity", qty_out=1)
     other = log(tech, batch, "out", qty_out=1)
     the_void = void(tech, other, "void_wrong_batch").event_ids[0]
     with refused("event_not_correctable"):
-        correct(tech, the_void, "correction_wrong_quantity", qty_out=1)
+        correct(admin, the_void, "correction_wrong_quantity", qty_out=1)
 
 
 # ------------------------------------------------- G4 review: bad requests

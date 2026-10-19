@@ -110,7 +110,8 @@ def test_adding_an_account_shows_its_temporary_password_once(
 ) -> None:
     with caplog.at_level(logging.DEBUG):
         response = owner_client.post(
-            f"{STAFF}new/", {"name": "Mali", "email": " Mali@Example.com "}
+            f"{STAFF}new/",
+            {"name": "Mali", "email": " Mali@Example.com ", "role": "tech"},
         )
 
     assert response.status_code == 200
@@ -122,7 +123,7 @@ def test_adding_an_account_shows_its_temporary_password_once(
 
 def test_the_new_person_can_log_in_with_it(owner_client: Client) -> None:
     response = owner_client.post(
-        f"{STAFF}new/", {"name": "Mali", "email": "mali@example.com"}
+        f"{STAFF}new/", {"name": "Mali", "email": "mali@example.com", "role": "tech"}
     )
     client = Client()
 
@@ -135,7 +136,7 @@ def test_a_taken_email_is_refused_on_the_page(owner_client: Client, gene: User) 
     count = User.objects.count()
 
     response = owner_client.post(
-        f"{STAFF}new/", {"name": "Gene", "email": "GENE@example.com"}
+        f"{STAFF}new/", {"name": "Gene", "email": "GENE@example.com", "role": "tech"}
     )
 
     assert "Another account already uses this email." in text(response)

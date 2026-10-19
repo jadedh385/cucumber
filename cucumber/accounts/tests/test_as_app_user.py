@@ -14,6 +14,7 @@ from django.contrib.auth.models import Group, User
 from django.db import connection
 from django.test import Client
 
+from cucumber.accounts.permissions import Role
 from cucumber.accounts.services import (
     add_account,
     deactivate,
@@ -21,6 +22,7 @@ from cucumber.accounts.services import (
     lift_lock,
     password_chosen,
     reactivate,
+    set_role,
 )
 from cucumber.accounts.tests.helpers import (
     NEW_PASSWORD,
@@ -69,7 +71,9 @@ def test_the_staff_page_actions(people: tuple[User, User], as_app_user: None) ->
     owner, gene = people
     add_failures("gene@example.com", 5)
 
-    add_account(owner, "Mali", "mali@example.com")
+    mali = add_account(owner, "Mali", "mali@example.com", Role.TECH).account
+    set_role(owner, mali, Role.SUPERVISOR)  # U0.6: one row out, one row in
+    set_role(owner, mali, None)
     give_new_password(owner, gene)
     give_new_password(owner, gene)  # a second one while the first is still due
     lift_lock(owner, gene)
@@ -112,3 +116,14 @@ def test_the_rescue_command(people: tuple[User, User], as_app_user: None) -> Non
 
     assert User.objects.get(pk=owner.pk).check_password(NEW_PASSWORD)
     assert failures("jade@example.com") == 0
+
+
+def test_promoting_with_the_rescue_command(
+    people: tuple[User, User], as_app_user: None
+) -> None:
+    """U0.6: the command replaces the Tech role with Admin (AC9)."""
+    _, gene = people
+
+    run_command(Answers("gene@example.com", "Gene", promote="y"))
+
+    assert list(gene.groups.values_list("name", flat=True)) == ["admin"]
