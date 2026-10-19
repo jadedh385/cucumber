@@ -179,3 +179,15 @@ def test_a_login_removes_ended_sessions_and_day_old_failures(gene: User) -> None
     assert Session.objects.filter(expire_date__lt=timezone.now()).count() == 0
     assert failures("old@example.com") == 0
     assert failures("recent@example.com") == 2
+
+
+def test_a_failed_login_also_removes_day_old_failures() -> None:
+    """Without a good login the table would only grow (G4 M4)."""
+    add_failures("old@example.com", 2)
+    run("UPDATE accounts_login_failure SET at = now() - interval '25 hours'")
+    add_failures("recent@example.com", 2)
+
+    log_in(Client(), "nobody@example.com", "not-the-password")
+
+    assert failures("old@example.com") == 0
+    assert failures("recent@example.com") == 2

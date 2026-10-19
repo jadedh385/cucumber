@@ -4,13 +4,14 @@ Time is moved by ageing the counted failures (helpers.age_failures).
 """
 
 from collections.abc import Callable
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from unittest import mock
 
 import psycopg
 import pytest
 from django.contrib.auth.backends import ModelBackend
 from django.contrib.auth.models import User
+from django.db import OperationalError
 from django.http import HttpRequest
 from django.test import Client, RequestFactory, override_settings
 
@@ -40,7 +41,7 @@ from cucumber.accounts.tests.helpers import (
     text,
     without_values,
 )
-from cucumber.core.tests.rows import fetch_one
+from cucumber.core.tests.rows import fetch_one, run
 
 pytestmark = pytest.mark.django_db
 
@@ -331,3 +332,52 @@ def test_the_lock_keeps_nothing_in_process_memory() -> None:
     ]
 
     assert held == []
+
+
+# ------------------------------------------------------ G4 review (M3, M7)
+def test_the_lock_uses_the_database_clock() -> None:
+    """An app clock running ahead must not lift the lock early (G4 M7)."""
+    for _ in range(LOCK_AFTER_FAILURES):
+        login_failed(GENE, ADDRESS)
+    ahead = datetime.now(UTC) + timedelta(hours=1)
+
+    with mock.patch("django.utils.timezone.now", return_value=ahead):
+        assert locked_until(GENE) is not None
+
+
+def test_one_emails_tries_are_checked_one_at_a_time(
+    app_db: psycopg.Connection[tuple[object, ...]], gene: User
+) -> None:
+    """Tries sent at the same moment can't all pass the check (G4 M3).
+
+    Another connection holds GENE's try lock; this login must wait for it,
+    so with a short lock_timeout it gives up instead of checking the password.
+    """
+    app_db.execute(
+        "SELECT pg_advisory_lock(%s::integer, hashtext(%s))",
+        [services.LOGIN_TRY_LOCK, GENE],
+    )
+    run("SET lock_timeout = '200ms'")
+    try:
+        with pytest.raises(OperationalError):
+            log_in(Client(), GENE, "not-the-password")
+    finally:
+        run("RESET lock_timeout")
+
+    assert failures(GENE) == 0
+
+
+def test_another_emails_try_does_not_wait(
+    app_db: psycopg.Connection[tuple[object, ...]], gene: User, pim: User
+) -> None:
+    app_db.execute(
+        "SELECT pg_advisory_lock(%s::integer, hashtext(%s))",
+        [services.LOGIN_TRY_LOCK, GENE],
+    )
+    run("SET lock_timeout = '200ms'")
+    try:
+        response = log_in(Client(), "pim@example.com")
+    finally:
+        run("RESET lock_timeout")
+
+    assert response.status_code == 302

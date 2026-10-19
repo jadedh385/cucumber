@@ -26,6 +26,8 @@ class LoginFailure(models.Model):
         indexes = [
             models.Index(fields=["email_key", "at"], name="login_failure_email_at"),
             models.Index(fields=["address", "at"], name="login_failure_address_at"),
+            # The day-old clean-up deletes by time alone (G4 M4).
+            models.Index(fields=["at"], name="login_failure_at"),
         ]
 
     def __str__(self) -> str:

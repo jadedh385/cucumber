@@ -13,6 +13,7 @@ from django.apps import apps
 from django.contrib.auth.models import Group, User
 from django.db import IntegrityError, transaction
 
+from cucumber.accounts.tests.helpers import mark_change_due
 from cucumber.core.tests.rows import fetch_all, fetch_one, refused_by, run
 from cucumber.core.tests.stock import make_staff
 
@@ -229,3 +230,36 @@ def test_the_pre_check_passes_when_every_account_is_fine() -> None:
     make_staff("gene", "tech")
 
     migration("0003_auth_user_rules").refuse_bad_accounts(apps, None)
+
+
+# ------------------------------------------------------- G4 review (M4, M5)
+def test_the_failure_table_is_indexed_by_time_for_the_tidy_up() -> None:
+    """The day-old clean-up deletes by `at` alone (G4 M4)."""
+    definitions = [
+        str(row[0])
+        for row in fetch_all(
+            "SELECT indexdef FROM pg_indexes WHERE tablename = %s", [LOCK_TABLE]
+        )
+    ]
+
+    assert any(definition.endswith("(at)") for definition in definitions)
+
+
+def test_undoing_the_tables_is_allowed_when_no_change_is_due() -> None:
+    migration("0001_initial").refuse_undo_while_change_due(apps, None)
+
+
+def test_undoing_the_tables_is_refused_while_a_change_is_due() -> None:
+    """Dropping the marks would let a temporary password stay for good (G4 M5)."""
+    gene = make_staff("gene", "tech")
+    mark_change_due(gene)
+
+    with pytest.raises(RuntimeError, match=CHANGE_TABLE):
+        migration("0001_initial").refuse_undo_while_change_due(apps, None)
+
+
+def test_the_undo_check_runs_before_anything_is_dropped() -> None:
+    """Undo runs operations last-first, so the check must be the last one."""
+    last = migration("0001_initial").Migration.operations[-1]
+
+    assert last.reverse_code is migration("0001_initial").refuse_undo_while_change_due

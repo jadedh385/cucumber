@@ -4,7 +4,8 @@ Asks for an email, a name and a password (twice, hidden). Adds an Admin
 account, or resets an existing one: new password, active, unlocked, no
 change due. Asks before making someone an Admin who isn't one already.
 
-A refused answer stops the command; run it again to retry.
+A refused answer, or no answer at all (Ctrl-D, or input piped in that
+runs out), stops the command; run it again to retry.
 """
 
 import getpass
@@ -23,18 +24,28 @@ from cucumber.core.refusals import Refused
 
 logger = logging.getLogger(__name__)
 
+NO_ANSWER = "No answer was typed. Nothing was changed."
+
+
+def ask(question: str, hidden: bool = False) -> str:
+    """One answer from the terminal; a closed keyboard stops cleanly (G4 M8)."""
+    try:
+        return getpass.getpass(question) if hidden else input(question)
+    except EOFError:
+        raise CommandError(NO_ANSWER) from None
+
 
 def ask_email() -> str:
     try:
-        return checked_email(input("Email: "))
+        return checked_email(ask("Email: "))
     except Refused as refusal:
         raise CommandError(refusal.message) from None
 
 
 def ask_password(account: User) -> str:
     """The new password, typed twice and checked by Django's four rules."""
-    first = getpass.getpass("New password: ")
-    second = getpass.getpass("New password again: ")
+    first = ask("New password: ", hidden=True)
+    second = ask("New password again: ", hidden=True)
     if first != second:
         raise CommandError("The two passwords are different. Nothing was changed.")
     try:
@@ -51,13 +62,13 @@ class Command(BaseCommand):
         email = ask_email()
         existing = User.objects.filter(username=email).first()
         if existing is None:
-            name = input("Name: ").strip()
+            name = ask("Name: ").strip()
             account = User(username=email, email=email, first_name=name)
         else:
             account = existing
             if not has_role(account, ADMIN):
                 shown = account.first_name or email
-                answer = input(f"Make {shown} an Admin? [y/N] ")
+                answer = ask(f"Make {shown} an Admin? [y/N] ")
                 if answer.strip().lower() != "y":
                     self.stdout.write("Nothing was changed.")
                     return

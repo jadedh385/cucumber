@@ -32,7 +32,7 @@ from cucumber.accounts.tests.helpers import (
 )
 from cucumber.core.refusals import message_for
 from cucumber.core.tests.rows import run
-from cucumber.core.tests.stock import refused
+from cucumber.core.tests.stock import make_staff, refused
 
 pytestmark = pytest.mark.django_db
 
@@ -54,6 +54,7 @@ def fresh(user: User) -> User:
         ),
         ("account_cannot_deactivate_self", "You can't deactivate your own account."),
         ("account_cannot_reset_self", "Change your own password on the Password page."),
+        ("account_last_admin", "At least one Admin must stay active."),
         (
             "password_same_as_temporary",
             "Choose a password different from the one you were given.",
@@ -301,3 +302,44 @@ def test_a_temporary_password_that_fails_a_rule_is_made_again(gene: User) -> Non
 
     assert TEMPORARY_PASSWORD.fullmatch(password)
     assert next(calls, "used both") == "used both"
+
+
+# ------------------------------------------------------ G4 review (M2, M8)
+def test_the_last_active_admin_cannot_be_deactivated(owner: User) -> None:
+    """Two Admins switching each other off would leave nobody on Staff (G4 M2).
+
+    `mali` is a stale copy: the page Mali pressed from was drawn before the
+    Owner switched Mali off, or both pressed at the same moment.
+    """
+    mali = make_staff("mali", "admin")
+    deactivate(owner, mali)
+
+    with refused("account_last_admin"):
+        deactivate(mali, owner)
+
+    assert fresh(owner).is_active
+
+
+def test_one_admin_may_deactivate_another_while_one_stays(owner: User) -> None:
+    mali = make_staff("mali", "admin")
+
+    deactivate(owner, mali)
+
+    assert not fresh(mali).is_active
+
+
+def test_an_email_added_by_someone_else_a_moment_ago_is_refused(
+    owner: User, gene: User
+) -> None:
+    """The look-up said free, then the database said taken (G4 M8)."""
+    count = User.objects.count()
+
+    with (
+        # The Admin check uses exists() too, so it is answered separately.
+        mock.patch.object(services, "has_role", return_value=True),
+        mock.patch("django.db.models.query.QuerySet.exists", return_value=False),
+        refused("account_email_taken"),
+    ):
+        add_account(owner, "Gene again", "gene@example.com")
+
+    assert User.objects.count() == count

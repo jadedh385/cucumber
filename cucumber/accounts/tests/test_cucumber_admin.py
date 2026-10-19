@@ -166,3 +166,32 @@ def test_a_broken_email_is_refused(email: str) -> None:
         run_command(Answers(email))
 
     assert User.objects.count() == count
+
+
+def test_a_closed_keyboard_stops_cleanly_and_adds_nothing() -> None:
+    """Input piped in, or Ctrl-D: a plain message, not a traceback (G4 M8)."""
+
+    def no_more_input(prompt: str = "") -> str:
+        raise EOFError
+
+    with (
+        mock.patch("builtins.input", no_more_input),
+        pytest.raises(CommandError, match="Nothing was changed"),
+    ):
+        call_command("cucumber_admin", stdout=StringIO())
+
+    assert User.objects.count() == 0
+
+
+def test_a_closed_keyboard_at_the_password_stops_cleanly() -> None:
+    def no_more_input(prompt: str = "") -> str:
+        raise EOFError
+
+    with (
+        mock.patch("builtins.input", Answers("jade@example.com").input),
+        mock.patch("getpass.getpass", no_more_input),
+        pytest.raises(CommandError, match="Nothing was changed"),
+    ):
+        call_command("cucumber_admin", stdout=StringIO())
+
+    assert User.objects.count() == 0

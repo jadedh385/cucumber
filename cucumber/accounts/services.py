@@ -10,20 +10,23 @@ never a password, a session id or the email typed into a failed login.
 import ipaddress
 import logging
 import secrets
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
 from django.conf import settings
+from django.contrib.auth import SESSION_KEY
 from django.contrib.auth.hashers import make_password
 from django.contrib.auth.models import AnonymousUser, User
 from django.contrib.auth.password_validation import validate_password
 from django.contrib.sessions.models import Session
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.validators import validate_email
-from django.db import IntegrityError, transaction
+from django.db import IntegrityError, connection, transaction
+from django.db.models import BooleanField, ExpressionWrapper, Q
 from django.db.models.functions import Now
 from django.http import HttpRequest
-from django.utils import timezone
 
 from cucumber.accounts.models import LoginFailure, PasswordChangeDue
 from cucumber.core.refusals import refuse
@@ -39,8 +42,11 @@ SESSION_MAX_AGE = timedelta(days=30)
 LOCK_AFTER_FAILURES = 5
 LOCK_WINDOW = timedelta(minutes=15)
 ADDRESS_LIMIT = 50
-# Failures older than this are deleted at each login (§7.5).
+# Failures older than this are deleted at each login try (§7.5, G4 M4).
 FAILURES_KEPT_FOR = timedelta(days=1)
+# The first number of the PostgreSQL advisory lock that lets one email's
+# login tries through one at a time (G4 M3); the second is the email's hash.
+LOGIN_TRY_LOCK = 505
 
 # auth_user.username's size; the email is stored there (§2.1).
 LONGEST_EMAIL = 150
@@ -128,16 +134,51 @@ def add_account(by: User, name: str, email: str) -> NewAccount:
 
 
 def deactivate(by: User, account: User) -> None:
-    """Switch an account off; never your own (AC23, AC24).
+    """Switch an account off; never your own, nor the last Admin (AC23, AC24).
 
-    Its open sessions end on their next page: Django checks `is_active` each
-    time it loads the user. The account and everything it saved stay.
+    Its open sessions are removed, so switching it back on later doesn't
+    sign a lost phone back in (G4 M1). The account and everything it saved
+    stay.
     """
     require_admin(by)
     if by.pk == account.pk:
         raise refuse("account_cannot_deactivate_self")
-    User.objects.filter(pk=account.pk).update(is_active=False)
+    with transaction.atomic():
+        if is_last_active_admin(account):
+            raise refuse("account_last_admin")
+        User.objects.filter(pk=account.pk).update(is_active=False)
+        end_sessions_of(account)
     logger.info("account deactivated account=%s by=%s", account.pk, by.pk)
+
+
+def is_last_active_admin(account: User) -> bool:
+    """True when `account` is the only active Admin (G4 M2).
+
+    Locks the active Admins' rows until the transaction ends, so two Admins
+    switching each other off at the same moment are taken one at a time:
+    the second sees the first's change and is refused.
+    """
+    active_admins = list(
+        User.objects.select_for_update(of=("self",))
+        .filter(groups__name=ADMIN, is_active=True)
+        .values_list("pk", flat=True)
+    )
+    return active_admins == [account.pk]
+
+
+def end_sessions_of(account: User) -> None:
+    """Remove every open session that belongs to `account`.
+
+    A session's owner is inside its encoded data, so each open one is read;
+    there are only as many as the staff's phones.
+    """
+    owner = str(account.pk)
+    theirs = [
+        session.session_key
+        for session in Session.objects.filter(expire_date__gt=Now())
+        if session.get_decoded().get(SESSION_KEY) == owner
+    ]
+    Session.objects.filter(session_key__in=theirs).delete()
 
 
 def reactivate(by: User, account: User) -> None:
@@ -244,21 +285,25 @@ def locked_until(email: str) -> datetime | None:
 
     An email locks when its last 5 failures all fall within 15 minutes, and
     stays locked for 15 minutes after the 5th (AC7). Tries while locked
-    aren't counted, so the 5th is always the newest failure.
+    aren't counted, so the 5th is always the newest failure. "Now" is the
+    database's clock, the same one that stamped the failures (G4 M7).
     """
+    is_recent = ExpressionWrapper(
+        Q(at__gt=Now() - LOCK_WINDOW), output_field=BooleanField()
+    )
     newest_first = (
         LoginFailure.objects.filter(email_key=email_key(email))
+        .annotate(is_recent=is_recent)
         .order_by("-at")
-        .values_list("at", flat=True)
+        .values_list("at", "is_recent")
     )
-    times = list(newest_first[:LOCK_AFTER_FAILURES])
-    if len(times) < LOCK_AFTER_FAILURES:
+    rows = list(newest_first[:LOCK_AFTER_FAILURES])
+    if len(rows) < LOCK_AFTER_FAILURES:
         return None
-    fifth, first = times[0], times[-1]
-    if fifth - first > LOCK_WINDOW:
+    (fifth, fifth_is_recent), (first, _) = rows[0], rows[-1]
+    if fifth - first > LOCK_WINDOW or not fifth_is_recent:
         return None
-    until = fifth + LOCK_WINDOW
-    return until if until > timezone.now() else None
+    return fifth + LOCK_WINDOW
 
 
 def account_label(email: str) -> str:
@@ -268,9 +313,26 @@ def account_label(email: str) -> str:
     return "unknown" if pk is None else str(pk)
 
 
+@contextmanager
+def one_try_at_a_time(email: str) -> Iterator[None]:
+    """Let this email's login tries through one at a time (G4 M3).
+
+    Without it, tries sent at the same moment could all pass the lock check
+    before any of them was counted. The lock is PostgreSQL's, so it holds
+    across gunicorn workers, and ends with the transaction.
+    """
+    with transaction.atomic(), connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT pg_advisory_xact_lock(%s, hashtext(%s))",
+            [LOGIN_TRY_LOCK, email_key(email)],
+        )
+        yield
+
+
 def login_failed(email: str, address: str | None) -> None:
     """Count one wrong try. Never given the password."""
     LoginFailure.objects.create(email_key=email_key(email), address=address)
+    forget_old_failures()
     logger.info(
         "login failed account=%s address=%s",
         account_label(email),
@@ -290,5 +352,13 @@ def login_turned_away(email: str, address: str | None) -> None:
 def login_succeeded(email: str) -> None:
     """Clear this email's count, and tidy up old rows (§7.5)."""
     LoginFailure.objects.filter(email_key=email_key(email)).delete()
-    LoginFailure.objects.filter(at__lt=Now() - FAILURES_KEPT_FOR).delete()
+    forget_old_failures()
     Session.objects.filter(expire_date__lt=Now()).delete()
+
+
+def forget_old_failures() -> None:
+    """Delete failures older than a day, at every login try (G4 M4).
+
+    Also after wrong ones: with no good login, the table would only grow.
+    """
+    LoginFailure.objects.filter(at__lt=Now() - FAILURES_KEPT_FOR).delete()

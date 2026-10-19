@@ -319,3 +319,27 @@ def test_a_new_account_without_a_role_sees_only_home(owner: User) -> None:
 
     assert client.get(HOME).status_code == 200
     assert client.get(STAFF).status_code == 403
+
+
+# ---------------------------------------------------------- G4 review (M1)
+def test_reactivating_does_not_bring_back_old_sessions(
+    owner_client: Client, gene: User, gene_client: Client
+) -> None:
+    """A lost phone stays signed out after the account is switched back on."""
+    owner_client.post(f"{STAFF}{gene.pk}/deactivate/")
+
+    owner_client.post(f"{STAFF}{gene.pk}/reactivate/")
+
+    assert session_ended(gene_client)
+
+
+def test_deactivating_ends_only_that_persons_sessions(
+    owner_client: Client, gene: User, gene_client: Client, pim: User
+) -> None:
+    pim_client = signed_in(pim)
+
+    owner_client.post(f"{STAFF}{gene.pk}/deactivate/")
+
+    assert signed_in_as(owner_client) is not None
+    assert not session_ended(owner_client)
+    assert not session_ended(pim_client)

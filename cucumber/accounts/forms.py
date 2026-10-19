@@ -8,6 +8,7 @@ from typing import Any
 from django import forms
 from django.contrib.auth import authenticate
 from django.contrib.auth.forms import AuthenticationForm, PasswordChangeForm
+from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 
@@ -19,6 +20,7 @@ from cucumber.accounts.services import (
     login_lock,
     login_succeeded,
     login_turned_away,
+    one_try_at_a_time,
 )
 from cucumber.core.refusals import message_for
 
@@ -42,23 +44,40 @@ class LoginForm(AuthenticationForm):
         )
 
     def clean(self) -> dict[str, Any]:
-        """Lock first, so a locked try never reaches the password check."""
+        """Lock first, so a locked try never reaches the password check.
+
+        The check and the count happen together, one try per email at a time
+        (G4 M3). The refusal is raised after that, so the count is kept.
+        """
         typed = self.cleaned_data.get("username")
         password = self.cleaned_data.get("password")
         if typed is None or password is None:
             return self.cleaned_data
         email = email_key(typed)
         address = client_address(self.request) if self.request else None
+        with one_try_at_a_time(email):
+            outcome = self.check_try(email, address, password)
+        if isinstance(outcome, ValidationError):
+            raise outcome
+        self.confirm_login_allowed(outcome)
+        login_succeeded(email)
+        return self.cleaned_data
+
+    def check_try(
+        self, email: str, address: str | None, password: str
+    ) -> User | ValidationError:
+        """The account when the password is right, else the refusal (counted).
+
+        The account is also kept in `user_cache`, as Django's form does.
+        """
         if login_lock(email, address):
             login_turned_away(email, address)
-            raise ValidationError(LOCKED, code="locked")
+            return ValidationError(LOCKED, code="locked")
         self.user_cache = authenticate(self.request, username=email, password=password)
         if self.user_cache is None:
             login_failed(email, address)
-            raise self.get_invalid_login_error()
-        self.confirm_login_allowed(self.user_cache)
-        login_succeeded(email)
-        return self.cleaned_data
+            return self.get_invalid_login_error()
+        return self.user_cache
 
 
 class AddAccountForm(forms.Form):

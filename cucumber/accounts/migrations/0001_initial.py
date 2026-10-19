@@ -5,17 +5,34 @@ U0.2a's default privileges give every new table SELECT, INSERT to
 `cucumber_app`. These two also need DELETE (a good login clears the count, a
 chosen password clears the mark), but never UPDATE: a row is added or
 removed, never edited.
+
+Undoing this migration is refused while a password change is due (G4 M5):
+dropping the marks would let a temporary password stay for good.
 """
 
 import django.db.models.deletion
 import django.db.models.functions.datetime
+from django.apps.registry import Apps
 from django.conf import settings
 from django.db import migrations, models
+from django.db.backends.base.schema import BaseDatabaseSchemaEditor
 
 # Table names are this constant, never input.
 TABLES = "accounts_login_failure, accounts_password_change_due"
 GRANT = f"GRANT DELETE ON {TABLES} TO cucumber_app;"
 REVOKE = f"REVOKE DELETE ON {TABLES} FROM cucumber_app;"
+
+
+def refuse_undo_while_change_due(
+    apps: Apps, schema_editor: BaseDatabaseSchemaEditor | None
+) -> None:
+    """Stop an undo that would drop marks for people still to change password."""
+    if apps.get_model("accounts", "PasswordChangeDue").objects.exists():
+        raise RuntimeError(
+            "Refusing to undo accounts 0001: accounts_password_change_due still "
+            "marks people who must change a temporary password. They would keep "
+            "it for good. Let them change it, or write a forward migration."
+        )
 
 
 class Migration(migrations.Migration):
@@ -85,4 +102,6 @@ class Migration(migrations.Migration):
             },
         ),
         migrations.RunSQL(GRANT, REVOKE),
+        # Last, so an undo runs it first, before anything is dropped.
+        migrations.RunPython(migrations.RunPython.noop, refuse_undo_while_change_due),
     ]

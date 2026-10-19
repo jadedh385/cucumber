@@ -22,6 +22,45 @@ Each step's output goes into the unit's G6 note as evidence.
 - Note what each machine runs now: `cat ~/cucumber/staging/current` on the
   Asus, `cat ~/cucumber/production/current` on the MacBook (missing before the
   first release). That is what a rollback goes back to.
+- **First release with U0.5 (accounts) only:** run the
+  [accounts check](#accounts-check-first-release-with-u05) on staging and
+  on production. Migration `accounts 0003` refuses to run while any account
+  breaks its rules, and the deploy would stop half-way (U0.5 G4, H1).
+
+## Accounts check (first release with U0.5)
+
+U0.5 adds two rules to `auth_user`: the user name is the lowercase email
+(the same as `email`), and no account has the superuser or staff flag.
+Migration `accounts 0003` checks first and stops with a list of the accounts
+that break them. Nothing is lost when it stops, but by then migrations 0001
+and 0002 have already run, and the deploy puts the old version back. So
+check before deploying, on each machine (`staging`, then `production`):
+
+```bash
+cd ~/cucumber/<staging|production>/src
+export IMAGE_NAME=cucumber-<staging|production> CUCUMBER_VERSION="$(cat ../current)"
+dc() { docker compose -p cucumber-<staging|production> --env-file ../secrets.env -f deploy/compose.server.yaml "$@"; }
+dc exec -T db psql -U postgres -d cucumber -c "
+  SELECT id, username, email, is_superuser, is_staff FROM auth_user
+  WHERE NOT (username = lower(btrim(username)) AND email = username
+             AND username LIKE '%_@_%')
+     OR is_superuser OR is_staff;"
+```
+
+**No rows: go on with step 1.** Each row is an account to fix first. The
+Owner runs the fix (production changes are the Owner's), with Claude
+writing the line for that account:
+
+```bash
+dc exec -T db psql -U postgres -d cucumber -c "
+  UPDATE auth_user SET username = '<email, lowercase>', email = '<email, lowercase>',
+         is_superuser = false, is_staff = false
+  WHERE id = <id>;"
+```
+
+Then run the check again. After the release, give the Owner's account the
+Admin role and a password with `dc run --rm migrate python manage.py
+cucumber_admin` (U0.5 design §9; no `-T`: it asks questions).
 
 ## 1. Draft (Claude)
 
