@@ -115,7 +115,8 @@ exits · *Gate focus* = unit-specific checks on top of [the standard gates](gate
 
 ### U0.6 · Roles & permissions
 - **Size:** M · **Deps:** U0.5 · **Decisions:** D-03
-- **Spec:** [u0.6-spec.md](units/u0.6-spec.md) (G0 passed 2026-10-19)
+- **Spec:** [u0.6-spec.md](units/u0.6-spec.md) (G0 passed 2026-10-19) ·
+  **Design:** [u0.6-design.md](units/u0.6-design.md) (G1 draft)
 - **Source:** SOP §7, deck 05 "Role Access Control"
 - **Scope:** 4 tiers enforced server-side on every endpoint. Master permission
   matrix lives here; every later unit adds rows at its G1.
@@ -135,8 +136,8 @@ exits · *Gate focus* = unit-specific checks on top of [the standard gates](gate
 | Edit reference lists | ✅ | — | — | — |
 | See Zoho references | ✅ | — | — | — |
 | View dashboards | ✅ | ✅ | ✅ | ✅ |
-| Manage users: add, deactivate, give a new password, lift a lock (U0.5) | ✅ | — | — | — |
-| Log in, log out, change own password (U0.5) | ✅ | ✅ | ✅ | ✅ |
+| Manage users: add, deactivate, give a new password, lift a lock (U0.5); give, change or remove a role (U0.6) | ✅ | — | — | — |
+| Log in, log out, change own password, home page (U0.5); also an account with no role | ✅ | ✅ | ✅ | ✅ |
 
 - **Acceptance:** every endpoint has a permission test for each role (allowed and denied);
   a Supervisor can't review or correct an event they did or saved (D-03).
