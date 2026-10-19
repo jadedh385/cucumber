@@ -116,7 +116,7 @@ exits · *Gate focus* = unit-specific checks on top of [the standard gates](gate
 ### U0.6 · Roles & permissions
 - **Size:** M · **Deps:** U0.5 · **Decisions:** D-03
 - **Spec:** [u0.6-spec.md](units/u0.6-spec.md) (G0 passed 2026-10-19) ·
-  **Design:** [u0.6-design.md](units/u0.6-design.md) (G1 draft)
+  **Design:** [u0.6-design.md](units/u0.6-design.md) (G1 passed 2026-10-19)
 - **Source:** SOP §7, deck 05 "Role Access Control"
 - **Scope:** 4 tiers enforced server-side on every endpoint. Master permission
   matrix lives here; every later unit adds rows at its G1.
