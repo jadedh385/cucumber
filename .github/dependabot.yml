@@ -51,3 +51,8 @@ updates:
     commit-message:
       prefix: "chore"
       include: "scope"
+    # PostgreSQL stays on 17: a new major version can't open the existing data
+    # volume without a dump and restore. Moving up is an Owner decision.
+    ignore:
+      - dependency-name: "postgres"
+        update-types: ["version-update:semver-major"]
