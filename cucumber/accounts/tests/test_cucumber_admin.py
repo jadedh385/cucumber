@@ -14,7 +14,9 @@ from unittest import mock
 import pytest
 from django.contrib.auth.models import User
 from django.core.management import CommandError, call_command
+from django.db import connection
 from django.test import Client
+from django.test.utils import CaptureQueriesContext
 
 from cucumber.accounts.services import ADMIN, has_role
 from cucumber.accounts.tests.helpers import (
@@ -109,6 +111,32 @@ def test_lets_a_locked_out_admin_back_in() -> None:
     assert can_log_in("jade@example.com")
 
 
+def test_lets_back_in_an_admin_whose_group_is_not_a_role() -> None:
+    """An old group (a flag's `Owner`) reads as no role, never a crash (G4 M1)."""
+    jade = make_staff("jade", "Owner")
+
+    run_command(Answers("jade@example.com", promote="y"))
+
+    groups = User.objects.get(pk=jade.pk).groups.values_list("name", flat=True)
+    assert list(groups) == [ADMIN]
+    assert can_log_in("jade@example.com")
+
+
+def test_locks_the_admins_before_it_writes_the_account() -> None:
+    """The Staff pages' lock order, so the two can't wait on each other (G4 L2)."""
+    make_staff("jade", "admin", "forgotten-pw-77")
+
+    with CaptureQueriesContext(connection) as queries:
+        run_command(Answers("jade@example.com"))
+
+    sql = [query["sql"] for query in queries.captured_queries]
+    lock = next(i for i, text in enumerate(sql) if "FOR NO KEY UPDATE" in text)
+    write = next(
+        i for i, text in enumerate(sql) if text.startswith('UPDATE "auth_user"')
+    )
+    assert lock < write
+
+
 def test_writes_its_log_line(caplog: pytest.LogCaptureFixture) -> None:
     caplog.set_level(logging.INFO, logger="cucumber.accounts")
 
@@ -181,6 +209,66 @@ def test_a_closed_keyboard_stops_cleanly_and_adds_nothing() -> None:
         call_command("cucumber_admin", stdout=StringIO())
 
     assert User.objects.count() == 0
+
+
+def roles_of(user: User) -> list[str]:
+    return sorted(User.objects.get(pk=user.pk).groups.values_list("name", flat=True))
+
+
+# ------------------------------------------------ U0.6 AC9: one role only
+def test_the_first_admin_has_only_the_admin_role() -> None:
+    run_command(Answers("jade@example.com"))
+
+    assert roles_of(User.objects.get(username="jade@example.com")) == ["admin"]
+
+
+@pytest.mark.parametrize("role", ["tech", "supervisor", "read_only"])
+def test_promoting_replaces_the_role_the_account_had(role: str) -> None:
+    gene = make_staff("gene", role, "genes-own-pw-55")
+
+    run_command(Answers("gene@example.com", "Gene", promote="y"))
+
+    assert roles_of(gene) == ["admin"]
+
+
+def test_promoting_an_account_without_a_role_gives_it_admin() -> None:
+    gene = make_staff("gene", None, "genes-own-pw-55")
+
+    run_command(Answers("gene@example.com", "Gene", promote="y"))
+
+    assert roles_of(gene) == ["admin"]
+
+
+def test_promoting_logs_the_role_change_by_the_command(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    gene = make_staff("gene", "tech", "genes-own-pw-55")
+    caplog.set_level(logging.INFO, logger="cucumber.accounts")
+
+    run_command(Answers("gene@example.com", "Gene", promote="y"))
+
+    assert f"role changed account={gene.pk} from=tech to=admin by=command" in (
+        caplog.messages
+    )
+
+
+def test_rescuing_an_admin_logs_no_role_change(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    make_staff("jade", "admin", "forgotten-pw-77")
+    caplog.set_level(logging.INFO, logger="cucumber.accounts")
+
+    run_command(Answers("jade@example.com"))
+
+    assert not any(m.startswith("role changed") for m in caplog.messages)
+
+
+# -------------------------------------------- U0.6 AC17: name too long
+def test_a_name_over_150_characters_is_refused_and_nothing_is_added() -> None:
+    with pytest.raises(CommandError, match="150"):
+        run_command(Answers("jade@example.com", "J" * 151))
+
+    assert not User.objects.filter(username="jade@example.com").exists()
 
 
 def test_a_closed_keyboard_at_the_password_stops_cleanly() -> None:

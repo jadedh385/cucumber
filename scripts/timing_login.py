@@ -28,7 +28,7 @@ from django.contrib.auth import (  # noqa: E402
     SESSION_KEY,
 )
 from django.contrib.auth.hashers import make_password  # noqa: E402
-from django.contrib.auth.models import Group, User  # noqa: E402
+from django.contrib.auth.models import User  # noqa: E402
 from django.contrib.sessions.backends.db import SessionStore  # noqa: E402
 from django.contrib.sessions.models import Session  # noqa: E402
 from django.db import connection  # noqa: E402
@@ -38,6 +38,8 @@ from django.utils import timezone  # noqa: E402
 from django.utils.crypto import get_random_string  # noqa: E402
 
 from cucumber.accounts.middleware import LOGIN_AT  # noqa: E402
+from cucumber.accounts.permissions import Role  # noqa: E402
+from cucumber.accounts.services import replace_role  # noqa: E402
 from scripts.timing_10x import (  # noqa: E402
     RUNS,
     Summary,
@@ -102,7 +104,7 @@ def load_accounts(scale: LoginScale) -> list[User]:
         )
         for n in range(1, scale.accounts + 1)
     )
-    accounts[0].groups.add(Group.objects.get(name="admin"))
+    replace_role(accounts[0], Role.ADMIN)
     return accounts
 
 

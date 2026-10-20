@@ -20,10 +20,12 @@ import django  # noqa: E402
 
 django.setup()
 
-from django.contrib.auth.models import Group, User  # noqa: E402
+from django.contrib.auth.models import User  # noqa: E402
 from django.core.management import call_command  # noqa: E402
 from django.utils import timezone  # noqa: E402
 
+from cucumber.accounts.permissions import Role  # noqa: E402
+from cucumber.accounts.services import replace_role  # noqa: E402
 from cucumber.batches.models import Batch  # noqa: E402
 from cucumber.core.refusals import Refused  # noqa: E402
 from cucumber.core.tests.rows import give_sku, make_plant  # noqa: E402
@@ -82,7 +84,7 @@ def staff(name: str, role: str) -> User:
     # The user name is the email (U0.5's auth_user rule).
     email = f"{name.lower().replace('_', '-')}@example.com"
     user, _ = User.objects.get_or_create(username=email, defaults={"email": email})
-    user.groups.add(Group.objects.get_or_create(name=role)[0])
+    replace_role(user, Role(role))
     return user
 
 

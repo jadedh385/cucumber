@@ -10,6 +10,16 @@
 <h1>{{ account.first_name|default:account.email }}</h1>
 <p class="email">{{ account.email }}</p>
 <p class="state">{% if account.is_active %}{% translate "Active" %}{% else %}{% translate "Deactivated" %}{% endif %}{% if row.locked_until %} · {% blocktranslate with time=row.locked_until|time:"H:i" %}Locked until {{ time }}{% endblocktranslate %}{% endif %}</p>
+<h2>{% translate "Role" %}</h2>
+{% if row.is_you %}
+<p>{{ row.role_label }}. {% translate "You can't change your own role." %}</p>
+{% else %}
+<form method="post" action="{% url 'staff_role' account.pk %}">
+  {% csrf_token %}
+  {% for radio in role_form.role %}<div class="field">{{ radio }}</div>{% endfor %}
+  <button type="submit">{% translate "Save role" %}</button>
+</form>
+{% endif %}
 <div class="actions">
   {% if row.is_you %}
   <p><a href="{% url 'password' %}">{% translate "Change your own password" %}</a></p>

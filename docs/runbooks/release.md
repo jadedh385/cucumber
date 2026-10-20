@@ -26,6 +26,10 @@ Each step's output goes into the unit's G6 note as evidence.
   [accounts check](#accounts-check-first-release-with-u05) on staging and
   on production. Migration `accounts 0003` refuses to run while any account
   breaks its rules, and the deploy would stop half-way (U0.5 G4, H1).
+- **First release with U0.6 (roles) only:** run the
+  [roles check](#roles-check-first-release-with-u06) on staging and on
+  production. Migration `accounts 0006` refuses to run while any account
+  breaks the one-role rule (U0.6 G4).
 
 ## Accounts check (first release with U0.5)
 
@@ -60,6 +64,41 @@ dc exec -T db psql -U postgres -d cucumber -c "
 
 Then run the check again. After the release, give the Owner's account the
 Admin role and a password: [Admin account](#admin-account-the-first-one-or-a-rescue).
+
+## Roles check (first release with U0.6)
+
+U0.6 allows one role per account, and every group is a role (`admin`,
+`supervisor`, `tech`, `read_only`). Migration `accounts 0006` checks first and
+stops with a list of accounts in more than one group, in a group that isn't
+a role, or whose user name isn't its own normalised email. Nothing is lost
+when it stops: only `accounts 0005` has run by then (it adds three empty
+groups), and the deploy puts the old version back. Check before deploying,
+on each machine, with `dc` set as in the accounts check above:
+
+```bash
+dc exec -T db psql -U postgres -d cucumber -c "
+  SELECT u.id, u.username, g.name AS grp FROM auth_user u
+  JOIN auth_user_groups ug ON ug.user_id = u.id
+  JOIN auth_group g ON g.id = ug.group_id
+  WHERE g.name NOT IN ('admin', 'supervisor', 'tech', 'read_only')
+     OR u.id IN (SELECT user_id FROM auth_user_groups
+                 GROUP BY user_id HAVING count(*) > 1)
+  ORDER BY u.username, g.name;"
+```
+
+**No rows: go on with step 1.** Each row is a group to take off an account
+(keep one role each). The Owner runs the fix, with Claude writing the line:
+
+```bash
+dc exec -T db psql -U postgres -d cucumber -c "
+  DELETE FROM auth_user_groups
+  WHERE user_id = <id> AND group_id = (SELECT id FROM auth_group WHERE name = '<group>');"
+```
+
+Then run the check again. An account left with no role can be given one on
+its Staff page after the release. (The user-name check is the
+[accounts check](#accounts-check-first-release-with-u05), already passed
+with U0.5.)
 
 ## 1. Draft (Claude)
 
@@ -129,7 +168,7 @@ cd ~/cucumber/tools && uv run --no-dev python -m scripts.flag production list   
 ```
 
 If the release brings a feature behind a flag, switch it on now (Owner
-first if wanted: `--group Owner`) and try it, as the G6 line says.
+first if wanted: `--group admin`) and try it, as the G6 line says.
 
 ## 7. Publish (Owner)
 

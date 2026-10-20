@@ -37,7 +37,6 @@ DESIGN_MESSAGES = {
     "review_not_allowed": (
         "You can't review this entry; it waits for another reviewer."
     ),
-    "admin_only": "Only the Admin can do this.",
     # Service guards (U0.2b G4)
     "split_qty_positive": "Split off at least 1 unit.",
     "staff_not_active": "Choose an active staff member for who did the work.",
@@ -47,6 +46,22 @@ DESIGN_MESSAGES = {
         "A correction can't change what kind of entry this is."
         " Void it and log the right entry instead."
     ),
+    # Roles and permissions (U0.6 design §4.4)
+    "role_not_allowed": "Your role can't do this.",
+    "account_not_active": "Your account is switched off. Nothing was saved.",
+    "staff_must_be_you": (
+        "You can log only work you did. A Supervisor can log it for someone else."
+    ),
+    "fix_own_entry": "Another reviewer must fix an entry you did or saved.",
+    "undo_not_yours": (
+        "You can undo only entries you saved. A reviewer fixes the others."
+    ),
+    "undo_too_late": (
+        "Undo works for 10 minutes after saving. Ask a reviewer to fix this entry."
+    ),
+    "account_cannot_change_own_role": "You can't change your own role.",
+    "account_name_too_long": "A name can be at most 150 characters.",
+    "account_role_required": "Choose a role.",
 }
 
 
@@ -65,6 +80,10 @@ def test_each_rule_shows_its_design_message(rule: str, message: str) -> None:
         "event_not_found",
         "plant_not_found",
         "event_one_batch",
+        "operation_saved_by_other",
+        "event_action_not_here",
+        "auth_user_one_role",
+        "admin_only",  # gone in U0.6: everything says role_not_allowed
         "no_such_rule",
     ],
 )

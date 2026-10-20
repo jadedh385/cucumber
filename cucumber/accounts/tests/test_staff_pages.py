@@ -8,7 +8,9 @@ import logging
 
 import pytest
 from django.contrib.auth.models import User
+from django.db import connection
 from django.test import Client
+from django.test.utils import CaptureQueriesContext
 
 from cucumber.accounts.tests.helpers import (
     HOME,
@@ -29,6 +31,7 @@ from cucumber.accounts.tests.helpers import (
     temporary_password_in,
     text,
 )
+from cucumber.core.tests.stock import make_staff
 
 pytestmark = pytest.mark.django_db
 
@@ -71,6 +74,24 @@ def test_the_list_shows_every_account_and_its_state(
     assert html.count("Locked") == before.count("Locked") + 1
 
 
+def test_the_list_takes_as_many_queries_for_ten_accounts_as_for_one(
+    owner_client: Client,
+) -> None:
+    """No look-up per account (G4 L5), even with some wrong tries counted."""
+    add_failures("jade@example.com", 2)
+
+    def queries_for_the_list() -> int:
+        with CaptureQueriesContext(connection) as queries:
+            owner_client.get(STAFF)
+        return len(queries.captured_queries)
+
+    for_one = queries_for_the_list()
+    for number in range(9):
+        add_failures(make_staff(f"staff{number}", "tech").username, 2)
+
+    assert queries_for_the_list() == for_one
+
+
 def test_an_unknown_account_is_not_found(owner_client: Client) -> None:
     assert owner_client.get(f"{STAFF}99999/").status_code == 404
 
@@ -110,7 +131,8 @@ def test_adding_an_account_shows_its_temporary_password_once(
 ) -> None:
     with caplog.at_level(logging.DEBUG):
         response = owner_client.post(
-            f"{STAFF}new/", {"name": "Mali", "email": " Mali@Example.com "}
+            f"{STAFF}new/",
+            {"name": "Mali", "email": " Mali@Example.com ", "role": "tech"},
         )
 
     assert response.status_code == 200
@@ -122,7 +144,7 @@ def test_adding_an_account_shows_its_temporary_password_once(
 
 def test_the_new_person_can_log_in_with_it(owner_client: Client) -> None:
     response = owner_client.post(
-        f"{STAFF}new/", {"name": "Mali", "email": "mali@example.com"}
+        f"{STAFF}new/", {"name": "Mali", "email": "mali@example.com", "role": "tech"}
     )
     client = Client()
 
@@ -135,7 +157,7 @@ def test_a_taken_email_is_refused_on_the_page(owner_client: Client, gene: User) 
     count = User.objects.count()
 
     response = owner_client.post(
-        f"{STAFF}new/", {"name": "Gene", "email": "GENE@example.com"}
+        f"{STAFF}new/", {"name": "Gene", "email": "GENE@example.com", "role": "tech"}
     )
 
     assert "Another account already uses this email." in text(response)

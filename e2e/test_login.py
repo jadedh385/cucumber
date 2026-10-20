@@ -73,6 +73,7 @@ def test_the_admin_adds_an_account_on_a_phone(
     page.get_by_role("link", name="Add").click()
     page.get_by_label("Name").fill("Mali")
     page.get_by_label("Email").fill("mali@example.com")
+    page.get_by_label("Tech").check()  # U0.6: a role is required
     page.get_by_role("button", name="Add account").click()
 
     expect(page.get_by_text(TEMPORARY)).to_be_visible()

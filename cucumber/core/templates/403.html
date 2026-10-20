@@ -1,0 +1,11 @@
+{% extends "base.html" %}{% load i18n %}
+{% comment %}
+  The page a refused role meets (U0.6 AC10). It never says which permission
+  was missing.
+{% endcomment %}
+{% block title %}{% translate "No access" %}{% endblock %}
+{% block content %}
+<h1>{% translate "No access" %}</h1>
+<p>{% translate "You don't have access to this page." %}</p>
+<p><a class="button" href="{% url 'home' %}">{% translate "Home" %}</a></p>
+{% endblock %}

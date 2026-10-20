@@ -299,10 +299,10 @@ def test_ac12c_nothing_new_is_logged_on_a_closed_batch(
 
 
 def test_ac12c_an_older_event_of_a_closed_batch_cannot_be_corrected(
-    closed: Emptied, tech: User
+    closed: Emptied, supervisor: User
 ) -> None:
     with refused("batch_not_open"):
-        correct(tech, closed.out, "correction_wrong_quantity", qty_out=4)
+        correct(supervisor, closed.out, "correction_wrong_quantity", qty_out=4)
 
 
 def test_ac12c_an_older_event_of_a_closed_batch_cannot_be_voided(

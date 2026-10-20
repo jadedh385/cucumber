@@ -4,7 +4,7 @@ from django.contrib.auth.models import User
 from django.db import transaction
 from django.db.models import Q, QuerySet
 
-from cucumber.accounts.services import ADMIN, has_role
+from cucumber.accounts.permissions import Permission, require
 from cucumber.core.refusals import database_refusals, refuse
 from cucumber.plants.models import (
     Plant,
@@ -40,9 +40,8 @@ def reclassify_genus(admin: User, plant_id: int, genus_code: str) -> Plant:
     becomes a former SKU, still found by search and never issued again. The
     change is logged in `plant_status_changes` with reason "genus reclassified".
     """
-    if not has_role(admin, ADMIN):
-        raise refuse("admin_only")
     with database_refusals(), transaction.atomic():
+        require(admin, Permission.RECLASSIFY_GENUS)
         plant = Plant.objects.select_for_update(no_key=True).filter(pk=plant_id).first()
         if plant is None:
             raise refuse("plant_not_found")
@@ -73,6 +72,7 @@ def issue_next_sku(plant_id: int, genus_code: str, assigned_by: User) -> str:
     The genus row is locked, so two reclassifications into the same genus
     take turns instead of picking the same number. Full sequence rules: U0.8.
     """
+    require(assigned_by, Permission.PLANT_LIFECYCLE)
     list(Genus.objects.select_for_update(no_key=True).filter(pk=genus_code))
     issued = Sku.objects.filter(genus_id=genus_code).values_list("sku", flat=True)
     highest = max((int(sku[len(genus_code) :]) for sku in issued), default=0)

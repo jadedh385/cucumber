@@ -1,16 +1,21 @@
-"""AC22-AC25, AC27, AC28: the account rules, called directly (design §7.1, §7.3)."""
+"""AC22-AC25, AC27, AC28: the account rules, called directly (design §7.1, §7.3).
+
+U0.6: every account service checks `require(by, MANAGE_USERS)`, which reads
+the person from the database (U0.6 design §4.1), and a new account gets a role.
+"""
 
 from collections.abc import Callable
 from typing import Any
 from unittest import mock
 
 import pytest
-from django.contrib.auth.models import AnonymousUser, User
+from django.contrib.auth.models import User
 from django.contrib.auth.password_validation import validate_password
-from django.core.exceptions import PermissionDenied, ValidationError
+from django.core.exceptions import ValidationError
 from django.db import DatabaseError
 
 from cucumber.accounts import services
+from cucumber.accounts.permissions import Role
 from cucumber.accounts.services import (
     add_account,
     change_is_due,
@@ -20,7 +25,6 @@ from cucumber.accounts.services import (
     new_temporary_password,
     password_chosen,
     reactivate,
-    require_admin,
 )
 from cucumber.accounts.tests.helpers import (
     LOOK_ALIKES,
@@ -32,7 +36,7 @@ from cucumber.accounts.tests.helpers import (
 )
 from cucumber.core.refusals import message_for
 from cucumber.core.tests.rows import run
-from cucumber.core.tests.stock import make_staff, refused
+from cucumber.core.tests.stock import make_staff, not_allowed, refused
 
 pytestmark = pytest.mark.django_db
 
@@ -66,23 +70,12 @@ def test_staff_see_the_designed_message(rule: str, message: str) -> None:
 
 
 # ----------------------------------------------------------- AC28 admin
-def test_require_admin_lets_the_admin_through(owner: User) -> None:
-    require_admin(owner)
-
-
-def test_require_admin_refuses_anyone_else(gene: User) -> None:
-    with pytest.raises(PermissionDenied):
-        require_admin(gene)
-    with pytest.raises(PermissionDenied):
-        require_admin(AnonymousUser())
-
-
 ADMIN_ONLY: list[Callable[[User, User], Any]] = [
     deactivate,
     reactivate,
     give_new_password,
     lift_lock,
-    lambda by, _: add_account(by, "Mali", "mali@example.com"),
+    lambda by, _: add_account(by, "Mali", "mali@example.com", Role.TECH),
 ]
 
 
@@ -92,15 +85,30 @@ def test_a_tech_can_reach_no_account_change(
 ) -> None:
     before = (fresh(pim).is_active, fresh(pim).password, User.objects.count())
 
-    with pytest.raises(PermissionDenied):
+    with not_allowed("role_not_allowed"):
         action(gene, pim)
+
+    assert (fresh(pim).is_active, fresh(pim).password, User.objects.count()) == before
+
+
+@pytest.mark.parametrize("action", ADMIN_ONLY)
+def test_a_switched_off_admin_can_reach_no_account_change(
+    action: Callable[[User, User], Any], owner: User, pim: User
+) -> None:
+    """A second Admin's stale copy: switched off after their page was drawn."""
+    mali = make_staff("mali", "admin")
+    User.objects.filter(pk=mali.pk).update(is_active=False)
+    before = (fresh(pim).is_active, fresh(pim).password, User.objects.count())
+
+    with not_allowed("account_not_active"):
+        action(mali, pim)
 
     assert (fresh(pim).is_active, fresh(pim).password, User.objects.count()) == before
 
 
 # ---------------------------------------------------------- AC22 add one
 def test_adding_an_account_stores_the_email_as_its_user_name(owner: User) -> None:
-    added = add_account(owner, "Mali", "  Mali@Example.COM ")
+    added = add_account(owner, "Mali", "  Mali@Example.COM ", Role.TECH)
 
     account = fresh(added.account)
     assert account.username == "mali@example.com"
@@ -111,17 +119,10 @@ def test_adding_an_account_stores_the_email_as_its_user_name(owner: User) -> Non
     assert not account.is_staff and not account.is_superuser
 
 
-def test_a_new_account_has_no_role_yet(owner: User) -> None:
-    """Roles come in U0.6 (spec AC22)."""
-    added = add_account(owner, "Mali", "mali@example.com")
-
-    assert not fresh(added.account).groups.exists()
-
-
 def test_a_new_account_gets_a_working_temporary_password_it_must_change(
     owner: User,
 ) -> None:
-    added = add_account(owner, "Mali", "mali@example.com")
+    added = add_account(owner, "Mali", "mali@example.com", Role.TECH)
 
     assert TEMPORARY_PASSWORD.fullmatch(added.password)
     assert fresh(added.account).check_password(added.password)
@@ -136,7 +137,7 @@ def test_an_email_can_belong_to_one_account_only(
     count = User.objects.count()
 
     with refused("account_email_taken"):
-        add_account(owner, "Gene again", taken)
+        add_account(owner, "Gene again", taken, Role.TECH)
 
     assert User.objects.count() == count
 
@@ -158,7 +159,7 @@ def test_a_broken_or_too_long_email_is_refused(owner: User, email: str) -> None:
     count = User.objects.count()
 
     with refused("account_email_invalid"):
-        add_account(owner, "Mali", email)
+        add_account(owner, "Mali", email, Role.TECH)
 
     assert User.objects.count() == count
 
@@ -166,7 +167,7 @@ def test_a_broken_or_too_long_email_is_refused(owner: User, email: str) -> None:
 def test_a_150_character_email_fits(owner: User) -> None:
     email = "m" * (LONGEST_EMAIL - len("@example.com")) + "@example.com"
 
-    added = add_account(owner, "Mali", email)
+    added = add_account(owner, "Mali", email, Role.TECH)
 
     assert fresh(added.account).username == email
 
@@ -305,22 +306,9 @@ def test_a_temporary_password_that_fails_a_rule_is_made_again(gene: User) -> Non
 
 
 # ------------------------------------------------------ G4 review (M2, M8)
-def test_the_last_active_admin_cannot_be_deactivated(owner: User) -> None:
-    """Two Admins switching each other off would leave nobody on Staff (G4 M2).
-
-    `mali` is a stale copy: the page Mali pressed from was drawn before the
-    Owner switched Mali off, or both pressed at the same moment.
-    """
-    mali = make_staff("mali", "admin")
-    deactivate(owner, mali)
-
-    with refused("account_last_admin"):
-        deactivate(mali, owner)
-
-    assert fresh(owner).is_active
-
-
 def test_one_admin_may_deactivate_another_while_one_stays(owner: User) -> None:
+    """The last active Admin itself is tested with two Admins at the same
+    moment (test_roles.py): a switched-off Admin is refused before that."""
     mali = make_staff("mali", "admin")
 
     deactivate(owner, mali)
@@ -335,11 +323,11 @@ def test_an_email_added_by_someone_else_a_moment_ago_is_refused(
     count = User.objects.count()
 
     with (
-        # The Admin check uses exists() too, so it is answered separately.
-        mock.patch.object(services, "has_role", return_value=True),
+        # The Admin check is answered separately: it may use exists() too.
+        mock.patch.object(services, "require"),
         mock.patch("django.db.models.query.QuerySet.exists", return_value=False),
         refused("account_email_taken"),
     ):
-        add_account(owner, "Gene again", "gene@example.com")
+        add_account(owner, "Gene again", "gene@example.com", Role.TECH)
 
     assert User.objects.count() == count

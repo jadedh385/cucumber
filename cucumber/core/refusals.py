@@ -69,7 +69,6 @@ MESSAGES: dict[str, str] = {
     "review_not_allowed": (
         "You can't review this entry; it waits for another reviewer."
     ),
-    "admin_only": "Only the Admin can do this.",
     "split_qty_positive": "Split off at least 1 unit.",
     "staff_not_active": "Choose an active staff member for who did the work.",
     "plant_same_genus": "The plant is already in this genus.",
@@ -86,6 +85,22 @@ MESSAGES: dict[str, str] = {
     "password_same_as_temporary": (
         "Choose a password different from the one you were given."
     ),
+    # Roles and permissions (U0.6 design §4.4)
+    "role_not_allowed": "Your role can't do this.",
+    "account_not_active": "Your account is switched off. Nothing was saved.",
+    "staff_must_be_you": (
+        "You can log only work you did. A Supervisor can log it for someone else."
+    ),
+    "fix_own_entry": "Another reviewer must fix an entry you did or saved.",
+    "undo_not_yours": (
+        "You can undo only entries you saved. A reviewer fixes the others."
+    ),
+    "undo_too_late": (
+        "Undo works for 10 minutes after saving. Ask a reviewer to fix this entry."
+    ),
+    "account_cannot_change_own_role": "You can't change your own role.",
+    "account_name_too_long": "A name can be at most 150 characters.",
+    "account_role_required": "Choose a role.",
 }
 
 

@@ -22,6 +22,7 @@ import pytest
 from django.contrib.auth.models import Group, User
 from django.utils import timezone
 
+from cucumber.accounts.permissions import NotAllowed
 from cucumber.batches.models import Batch
 from cucumber.core.refusals import Refused
 from cucumber.core.tests.rows import run, staff_email
@@ -33,18 +34,22 @@ BANGKOK = ZoneInfo("Asia/Bangkok")
 # --------------------------------------------------------------------- staff
 
 
-def make_staff(name: str, role: str, password: str | None = None) -> User:
-    """A user in the role's group: `admin`, `supervisor` or `tech` (design §2.7).
+def make_staff(name: str, role: str | None, password: str | None = None) -> User:
+    """A user in the role's group (design §2.7), or with no role (`None`).
 
     The user name is an email, as U0.5's `auth_user` rule requires; `name` is
     the person's name. Without a password the account can't log in.
+
+    The role is a plain INSERT, never `groups.add()`: on PostgreSQL that is
+    `ON CONFLICT DO NOTHING`, which would hide a second role (U0.6 §6.2).
     """
     email = staff_email(name)
     staff = User.objects.create_user(
         username=email, email=email, password=password, first_name=name
     )
-    group, _ = Group.objects.get_or_create(name=role)
-    staff.groups.add(group)
+    if role is not None:
+        group, _ = Group.objects.get_or_create(name=role)
+        User.groups.through.objects.create(user=staff, group=group)
     return staff
 
 
@@ -71,6 +76,25 @@ def tech() -> User:
 @pytest.fixture
 def other_tech() -> User:
     return make_staff("tech_2", "tech")
+
+
+@pytest.fixture
+def read_only() -> User:
+    return make_staff("viewer_1", "read_only")
+
+
+@pytest.fixture
+def no_role() -> User:
+    """An account the Admin hasn't given a role yet."""
+    return make_staff("new_1", None)
+
+
+@pytest.fixture
+def deactivated_tech() -> User:
+    """A Tech whose account was switched off; it keeps its role (U0.6 Q3)."""
+    staff = make_staff("tech_off", "tech")
+    User.objects.filter(pk=staff.pk).update(is_active=False)
+    return staff
 
 
 # --------------------------------------------------------------------- dates
@@ -199,5 +223,16 @@ def restore_reference_rows() -> None:
 def refused(rule: str) -> Iterator[None]:
     """Expect a service to refuse the save inside, naming `rule` (design §7.1)."""
     with pytest.raises(Refused) as caught:
+        yield
+    assert caught.value.rule == rule, f"expected {rule!r}, refused by {caught.value}"
+
+
+@contextmanager
+def not_allowed(rule: str = "role_not_allowed") -> Iterator[None]:
+    """Expect a service to refuse by role or account state (U0.6 design §4.1).
+
+    `NotAllowed` is a 403, not a `Refused`, so `refused()` can't catch it.
+    """
+    with pytest.raises(NotAllowed) as caught:
         yield
     assert caught.value.rule == rule, f"expected {rule!r}, refused by {caught.value}"

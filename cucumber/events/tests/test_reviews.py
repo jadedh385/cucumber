@@ -16,6 +16,7 @@ from cucumber.core.tests.stock import (
     intake_into_new_batch,
     log,
     new_lab_batch,
+    not_allowed,
     refused,
     save,
     subculture_entries,
@@ -95,8 +96,9 @@ def test_a_supervisor_reviews_a_tech_entry(
 
 
 def test_a_tech_cannot_review(stock: int, tech: User, other_tech: User) -> None:
+    """The matrix refuses first (U0.6): a Tech has no Review events row."""
     out = log(tech, stock, "out", qty_out=1)
-    with refused("review_not_allowed"):
+    with not_allowed("role_not_allowed"):
         review(other_tech, Event.objects.get(pk=out).operation_id)
 
 
@@ -132,13 +134,21 @@ def test_ac19d_the_event_records_who_did_it_and_who_saved_it(
     }
 
 
-@pytest.mark.parametrize("who", ["tech", "supervisor", "other_supervisor"])
+@pytest.mark.parametrize("who", ["supervisor", "other_supervisor"])
 def test_ac19d_neither_person_on_it_nor_another_supervisor_may_review_it(
     saved_for_tech: uuid.UUID, request: pytest.FixtureRequest, who: str
 ) -> None:
     reviewer: User = request.getfixturevalue(who)
     with refused("review_not_allowed"):
         review(reviewer, saved_for_tech)
+    assert not EventReview.objects.filter(event__operation_id=saved_for_tech).exists()
+
+
+def test_ac19d_the_tech_who_did_it_may_not_review_it(
+    saved_for_tech: uuid.UUID, tech: User
+) -> None:
+    with not_allowed("role_not_allowed"):
+        review(tech, saved_for_tech)
     assert not EventReview.objects.filter(event__operation_id=saved_for_tech).exists()
 
 
@@ -208,13 +218,14 @@ def test_a_supervisor_s_void_marks_the_original_reviewed(
     assert set(the_void.event_ids) <= queued(admin)
 
 
-def test_a_tech_s_fix_of_their_own_entry_does_not_review_it(
-    stock: int, tech: User, supervisor: User
+def test_a_tech_s_undo_of_their_own_entry_does_not_review_it(
+    stock: int, tech: User, admin: User
 ) -> None:
+    """A Tech can't correct (U0.6); their fix is an Undo, which the Admin reviews."""
     out = log(tech, stock, "out", qty_out=3)
-    fix = correct(tech, out, "correction_wrong_quantity", qty_out=2)
+    undo = void(tech, out, "void_duplicate_entry")
     assert reviewers_of(out) == []
-    assert {out, *fix.event_ids} <= queued(supervisor)
+    assert set(undo.event_ids) <= queued(admin)
 
 
 def test_the_admin_s_own_fix_is_reviewed_as_it_is_saved(
@@ -249,17 +260,14 @@ def test_the_admin_s_fix_of_their_own_entry_keeps_one_review(
     assert reviewers_of(fix.event_ids[0]) == [admin.pk]
 
 
-@pytest.mark.parametrize("saved_by", ["supervisor", "other_supervisor"])
 def test_a_supervisor_s_fix_doesn_t_review_an_entry_they_may_not_review(
-    stock: int,
-    tech: User,
-    supervisor: User,
-    request: pytest.FixtureRequest,
-    saved_by: str,
+    stock: int, tech: User, supervisor: User, other_supervisor: User
 ) -> None:
-    """Saved by a Supervisor (for a Tech, or their own): only the Admin reviews."""
-    saver: User = request.getfixturevalue(saved_by)
-    out = log(saver, stock, "out", qty_out=3, staff_id=tech.pk)
+    """Saved by another Supervisor, for a Tech: only the Admin reviews it.
+
+    (A Supervisor can't correct an entry they saved themselves, U0.6 §4.2.)
+    """
+    out = log(other_supervisor, stock, "out", qty_out=3, staff_id=tech.pk)
     correct(supervisor, out, "correction_wrong_quantity", qty_out=2)
     assert reviewers_of(out) == []
 
@@ -370,3 +378,20 @@ def test_the_queue_takes_the_same_queries_however_many_batches_wait(
     for _ in range(4):
         log(tech, intake_into_new_batch(tech, plant, 5), "count", counted_qty=5)
     assert queue_queries(supervisor) == few
+
+
+def test_a_review_reads_the_reviewer_s_role_once(
+    stock: int, tech: User, supervisor: User
+) -> None:
+    """One standing query, then the matrix rows are checked on it (G4 L5)."""
+    operation_id = Event.objects.get(pk=log(tech, stock, "out", qty_out=1)).operation_id
+
+    with CaptureQueriesContext(connection) as queries:
+        review(supervisor, operation_id)
+
+    standing_reads = [
+        query["sql"]
+        for query in queries.captured_queries
+        if query["sql"].startswith('SELECT "auth_user"."is_active"')
+    ]
+    assert len(standing_reads) == 1, standing_reads

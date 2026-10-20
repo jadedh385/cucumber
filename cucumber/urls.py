@@ -5,10 +5,13 @@ from django.urls import path
 
 from cucumber.accounts import views as accounts
 from cucumber.accounts.forms import LoginForm
+from cucumber.accounts.permissions import Permission, allowed_for
 from cucumber.core.views import health
 
 # Shows the "Practice data" banner on staging, as every page does (U0.4a AC9).
 handler500 = "cucumber.core.views.server_error"
+# The 403 page, on the base page (U0.6 design §3.2).
+handler403 = "cucumber.core.views.permission_denied"
 
 urlpatterns = [
     path("", accounts.home, name="home"),
@@ -18,7 +21,11 @@ urlpatterns = [
         LoginView.as_view(authentication_form=LoginForm),
         name="login",
     ),
-    path("accounts/logout/", LogoutView.as_view(), name="logout"),
+    path(
+        "accounts/logout/",
+        allowed_for(Permission.OWN_ACCOUNT)(LogoutView.as_view()),
+        name="logout",
+    ),
     path("accounts/password/", accounts.password, name="password"),
     path("staff/", accounts.staff_list, name="staff"),
     path("staff/new/", accounts.staff_new, name="staff_new"),
@@ -38,5 +45,6 @@ urlpatterns = [
         accounts.staff_new_password,
         name="staff_new_password",
     ),
+    path("staff/<int:account_id>/role/", accounts.staff_role, name="staff_role"),
     path("staff/<int:account_id>/unlock/", accounts.staff_unlock, name="staff_unlock"),
 ]

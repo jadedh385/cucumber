@@ -5,8 +5,10 @@ from collections.abc import Iterator
 from typing import Any
 
 import pytest
+from django.contrib.auth.models import Group
 from playwright.sync_api import BrowserContext, Route
 
+from cucumber.accounts.permissions import Role
 from cucumber.core.tests.stock import make_staff
 from e2e.site import access_headers, login_account, remote_site
 
@@ -82,5 +84,7 @@ def account(request: pytest.FixtureRequest, is_remote: bool) -> tuple[str, str]:
             pytest.skip("set E2E_LOGIN_EMAIL and E2E_LOGIN_PASSWORD (see e2e/site.py)")
         return found
     request.getfixturevalue("transactional_db")
+    for role in Role:  # a browser test's flush removes the seeded groups
+        Group.objects.get_or_create(name=role)
     owner = make_staff("jade", "admin", E2E_PASSWORD)
     return owner.username, E2E_PASSWORD
