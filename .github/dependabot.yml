@@ -38,6 +38,11 @@ updates:
     commit-message:
       prefix: "chore"
       include: "scope"
+    # Python stays on 3.13 (pyproject.toml, .python-version): only 3.13.x
+    # patch updates are proposed. Moving to a newer Python is an Owner decision.
+    ignore:
+      - dependency-name: "python"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
 
   - package-ecosystem: "docker-compose"
     directory: "/deploy"
