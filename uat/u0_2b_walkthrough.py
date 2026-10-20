@@ -24,7 +24,7 @@ from django.contrib.auth.models import User  # noqa: E402
 from django.core.management import call_command  # noqa: E402
 from django.utils import timezone  # noqa: E402
 
-from cucumber.accounts.permissions import Role  # noqa: E402
+from cucumber.accounts.permissions import NotAllowed, Role  # noqa: E402
 from cucumber.accounts.services import replace_role  # noqa: E402
 from cucumber.batches.models import Batch  # noqa: E402
 from cucumber.core.refusals import Refused  # noqa: E402
@@ -71,7 +71,7 @@ def check(what: str, expected: object, got: object) -> None:
 def check_refused(what: str, message: str, attempt: Callable[[], object]) -> None:
     try:
         attempt()
-    except Refused as refusal:
+    except (Refused, NotAllowed) as refusal:
         check(what, f'refused: "{message}"', f'refused: "{refusal.message}"')
         return
     check(what, f'refused: "{message}"', "saved, not refused")
@@ -380,7 +380,7 @@ class Story:
         )
         check_refused(
             "A Tech trying to review",
-            "You can't review this entry; it waits for another reviewer.",
+            "Your role can't do this.",
             lambda: review(self.tech, review_queue(self.admin)[0].operation_id),
         )
         own = NewEvent("loss", batch_id=self.child_1, qty_out=1, reason_code="loss_rot")
@@ -396,7 +396,7 @@ class Story:
         give_sku(self.plant, "PHL001", self.admin.pk)
         check_refused(
             "By the Supervisor",
-            "Only the Admin can do this.",
+            "Your role can't do this.",
             lambda: reclassify_genus(self.supervisor, self.plant, "ALC"),
         )
         moved = reclassify_genus(self.admin, self.plant, "ALC")
