@@ -8,12 +8,14 @@ from django.http import HttpRequest, HttpResponse
 from django.urls import path
 from django.views.decorators.csrf import csrf_exempt
 
-from cucumber.urls import handler500
+from cucumber.accounts.permissions import Permission, allowed_for
+from cucumber.urls import handler403, handler500
 from cucumber.urls import urlpatterns as cucumber_urlpatterns
 
 SAVED_GROUP = "written-by-a-test-view"
 
 
+@allowed_for(Permission.LOG_WORK)
 @csrf_exempt  # so the CSRF check can't be what stops the save
 def save_a_row(request: HttpRequest) -> HttpResponse:
     Group.objects.create(name=SAVED_GROUP)
@@ -25,4 +27,4 @@ urlpatterns = [
     path("test-only/save/", save_a_row, name="test_only_save"),
 ]
 
-__all__ = ["handler500", "urlpatterns"]
+__all__ = ["handler403", "handler500", "urlpatterns"]

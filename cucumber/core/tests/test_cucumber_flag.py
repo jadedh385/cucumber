@@ -20,6 +20,8 @@ from django.test import RequestFactory, override_settings
 from waffle import flag_is_active
 from waffle.models import Flag
 
+from cucumber.accounts.permissions import Role
+from cucumber.accounts.services import replace_role
 from cucumber.core.tests.rows import staff_email
 
 pytestmark = pytest.mark.django_db
@@ -62,7 +64,7 @@ def make_messy_flag(name: str) -> FlagRow:
         percent=Decimal("50.0"),
         languages="th",
     )
-    flag.groups.add(Group.objects.create(name="Lab"))
+    flag.groups.add(Group.objects.get_or_create(name="supervisor")[0])
     return flag
 
 
@@ -76,7 +78,7 @@ def assert_only(flag_name: str, everyone: bool | None, groups: set[str]) -> None
 
 @pytest.fixture
 def owner_group() -> Group:
-    return Group.objects.create(name="Owner")
+    return Group.objects.get_or_create(name="admin")[0]
 
 
 # --------------------------------------------------------------- switching
@@ -99,26 +101,26 @@ def test_off_is_off_for_everyone_and_nothing_else(owner_group: Group) -> None:
 def test_on_for_groups_lets_the_groups_decide(owner_group: Group) -> None:
     make_messy_flag("needs_attention")
 
-    cucumber_flag("needs_attention", "on", "--group", "Owner", "--group", "Lab")
+    cucumber_flag("needs_attention", "on", "--group", "admin", "--group", "supervisor")
 
-    assert_only("needs_attention", everyone=None, groups={"Owner", "Lab"})
+    assert_only("needs_attention", everyone=None, groups={"admin", "supervisor"})
 
 
 def test_naming_groups_again_replaces_the_old_ones(owner_group: Group) -> None:
     make_messy_flag("needs_attention")
-    cucumber_flag("needs_attention", "on", "--group", "Lab")
+    cucumber_flag("needs_attention", "on", "--group", "supervisor")
 
-    cucumber_flag("needs_attention", "on", "--group", "Owner")
+    cucumber_flag("needs_attention", "on", "--group", "admin")
 
-    assert_only("needs_attention", everyone=None, groups={"Owner"})
+    assert_only("needs_attention", everyone=None, groups={"admin"})
 
 
 def test_each_change_is_reported_in_one_line(owner_group: Group) -> None:
     make_flag("needs_attention")
 
-    output = cucumber_flag("needs_attention", "on", "--group", "Owner")
+    output = cucumber_flag("needs_attention", "on", "--group", "admin")
 
-    assert output.strip() == "needs_attention is now on for: Owner"
+    assert output.strip() == "needs_attention is now on for: admin"
 
 
 # ---------------------------------------------------------------- refusals
@@ -148,7 +150,7 @@ def test_off_with_a_group_is_refused(owner_group: Group) -> None:
     make_flag("needs_attention")
 
     with pytest.raises(CommandError, match="off"):
-        cucumber_flag("needs_attention", "off", "--group", "Owner")
+        cucumber_flag("needs_attention", "off", "--group", "admin")
 
 
 def test_a_flag_name_needs_on_or_off() -> None:
@@ -164,14 +166,14 @@ def test_list_shows_every_flag_and_who_it_is_on_for(owner_group: Group) -> None:
     make_flag("discord_alerts")
     make_flag("needs_attention")
     make_flag("print_labels")
-    cucumber_flag("needs_attention", "on", "--group", "Owner")
+    cucumber_flag("needs_attention", "on", "--group", "admin")
     cucumber_flag("print_labels", "on")
 
     lines = cucumber_flag("list").splitlines()
 
     assert lines[0] == "Flags on production"
     assert re.fullmatch(r"\s+discord_alerts\s+off", lines[1])
-    assert re.fullmatch(r"\s+needs_attention\s+on for: Owner", lines[2])
+    assert re.fullmatch(r"\s+needs_attention\s+on for: admin", lines[2])
     assert re.fullmatch(r"\s+print_labels\s+on", lines[3])
     assert len(lines) == 4
 
@@ -181,14 +183,14 @@ def test_a_change_shows_on_the_very_next_page_load(owner_group: Group) -> None:
     make_flag("needs_attention")
     email = staff_email("jade")
     owner = User.objects.create_user(username=email, email=email)
-    owner.groups.add(owner_group)
+    replace_role(owner, Role.ADMIN)
     page = RequestFactory().get("/")
     page.user = owner
     other_page = RequestFactory().get("/")
     other_page.user = AnonymousUser()
 
     assert not flag_is_active(page, "needs_attention")
-    cucumber_flag("needs_attention", "on", "--group", "Owner")
+    cucumber_flag("needs_attention", "on", "--group", "admin")
     assert flag_is_active(page, "needs_attention")
     assert not flag_is_active(other_page, "needs_attention")
     cucumber_flag("needs_attention", "off")

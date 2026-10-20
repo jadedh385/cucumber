@@ -129,7 +129,7 @@ cd ~/cucumber/tools && uv run --no-dev python -m scripts.flag production list   
 ```
 
 If the release brings a feature behind a flag, switch it on now (Owner
-first if wanted: `--group Owner`) and try it, as the G6 line says.
+first if wanted: `--group admin`) and try it, as the G6 line says.
 
 ## 7. Publish (Owner)
 

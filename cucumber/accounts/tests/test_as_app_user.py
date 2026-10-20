@@ -63,7 +63,8 @@ def as_app_user() -> Iterator[None]:
 @pytest.fixture
 def people() -> tuple[User, User]:
     """The Owner and Gene, made as the owner before switching users."""
-    Group.objects.get_or_create(name="admin")
+    for role in Role:  # the flush before this test removed the seeded groups
+        Group.objects.get_or_create(name=role)
     return make_staff("jade", "admin", PASSWORD), make_staff("gene", "tech", PASSWORD)
 
 

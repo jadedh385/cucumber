@@ -19,9 +19,20 @@ from django.contrib.auth.models import User
 from django.db import transaction
 from django.utils import timezone
 
+from cucumber.accounts.permissions import Permission, require
+from cucumber.accounts.services import active_workers
 from cucumber.batches.models import Batch, BatchOrigin, BatchStatus
 from cucumber.core.refusals import Refused, database_refusals, refuse
 from cucumber.events.models import Action, Event
+from cucumber.events.permissions import (
+    check_actions,
+    check_correction,
+    check_resend,
+    check_work_for,
+)
+from cucumber.events.permissions import (
+    check_void as check_void_allowed,
+)
 from cucumber.events.projection import Effective, count_differences
 from cucumber.events.reviews import review_admin_entry, review_fixed_originals
 from cucumber.events.writing import (
@@ -138,6 +149,7 @@ def save_once(
     except Refused as refusal:
         if refusal.rule != ALREADY_SAVED:
             raise
+    check_resend(operation_id, recorded_by.pk)
     return original_result(operation_id)
 
 
@@ -147,8 +159,13 @@ def write_operation(
     entries: Sequence[NewEvent] | EntriesFor,
 ) -> Saved:
     """The writes of `save_operation`, inside its transaction."""
+    # Every action's row has the same roles, so this first check also keeps
+    # a resend by someone switched off or without a role from "Already saved".
+    standing = require(recorded_by, Permission.LOG_WORK)
     start_operation(operation_id, recorded_by)
     entries = entries() if callable(entries) else entries
+    check_actions(standing, [entry.action for entry in entries])
+    check_work_for(standing, [entry.staff_id for entry in entries])
     plant_ids = {entry.new_batch.plant_id for entry in entries if entry.new_batch}
     next_seq = lock_plants(plant_ids)
     locked = lock_batches(
@@ -229,16 +246,13 @@ def check_entry(entry: NewEvent, locked: dict[int, Batch]) -> None:
 
 
 def check_staff(entries: Sequence[NewEvent]) -> None:
-    """Who did the work must be an active user (U0.2b G4 security H2).
+    """Who did the work must be active and hold a role that may log work.
 
-    Whether the person saving may enter work for them is a role rule (N7,
-    U0.6).
+    (U0.2b G4 security H2; U0.6 §4.2.) Whether the person saving may enter
+    work for them is N7, checked by `check_work_for`.
     """
     staff_ids = {entry.staff_id for entry in entries if entry.staff_id is not None}
-    if not staff_ids:
-        return
-    active = User.objects.filter(pk__in=staff_ids, is_active=True).count()
-    if active != len(staff_ids):
+    if staff_ids - active_workers(staff_ids):
         raise refuse("staff_not_active")
 
 
@@ -401,12 +415,15 @@ def write_void(
     note: str,
 ) -> Saved:
     """The writes of `void`, inside its transaction."""
+    standing = require(recorded_by, Permission.UNDO_OWN)
     start_operation(operation_id, recorded_by)
     target = find_event(event_id)
     if target.action == Action.VOID:
         raise refuse("void_of_void")
     voided_operation = target.operation_id
     originals = list(Event.objects.filter(operation_id=voided_operation).order_by("id"))
+    # The Void tree, before any batch lock: a refused Undo locks nothing.
+    check_void_allowed(standing, originals)
     made_ids = set(
         Batch.objects.filter(created_operation_id=voided_operation).values_list(
             "id", flat=True
@@ -504,12 +521,14 @@ def write_correction(
     note: str,
 ) -> Saved:
     """The writes of `correct`, inside its transaction."""
+    standing = require(recorded_by, Permission.VOID_OR_CORRECT)
     start_operation(operation_id, recorded_by)
     target = find_event(event_id)
     if target.action in (Action.VOID, Action.CORRECTION):
         raise refuse("event_not_correctable")
     fixes = corrections_for(target, changes)
     originals = [original for original, _ in fixes]
+    check_correction(standing, originals)
     locked = lock_batches({original.batch_id for original in originals})
     if any(batch.status != BatchStatus.OPEN for batch in locked.values()):
         raise refuse("batch_not_open")

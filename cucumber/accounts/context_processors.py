@@ -2,7 +2,7 @@
 
 from django.http import HttpRequest
 
-from cucumber.accounts.permissions import Permission
+from cucumber.accounts.permissions import MATRIX, Permission, may
 
 
 def permissions(request: HttpRequest) -> dict[str, frozenset[Permission]]:
@@ -10,4 +10,11 @@ def permissions(request: HttpRequest) -> dict[str, frozenset[Permission]]:
 
     Pages that skip RoleRequired (login, 404, 500) get an empty set.
     """
-    raise NotImplementedError("U0.6 G3")
+    current = getattr(request, "standing", None)
+    if current is None:
+        return {"allowed": frozenset()}
+    return {
+        "allowed": frozenset(
+            row.permission for row in MATRIX if may(current.role, row.permission)
+        )
+    }

@@ -260,17 +260,14 @@ def test_the_admin_s_fix_of_their_own_entry_keeps_one_review(
     assert reviewers_of(fix.event_ids[0]) == [admin.pk]
 
 
-@pytest.mark.parametrize("saved_by", ["supervisor", "other_supervisor"])
 def test_a_supervisor_s_fix_doesn_t_review_an_entry_they_may_not_review(
-    stock: int,
-    tech: User,
-    supervisor: User,
-    request: pytest.FixtureRequest,
-    saved_by: str,
+    stock: int, tech: User, supervisor: User, other_supervisor: User
 ) -> None:
-    """Saved by a Supervisor (for a Tech, or their own): only the Admin reviews."""
-    saver: User = request.getfixturevalue(saved_by)
-    out = log(saver, stock, "out", qty_out=3, staff_id=tech.pk)
+    """Saved by another Supervisor, for a Tech: only the Admin reviews it.
+
+    (A Supervisor can't correct an entry they saved themselves, U0.6 §4.2.)
+    """
+    out = log(other_supervisor, stock, "out", qty_out=3, staff_id=tech.pk)
     correct(supervisor, out, "correction_wrong_quantity", qty_out=2)
     assert reviewers_of(out) == []
 

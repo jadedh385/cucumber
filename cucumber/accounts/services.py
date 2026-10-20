@@ -10,7 +10,8 @@ never a password, a session id or the email typed into a failed login.
 import ipaddress
 import logging
 import secrets
-from collections.abc import Iterator
+import unicodedata
+from collections.abc import Collection, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -18,25 +19,25 @@ from datetime import datetime, timedelta
 from django.conf import settings
 from django.contrib.auth import SESSION_KEY
 from django.contrib.auth.hashers import make_password
-from django.contrib.auth.models import AnonymousUser, User
+from django.contrib.auth.models import AnonymousUser, Group, User
 from django.contrib.auth.password_validation import validate_password
 from django.contrib.sessions.models import Session
-from django.core.exceptions import PermissionDenied, ValidationError
+from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
-from django.db import IntegrityError, connection, transaction
-from django.db.models import BooleanField, ExpressionWrapper, Q
+from django.db import connection, transaction
+from django.db.models import BooleanField, Count, ExpressionWrapper, Q
 from django.db.models.functions import Now
 from django.http import HttpRequest
 
 from cucumber.accounts.models import LoginFailure, PasswordChangeDue
-from cucumber.accounts.permissions import Role
-from cucumber.core.refusals import refuse
+from cucumber.accounts.permissions import Permission, Role, may, require
+from cucumber.core.refusals import Refused, database_refusals, refuse
 
 logger = logging.getLogger(__name__)
 
-ADMIN = "admin"
-SUPERVISOR = "supervisor"
-TECH = "tech"
+ADMIN = Role.ADMIN
+SUPERVISOR = Role.SUPERVISOR
+TECH = Role.TECH
 
 # Design §4, §7.2: rules, not settings, so the tests read them from here.
 SESSION_MAX_AGE = timedelta(days=30)
@@ -51,6 +52,12 @@ LOGIN_TRY_LOCK = 505
 
 # auth_user.username's size; the email is stored there (§2.1).
 LONGEST_EMAIL = 150
+# auth_user.first_name's size (AC17).
+LONGEST_NAME = 150
+# accounts_login_failure.email_key's size (AC19).
+LONGEST_KEY = 150
+# The rule the database names when the email is already taken (AC18).
+EMAIL_TAKEN_RULE = "auth_user_username_key"
 
 # Design §7.3: letters and digits without look-alikes (no 0 o 1 l i),
 # three groups of four joined by dashes, about 60 bits.
@@ -75,6 +82,16 @@ def has_role(user: User | AnonymousUser, role: str) -> bool:
     return user.groups.filter(name=role).exists()
 
 
+def active_workers(user_ids: Collection[int]) -> frozenset[int]:
+    """Of these accounts, the active ones whose role may log work (§4.2)."""
+    roles = [role for role in Role if may(role, Permission.LOG_WORK)]
+    return frozenset(
+        User.objects.filter(
+            pk__in=user_ids, is_active=True, groups__name__in=roles
+        ).values_list("pk", flat=True)
+    )
+
+
 def members_of(role: str) -> frozenset[int]:
     """The ids of every user in the role's group."""
     return frozenset(
@@ -86,17 +103,17 @@ def members_of(role: str) -> frozenset[int]:
 
 
 def email_key(text: str) -> str:
-    """The email as stored and compared: trimmed and lowercase (§2.1).
+    """The email as stored and compared: NFKC, trimmed and lowercase (§2.1, AC19).
 
-    `lower()`, not `casefold()`, so it matches PostgreSQL's lower().
+    The one place emails are made into keys. `lower()`, not `casefold()`, so
+    it matches PostgreSQL's lower().
     """
-    return text.strip().lower()
+    return unicodedata.normalize("NFKC", text).strip().lower()
 
 
-def require_admin(user: User | AnonymousUser) -> None:
-    """Raise `PermissionDenied` unless `user` is the Admin (AC28)."""
-    if not user.is_authenticated or not has_role(user, ADMIN):
-        raise PermissionDenied
+def failure_key(email: str) -> str:
+    """The email key as `LoginFailure` stores it: NFKC can make one too long (AC19)."""
+    return email_key(email)[:LONGEST_KEY]
 
 
 def checked_email(email: str) -> str:
@@ -116,21 +133,30 @@ def add_account(by: User, name: str, email: str, role: Role | None) -> NewAccoun
 
     U0.5 AC22; the role is U0.6 AC4 (required: one of the four).
     """
-    require_admin(by)
+    require(by, Permission.MANAGE_USERS)
+    if role is None:
+        raise refuse("account_role_required")
+    name = name.strip()
+    if len(name) > LONGEST_NAME:
+        raise refuse("account_name_too_long")
     key = checked_email(email)
     if User.objects.filter(username=key).exists():
         raise refuse("account_email_taken")
-    account = User(username=key, email=key, first_name=name.strip())
+    account = User(username=key, email=key, first_name=name)
     password = new_temporary_password(account)
     account.set_password(password)
     try:
-        with transaction.atomic():
+        with database_refusals(), transaction.atomic():
             account.save()
             PasswordChangeDue.objects.create(user=account)
-    except IntegrityError:
-        # Someone else added the same email a moment ago.
-        raise refuse("account_email_taken") from None
+            replace_role(account, role)
+    except Refused as refusal:
+        if refusal.rule == EMAIL_TAKEN_RULE:
+            # Someone else added the same email a moment ago.
+            raise refuse("account_email_taken") from None
+        raise
     logger.info("account added account=%s by=%s", account.pk, by.pk)
+    log_role_change(account, None, role, str(by.pk))
     return NewAccount(account=account, password=password)
 
 
@@ -141,10 +167,11 @@ def deactivate(by: User, account: User) -> None:
     sign a lost phone back in (G4 M1). The account and everything it saved
     stay.
     """
-    require_admin(by)
+    require(by, Permission.MANAGE_USERS)
     if by.pk == account.pk:
         raise refuse("account_cannot_deactivate_self")
     with transaction.atomic():
+        lock_for_account_change(account)
         if is_last_active_admin(account):
             raise refuse("account_last_admin")
         User.objects.filter(pk=account.pk).update(is_active=False)
@@ -158,20 +185,81 @@ def set_role(by: User, account: User, role: Role | None) -> None:
     Never your own (`account_cannot_change_own_role`), and never takes the
     Admin role from the last active Admin (`account_last_admin`).
     """
-    raise NotImplementedError("U0.6 G3")
+    require(by, Permission.MANAGE_USERS)
+    if by.pk == account.pk:
+        raise refuse("account_cannot_change_own_role")
+    with transaction.atomic():
+        lock_for_account_change(account)
+        old = role_of(account)
+        if old == role:
+            return
+        if old == Role.ADMIN and is_last_active_admin(account):
+            raise refuse("account_last_admin")
+        replace_role(account, role)
+    log_role_change(account, old, role, str(by.pk))
+
+
+def role_of(account: User) -> Role | None:
+    """The account's role now, read from the database."""
+    name = (
+        User.objects.filter(pk=account.pk)
+        .values_list("groups__name", flat=True)
+        .first()
+    )
+    return Role(name) if name else None
+
+
+def replace_role(account: User, role: Role | None) -> None:
+    """Give `account` this role and no other (§5.1), by a plain INSERT.
+
+    Not `groups.add()` or `groups.set()`: on PostgreSQL those write
+    `ON CONFLICT DO NOTHING`, so a second role would be skipped silently
+    instead of refused by `auth_user_one_role` (§6.2).
+    """
+    through = User.groups.through
+    through.objects.filter(user_id=account.pk).delete()
+    if role is not None:
+        group = Group.objects.get(name=role.value)
+        through.objects.create(user_id=account.pk, group_id=group.pk)
+
+
+def log_role_change(account: User, old: Role | None, new: Role | None, by: str) -> None:
+    """The role-change line (§9): ids only; `by` is an id or "command"."""
+    logger.info(
+        "role changed account=%s from=%s to=%s by=%s",
+        account.pk,
+        old or "none",
+        new or "none",
+        by,
+    )
+
+
+def lock_for_account_change(account: User) -> None:
+    """Lock `account` and the active Admins, in id order (§5.1).
+
+    Only takes the locks: under READ COMMITTED the list may be stale after
+    a wait, so decisions are made with new queries afterwards. `no_key`, so
+    event inserts by these people aren't blocked.
+    """
+    list(
+        User.objects.select_for_update(no_key=True, of=("self",))
+        .filter(Q(pk=account.pk) | Q(groups__name=ADMIN, is_active=True))
+        .order_by("pk")
+        .values_list("pk", flat=True)
+    )
 
 
 def is_last_active_admin(account: User) -> bool:
     """True when `account` is the only active Admin (G4 M2).
 
-    Locks the active Admins' rows until the transaction ends, so two Admins
-    switching each other off at the same moment are taken one at a time:
+    Call after `lock_for_account_change`, in the same transaction, so two
+    Admins changing each other at the same moment are taken one at a time:
     the second sees the first's change and is refused.
     """
     active_admins = list(
-        User.objects.select_for_update(of=("self",))
-        .filter(groups__name=ADMIN, is_active=True)
-        .values_list("pk", flat=True)
+        User.objects.filter(groups__name=ADMIN, is_active=True).values_list(
+            "pk", flat=True
+        )
     )
     return active_admins == [account.pk]
 
@@ -193,7 +281,7 @@ def end_sessions_of(account: User) -> None:
 
 def reactivate(by: User, account: User) -> None:
     """Switch an account back on (AC23)."""
-    require_admin(by)
+    require(by, Permission.MANAGE_USERS)
     User.objects.filter(pk=account.pk).update(is_active=True)
     logger.info("account reactivated account=%s by=%s", account.pk, by.pk)
 
@@ -204,7 +292,7 @@ def give_new_password(by: User, account: User) -> str:
     The password and its change-due mark are saved together or not at all.
     The person's open sessions end because the password changed.
     """
-    require_admin(by)
+    require(by, Permission.MANAGE_USERS)
     if by.pk == account.pk:
         raise refuse("account_cannot_reset_self")
     password = new_temporary_password(account)
@@ -218,10 +306,30 @@ def give_new_password(by: User, account: User) -> str:
 
 
 def lift_lock(by: User, account: User) -> None:
-    """Clear this account's wrong-password count (AC11)."""
-    require_admin(by)
-    LoginFailure.objects.filter(email_key=account.username).delete()
-    logger.info("lock lifted account=%s by=%s", account.pk, by.pk)
+    """Clear this account's wrong-password count, and any locked network (AC11, AC16).
+
+    The person's own tries while the network was locked weren't counted, so
+    their email may have no failures to point at the address. So every
+    address at or over the 50-try limit is lifted too; each is logged with
+    its count first, because deleting the rows removes the evidence.
+    """
+    require(by, Permission.MANAGE_USERS)
+    with transaction.atomic():
+        recent = LoginFailure.objects.filter(at__gt=Now() - LOCK_WINDOW)
+        locked = {
+            row["address"]: row["tries"]
+            for row in recent.exclude(address=None)
+            .values("address")
+            .annotate(tries=Count("pk"))
+            .filter(tries__gte=ADDRESS_LIMIT)
+        }
+        for address, tries in locked.items():
+            logger.info("network lock lifted address=%s failures=%s", address, tries)
+        LoginFailure.objects.filter(email_key=account.username).delete()
+        recent.filter(address__in=list(locked)).delete()
+    logger.info(
+        "lock lifted account=%s by=%s addresses=%s", account.pk, by.pk, len(locked)
+    )
 
 
 def password_chosen(user: User) -> None:
@@ -302,7 +410,7 @@ def locked_until(email: str) -> datetime | None:
         Q(at__gt=Now() - LOCK_WINDOW), output_field=BooleanField()
     )
     newest_first = (
-        LoginFailure.objects.filter(email_key=email_key(email))
+        LoginFailure.objects.filter(email_key=failure_key(email))
         .annotate(is_recent=is_recent)
         .order_by("-at")
         .values_list("at", "is_recent")
@@ -341,7 +449,7 @@ def one_try_at_a_time(email: str) -> Iterator[None]:
 
 def login_failed(email: str, address: str | None) -> None:
     """Count one wrong try. Never given the password."""
-    LoginFailure.objects.create(email_key=email_key(email), address=address)
+    LoginFailure.objects.create(email_key=failure_key(email), address=address)
     forget_old_failures()
     logger.info(
         "login failed account=%s address=%s",
@@ -361,7 +469,7 @@ def login_turned_away(email: str, address: str | None) -> None:
 
 def login_succeeded(email: str) -> None:
     """Clear this email's count, and tidy up old rows (§7.5)."""
-    LoginFailure.objects.filter(email_key=email_key(email)).delete()
+    LoginFailure.objects.filter(email_key=failure_key(email)).delete()
     forget_old_failures()
     Session.objects.filter(expire_date__lt=Now()).delete()
 

@@ -48,6 +48,12 @@ def migration(name: str) -> ModuleType:
     return importlib.import_module(f"cucumber.accounts.migrations.{name}")
 
 
+def seed_roles() -> None:
+    """The groups the migrations made, for a test whose database was flushed."""
+    for name in ROLE_NAMES:
+        Group.objects.get_or_create(name=name)
+
+
 def roles_of(user: User) -> list[str]:
     return sorted(User.objects.get(pk=user.pk).groups.values_list("name", flat=True))
 
@@ -397,6 +403,7 @@ def test_the_last_active_admin_is_not_deactivated_past_a_stale_check(
 @pytest.mark.django_db(transaction=True)
 def test_two_admins_demoting_each_other_at_once_leave_one_admin() -> None:
     """Taken one at a time, in the same lock order, so neither waits forever."""
+    seed_roles()
     jade = make_staff("jade", "admin")
     mali = make_staff("mali", "admin")
 
@@ -418,6 +425,7 @@ def test_two_admins_demoting_each_other_at_once_leave_one_admin() -> None:
 
 @pytest.mark.django_db(transaction=True)
 def test_deactivating_and_demoting_each_other_at_once_leave_one_admin() -> None:
+    seed_roles()
     jade = make_staff("jade", "admin")
     mali = make_staff("mali", "admin")
 

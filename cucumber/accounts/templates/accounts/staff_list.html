@@ -14,7 +14,7 @@
   <li>
     <a href="{% url 'staff_detail' row.account.pk %}"><strong>{{ row.account.first_name|default:row.account.email }}</strong>{% if row.is_you %} {% translate "(you)" %}{% endif %}</a>
     <span class="email">{{ row.account.email }}</span>
-    <span class="state">{% if row.account.is_active %}{% translate "Active" %}{% else %}{% translate "Deactivated" %}{% endif %}{% if row.locked_until %} · {% blocktranslate with time=row.locked_until|time:"H:i" %}Locked until {{ time }}{% endblocktranslate %}{% endif %}</span>
+    <span class="state">{{ row.role_label }} · {% if row.account.is_active %}{% translate "Active" %}{% else %}{% translate "Deactivated" %}{% endif %}{% if row.locked_until %} · {% blocktranslate with time=row.locked_until|time:"H:i" %}Locked until {{ time }}{% endblocktranslate %}{% endif %}</span>
   </li>
   {% endfor %}
 </ul>

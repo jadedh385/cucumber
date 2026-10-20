@@ -1,7 +1,8 @@
 """Account pages (design §6). Thin: read the form, call a service, show the result.
 
-Every Staff page checks for the Admin through `require_admin` (AC28);
-anyone else gets 403. The two pages that show a temporary password answer
+Each page is labelled with its matrix row (`allowed_for`); `RoleRequired`
+answers 403 for any other role (U0.6 §3.1), and the services check again.
+The two pages that show a temporary password answer
 the POST directly and are never cached (§6.2): a redirect would have to
 carry the password through the session or Django's messages.
 """
@@ -24,7 +25,13 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_POST, require_safe
 
 from cucumber.accounts import services
-from cucumber.accounts.forms import AddAccountForm, ChangePasswordForm
+from cucumber.accounts.forms import (
+    ROLE_LABELS,
+    AddAccountForm,
+    ChangePasswordForm,
+    RoleForm,
+)
+from cucumber.accounts.permissions import Permission, Role, allowed_for, role_named
 from cucumber.core.refusals import Refused
 
 
@@ -35,10 +42,16 @@ class StaffRow:
     account: User
     is_you: bool
     locked_until: datetime | None
+    role: Role | None
+
+    @property
+    def role_label(self) -> str:
+        return str(ROLE_LABELS[self.role]) if self.role else _("No role")
 
 
-def staff_row(request: HttpRequest, account: User) -> StaffRow:
+def staff_row(request: HttpRequest, account: User, role: Role | str | None) -> StaffRow:
     return StaffRow(
+        role=role_named(role) if isinstance(role, str) else role,
         account=account,
         is_you=account.pk == request.user.pk,
         locked_until=services.locked_until(account.username),
@@ -66,13 +79,14 @@ def safe_next(request: HttpRequest) -> str | None:
 # ------------------------------------------------------------ everyone
 
 
+@allowed_for(Permission.OWN_ACCOUNT)
 @require_safe
 def home(request: HttpRequest) -> HttpResponse:
-    """`/`: who is signed in; a link to Staff for the Admin (AC18, AC21)."""
-    is_admin = services.has_role(signed_in_user(request), services.ADMIN)
-    return render(request, "accounts/home.html", {"is_admin": is_admin})
+    """`/`: who is signed in; links from what the person may do (AC11, AC18)."""
+    return render(request, "accounts/home.html")
 
 
+@allowed_for(Permission.OWN_ACCOUNT)
 def password(request: HttpRequest) -> HttpResponse:
     """Change your own password; also the forced change (AC25, AC26)."""
     user = signed_in_user(request)
@@ -89,22 +103,23 @@ def password(request: HttpRequest) -> HttpResponse:
     return render(request, "accounts/password.html", context)
 
 
-# --------------------------------------------------------- Admin only
+# ------------------------------------------------- Manage users
 
 
+@allowed_for(Permission.MANAGE_USERS)
 @require_safe
 def staff_list(request: HttpRequest) -> HttpResponse:
-    services.require_admin(request.user)
     accounts = User.objects.order_by("first_name", "username")
-    rows = [staff_row(request, account) for account in accounts]
+    roles = dict(User.groups.through.objects.values_list("user_id", "group__name"))
+    rows = [staff_row(request, account, roles.get(account.pk)) for account in accounts]
     return render(request, "accounts/staff_list.html", {"rows": rows})
 
 
+@allowed_for(Permission.MANAGE_USERS)
 @never_cache
 def staff_new(request: HttpRequest) -> HttpResponse:
     """Add an account; the POST answers with its temporary password (§6.2)."""
     by = signed_in_user(request)
-    services.require_admin(by)
     form = AddAccountForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
         try:
@@ -112,21 +127,29 @@ def staff_new(request: HttpRequest) -> HttpResponse:
                 by,
                 form.cleaned_data["name"],
                 form.cleaned_data["email"],
-                form.cleaned_data.get("role"),
+                role_named(form.cleaned_data["role"]),
             )
         except Refused as refusal:
-            form.add_error("email", refusal.message)
+            form.add_error(refusal_field(refusal), refusal.message)
         else:
             return temporary_password_page(request, added.account, added.password)
     return render(request, "accounts/staff_new.html", {"form": form})
 
 
+def refusal_field(refusal: Refused) -> str:
+    """The Add form's field a refusal belongs to."""
+    return "role" if refusal.rule == "account_role_required" else "email"
+
+
+@allowed_for(Permission.MANAGE_USERS)
 @require_safe
 def staff_detail(request: HttpRequest, account_id: int) -> HttpResponse:
-    services.require_admin(request.user)
     account = get_object_or_404(User, pk=account_id)
+    row = staff_row(request, account, services.role_of(account))
     return render(
-        request, "accounts/staff_detail.html", {"row": staff_row(request, account)}
+        request,
+        "accounts/staff_detail.html",
+        {"row": row, "role_form": RoleForm(initial={"role": row.role or "none"})},
     )
 
 
@@ -140,9 +163,7 @@ def temporary_password_page(
 
 def account_for_button(request: HttpRequest, account_id: int) -> tuple[User, User]:
     """(the Admin, the account) for one of the Staff buttons."""
-    by = signed_in_user(request)
-    services.require_admin(by)
-    return by, get_object_or_404(User, pk=account_id)
+    return signed_in_user(request), get_object_or_404(User, pk=account_id)
 
 
 def name_of(account: User) -> str:
@@ -162,6 +183,7 @@ def about(account: User, message: str) -> SafeString:
     return format_html(message, name=name_of(account))
 
 
+@allowed_for(Permission.MANAGE_USERS)
 @require_POST
 def staff_deactivate(request: HttpRequest, account_id: int) -> HttpResponse:
     by, account = account_for_button(request, account_id)
@@ -174,6 +196,7 @@ def staff_deactivate(request: HttpRequest, account_id: int) -> HttpResponse:
     return redirect("staff_detail", account_id=account.pk)
 
 
+@allowed_for(Permission.MANAGE_USERS)
 @require_POST
 def staff_reactivate(request: HttpRequest, account_id: int) -> HttpResponse:
     by, account = account_for_button(request, account_id)
@@ -182,6 +205,7 @@ def staff_reactivate(request: HttpRequest, account_id: int) -> HttpResponse:
     return redirect("staff_detail", account_id=account.pk)
 
 
+@allowed_for(Permission.MANAGE_USERS)
 @never_cache
 @require_POST
 def staff_new_password(request: HttpRequest, account_id: int) -> HttpResponse:
@@ -195,12 +219,35 @@ def staff_new_password(request: HttpRequest, account_id: int) -> HttpResponse:
     return temporary_password_page(request, account, temporary)
 
 
+@allowed_for(Permission.MANAGE_USERS)
 @require_POST
 def staff_role(request: HttpRequest, account_id: int) -> HttpResponse:
     """Change or remove an account's role (U0.6 AC4); back to its page."""
-    raise NotImplementedError("U0.6 G3")
+    by, account = account_for_button(request, account_id)
+    form = RoleForm(request.POST)
+    if not form.is_valid():
+        messages.error(request, _("Choose a role."))
+        return redirect("staff_detail", account_id=account.pk)
+    role = role_named(form.cleaned_data["role"])
+    try:
+        services.set_role(by, account, role)
+    except Refused as refusal:
+        messages.error(request, refusal_text(refusal))
+    else:
+        messages.success(request, role_message(account, role))
+    return redirect("staff_detail", account_id=account.pk)
 
 
+def role_message(account: User, role: Role | None) -> SafeString:
+    """ "{name}'s role is now Supervisor." or "{name} has no role now."."""
+    if role is None:
+        return about(account, _("{name} has no role now."))
+    return format_html(
+        _("{name}'s role is now {role}."), name=name_of(account), role=ROLE_LABELS[role]
+    )
+
+
+@allowed_for(Permission.MANAGE_USERS)
 @require_POST
 def staff_unlock(request: HttpRequest, account_id: int) -> HttpResponse:
     by, account = account_for_button(request, account_id)

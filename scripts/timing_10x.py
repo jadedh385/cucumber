@@ -30,6 +30,8 @@ from django.contrib.auth.models import Group, User  # noqa: E402
 from django.core.management import call_command  # noqa: E402
 from django.db import connection  # noqa: E402
 
+from cucumber.accounts.permissions import Role  # noqa: E402
+from cucumber.accounts.services import replace_role  # noqa: E402
 from cucumber.env import env  # noqa: E402
 from cucumber.events.reviews import review, review_queue, waiting_for_review  # noqa: E402
 from cucumber.events.services import (  # noqa: E402
@@ -151,7 +153,8 @@ def make_staff() -> Staff:
         # The user name is the email (U0.5's auth_user rule).
         email = f"timing-{name}@example.com"
         user, _ = User.objects.get_or_create(username=email, defaults={"email": email})
-        user.groups.add(Group.objects.get_or_create(name=role)[0])
+        Group.objects.get_or_create(name=role)  # a flushed test database has none
+        replace_role(user, Role(role))
         return user
 
     return Staff(

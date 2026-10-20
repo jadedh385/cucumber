@@ -191,26 +191,53 @@ class NotAllowed(PermissionDenied):
         super().__init__(self.message)
 
 
+_ROWS: dict[Permission, Row] = {row.permission: row for row in MATRIX}
+
+
 def row_of(permission: Permission) -> Row:
     """The matrix row for `permission`."""
-    raise NotImplementedError("U0.6 G3")
+    return _ROWS[permission]
 
 
 def may(role: Role | None, permission: Permission) -> bool:
     """True when the matrix allows `role` the row's action."""
-    raise NotImplementedError("U0.6 G3")
+    return role in row_of(permission).allowed
+
+
+def role_named(name: str | None) -> Role | None:
+    """The `Role` for a group name; None for no group or an unknown one."""
+    try:
+        return Role(name) if name else None
+    except ValueError:
+        return None
 
 
 def standing(user: User | AnonymousUser) -> Standing:
     """Active flag and role, read from the database now (one query)."""
-    raise NotImplementedError("U0.6 G3")
+    if user.pk is None:
+        return Standing(None, False, None)
+    found = User.objects.filter(pk=user.pk).values_list("is_active", "groups__name")
+    row = found.first()
+    if row is None:
+        return Standing(user.pk, False, None)
+    return Standing(user.pk, row[0], role_named(row[1]))
 
 
 def require(user: User | AnonymousUser, permission: Permission) -> Standing:
     """The person's standing, or `NotAllowed`: account_not_active / role_not_allowed."""
-    raise NotImplementedError("U0.6 G3")
+    current = standing(user)
+    if not current.is_active:
+        raise NotAllowed("account_not_active")
+    if not may(current.role, permission):
+        raise NotAllowed("role_not_allowed")
+    return current
 
 
 def allowed_for(permission: Permission) -> Callable[[View], View]:
     """Label a view with its matrix row (`view.cucumber_permission`, §3.1)."""
-    raise NotImplementedError("U0.6 G3")
+
+    def label(view: View) -> View:
+        view.cucumber_permission = permission  # type: ignore[attr-defined]
+        return view
+
+    return label

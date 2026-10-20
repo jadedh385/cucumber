@@ -2,7 +2,7 @@
 
     uv run --no-dev python -m scripts.flag production list
     uv run --no-dev python -m scripts.flag production needs_attention on
-    uv run --no-dev python -m scripts.flag production needs_attention on --group Owner
+    uv run --no-dev python -m scripts.flag production needs_attention on --group admin
     uv run --no-dev python -m scripts.flag production needs_attention off
 
 Runs `manage.py cucumber_flag` inside the environment's running app, as

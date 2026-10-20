@@ -18,7 +18,7 @@ from scripts.tests.fake_server import (
     shell_environment,
 )
 
-LISTING = "Flags on production\n  needs_attention      on for: Owner\n"
+LISTING = "Flags on production\n  needs_attention      on for: admin\n"
 
 
 def flag(
@@ -48,7 +48,7 @@ def test_list_shows_what_the_app_reports(tmp_path: Path) -> None:
     code, place = flag(tmp_path, server, "list")
 
     assert code == 0
-    assert "needs_attention      on for: Owner" in server.output()
+    assert "needs_attention      on for: admin" in server.output()
     assert server.first("flag").command[-1] == "list"
     assert flags_log(place) == []
 
@@ -73,7 +73,7 @@ def test_the_command_runs_inside_the_running_app(tmp_path: Path) -> None:
     [
         ["needs_attention", "on"],
         ["needs_attention", "off"],
-        ["needs_attention", "on", "--group", "Owner", "--group", "Lab"],
+        ["needs_attention", "on", "--group", "admin", "--group", "supervisor"],
     ],
 )
 def test_a_switch_is_passed_to_the_app_as_given(
@@ -91,7 +91,7 @@ def test_a_switch_is_passed_to_the_app_as_given(
 def test_each_change_is_added_to_the_flags_log(tmp_path: Path) -> None:
     server = FakeServer()
 
-    _, place = flag(tmp_path, server, "needs_attention", "on", "--group", "Owner")
+    _, place = flag(tmp_path, server, "needs_attention", "on", "--group", "admin")
     second = main(
         ["production", "needs_attention", "off"],
         server.tools(),
@@ -103,7 +103,7 @@ def test_each_change_is_added_to_the_flags_log(tmp_path: Path) -> None:
     assert len(lines) == 2
     assert lines[0].startswith("2026-10-13 14:0")  # Bangkok time
     assert "needs_attention" in lines[0] and " on" in lines[0]
-    assert "Owner" in lines[0]
+    assert "admin" in lines[0]
     assert "needs_attention" in lines[1] and " off" in lines[1]
 
 
@@ -141,7 +141,7 @@ def test_off_for_some_groups_is_refused(tmp_path: Path) -> None:
     """`off` always clears groups (design §7), so a group with off is a mistake."""
     server = FakeServer()
 
-    code, _ = flag(tmp_path, server, "needs_attention", "off", "--group", "Owner")
+    code, _ = flag(tmp_path, server, "needs_attention", "off", "--group", "admin")
 
     assert code != 0
     assert server.calls == []

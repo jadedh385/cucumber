@@ -8,6 +8,7 @@ htmx would swap the login page into the form. It gets 401 with
 `HX-Redirect`, so htmx loads the whole page instead (AC19).
 """
 
+import logging
 import time
 from collections.abc import Callable
 from typing import Any
@@ -15,6 +16,7 @@ from urllib.parse import urlencode, urlsplit, urlunsplit
 
 from django.contrib.auth import logout
 from django.contrib.auth.middleware import LoginRequiredMiddleware
+from django.core.exceptions import PermissionDenied
 from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.http.response import HttpResponseBase
 from django.shortcuts import resolve_url
@@ -22,7 +24,10 @@ from django.urls import reverse
 from django.utils.deprecation import MiddlewareMixin
 from django.utils.http import url_has_allowed_host_and_scheme
 
+from cucumber.accounts.permissions import may, standing
 from cucumber.accounts.services import SESSION_MAX_AGE, change_is_due
+
+logger = logging.getLogger(__name__)
 
 GetResponse = Callable[[HttpRequest], HttpResponse]
 
@@ -31,6 +36,11 @@ LOGIN_AT = "login_at"
 
 # Pages someone with a change due may still open (§5).
 OPEN_DURING_CHANGE = frozenset({"password", "logout", "login", "health"})
+
+
+def view_name(view_func: Callable[..., Any]) -> str:
+    """The view's dotted name, for the log line."""
+    return f"{view_func.__module__}.{getattr(view_func, '__qualname__', view_func)}"
 
 
 def is_htmx(request: HttpRequest) -> bool:
@@ -144,4 +154,17 @@ class RoleRequired(MiddlewareMixin):
         view_args: tuple[Any, ...],
         view_kwargs: dict[str, Any],
     ) -> HttpResponse | None:
-        raise NotImplementedError("U0.6 G3")
+        if getattr(view_func, "login_required", True) is False:
+            return None
+        current = standing(request.user)
+        request.standing = current  # type: ignore[attr-defined]
+        permission = getattr(view_func, "cucumber_permission", None)
+        if permission is None:
+            logger.error("page has no permission view=%s", view_name(view_func))
+            raise PermissionDenied
+        if not may(current.role, permission):
+            logger.info(
+                "page refused account=%s permission=%s", current.user_id, permission
+            )
+            raise PermissionDenied
+        return None

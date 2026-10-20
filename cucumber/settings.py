@@ -123,6 +123,8 @@ MIDDLEWARE = [
     "cucumber.accounts.middleware.SessionLimit",
     "cucumber.accounts.middleware.LoginRequired",
     "cucumber.accounts.middleware.PasswordChangeDue",
+    # U0.6 design §3: each page's matrix row must allow the person's role.
+    "cucumber.accounts.middleware.RoleRequired",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
@@ -139,6 +141,7 @@ TEMPLATES = [
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
                 "cucumber.core.context_processors.environment",
+                "cucumber.accounts.context_processors.permissions",
             ],
         },
     },

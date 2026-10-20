@@ -12,6 +12,7 @@ from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 
+from cucumber.accounts.permissions import Role
 from cucumber.accounts.services import (
     change_is_due,
     client_address,
@@ -80,13 +81,50 @@ class LoginForm(AuthenticationForm):
         return self.user_cache
 
 
+ROLE_LABELS = {
+    Role.ADMIN: _("Admin"),
+    Role.SUPERVISOR: _("Supervisor"),
+    Role.TECH: _("Tech"),
+    Role.READ_ONLY: _("Read Only"),
+}
+# One line each, from the matrix's words (U0.6 design §7).
+ROLE_HELP = {
+    Role.ADMIN: _("everything"),
+    Role.SUPERVISOR: _("reviews others' work"),
+    Role.TECH: _("logs own lab work"),
+    Role.READ_ONLY: _("sees, changes none"),
+}
+NO_ROLE = "none"
+
+
+def role_choices() -> list[tuple[str, str]]:
+    """The four roles as radio choices: value = group name, label + one line."""
+    return [(str(role), f"{ROLE_LABELS[role]} — {ROLE_HELP[role]}") for role in Role]
+
+
 class AddAccountForm(forms.Form):
-    """Name and email for a new account (AC22). The service checks the email."""
+    """Name, email and role for a new account (AC22, U0.6 AC4).
+
+    The service checks the email. There is no default role and no "no role".
+    """
 
     name = forms.CharField(label=_("Name"), max_length=150)
     email = forms.CharField(
         label=_("Email"),
         widget=forms.EmailInput(attrs={"autocomplete": "off"}),
+    )
+    role = forms.ChoiceField(
+        label=_("Role"), choices=role_choices, widget=forms.RadioSelect
+    )
+
+
+class RoleForm(forms.Form):
+    """Change or remove an account's role (U0.6 AC4): the four, or `none`."""
+
+    role = forms.ChoiceField(
+        label=_("Role"),
+        choices=lambda: [*role_choices(), (NO_ROLE, _("No role"))],
+        widget=forms.RadioSelect,
     )
 
 
