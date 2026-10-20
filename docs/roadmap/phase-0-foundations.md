@@ -213,6 +213,9 @@ exits · *Gate focus* = unit-specific checks on top of [the standard gates](gate
   **From the U0.4a G4 review:** a database `statement_timeout` and
   `idle_in_transaction_session_timeout` (only `lock_timeout` is set), shown
   with the same "Busy, please try again" message.
+  **From the U0.6 G5 verify:** Django writes a full traceback to the log for
+  every 403 (`django.request`), next to Cucumber's one-line "page refused":
+  quiet it so the staging and production logs stay readable.
   **From the U0.5 G4 review:** the Password page answers only GET and POST,
   and an empty POST shows the form's errors (`request.POST or None` treats it
   as unsent); saving a password and clearing its change-due mark in one
