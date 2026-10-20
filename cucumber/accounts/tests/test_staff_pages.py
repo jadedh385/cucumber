@@ -32,8 +32,12 @@ from cucumber.accounts.tests.helpers import (
     text,
 )
 from cucumber.core.tests.stock import make_staff
+from cucumber.core.tests.trail import LEFT_COMPANY
 
 pytestmark = pytest.mark.django_db
+
+# U0.7 AC11: the Deactivate button posts a reason from its list.
+A_REASON = {"reason_code": LEFT_COMPANY}
 
 
 def fresh(user: User) -> User:
@@ -168,7 +172,7 @@ def test_a_taken_email_is_refused_on_the_page(owner_client: Client, gene: User) 
 def test_deactivating_ends_the_persons_open_session(
     owner_client: Client, gene: User, gene_client: Client
 ) -> None:
-    response = owner_client.post(f"{STAFF}{gene.pk}/deactivate/")
+    response = owner_client.post(f"{STAFF}{gene.pk}/deactivate/", A_REASON)
 
     assert response.status_code == 302
     assert not fresh(gene).is_active
@@ -178,7 +182,7 @@ def test_deactivating_ends_the_persons_open_session(
 def test_a_deactivated_person_gets_the_usual_wrong_message(
     owner_client: Client, gene: User
 ) -> None:
-    owner_client.post(f"{STAFF}{gene.pk}/deactivate/")
+    owner_client.post(f"{STAFF}{gene.pk}/deactivate/", A_REASON)
 
     response = log_in(Client(), "gene@example.com")
 
@@ -186,7 +190,7 @@ def test_a_deactivated_person_gets_the_usual_wrong_message(
 
 
 def test_reactivating_lets_them_back_in(owner_client: Client, gene: User) -> None:
-    owner_client.post(f"{STAFF}{gene.pk}/deactivate/")
+    owner_client.post(f"{STAFF}{gene.pk}/deactivate/", A_REASON)
 
     owner_client.post(f"{STAFF}{gene.pk}/reactivate/")
 
@@ -197,7 +201,9 @@ def test_reactivating_lets_them_back_in(owner_client: Client, gene: User) -> Non
 def test_deactivating_yourself_is_refused_on_the_page(
     owner_client: Client, owner: User
 ) -> None:
-    response = owner_client.post(f"{STAFF}{owner.pk}/deactivate/", follow=True)
+    response = owner_client.post(
+        f"{STAFF}{owner.pk}/deactivate/", A_REASON, follow=True
+    )
 
     assert "You can't deactivate your own account." in text(response)
     assert fresh(owner).is_active
@@ -348,7 +354,7 @@ def test_reactivating_does_not_bring_back_old_sessions(
     owner_client: Client, gene: User, gene_client: Client
 ) -> None:
     """A lost phone stays signed out after the account is switched back on."""
-    owner_client.post(f"{STAFF}{gene.pk}/deactivate/")
+    owner_client.post(f"{STAFF}{gene.pk}/deactivate/", A_REASON)
 
     owner_client.post(f"{STAFF}{gene.pk}/reactivate/")
 
@@ -360,7 +366,7 @@ def test_deactivating_ends_only_that_persons_sessions(
 ) -> None:
     pim_client = signed_in(pim)
 
-    owner_client.post(f"{STAFF}{gene.pk}/deactivate/")
+    owner_client.post(f"{STAFF}{gene.pk}/deactivate/", A_REASON)
 
     assert signed_in_as(owner_client) is not None
     assert not session_ended(owner_client)

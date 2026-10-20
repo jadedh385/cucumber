@@ -50,6 +50,7 @@ def kind_of(command: Sequence[str]) -> str:
         ("checkout", "checkout" in words),
         ("rev-parse", "rev-parse" in words),
         ("pending", "pending_migrations" in words),
+        ("guards", "cucumber_check_guards" in words),
         ("flag", "cucumber_flag" in words),
         ("backup", "pg_dump" in words),
         ("backup-check", "pg_restore" in words),
@@ -73,6 +74,8 @@ class FakeServer:
     tag_sha: str = SHA
     stray_files: str = ""
     pending_outputs: list[str] = field(default_factory=lambda: [NO_CHANGES])
+    # Each guard check in turn: None passes, a text fails with it (the last repeats).
+    guard_results: list[str | None] = field(default_factory=lambda: [None])
     failing: set[str] = field(default_factory=set)
     broken_versions: set[str] = field(default_factory=set)
     image_tags: list[str] = field(default_factory=list)
@@ -110,7 +113,17 @@ class FakeServer:
         self.clock += timedelta(seconds=COMMAND_SECONDS.get(kind, 1.0))
         if kind in self.failing:
             raise RuntimeError(f"`{' '.join(command)}` failed: pretend {kind} error")
+        if kind == "guards":
+            return self._guards()
         return self._answer(kind, list(command), env or {}, stdout)
+
+    def _guards(self) -> str:
+        result = self.guard_results[0]
+        if len(self.guard_results) > 1:
+            self.guard_results.pop(0)
+        if result is not None:
+            raise RuntimeError(result)
+        return "All 120 protections on.\n"
 
     def get(self, url: str, headers: Mapping[str, str]) -> tuple[int, str]:
         self.calls.append(Call("health", [url], dict(headers)))

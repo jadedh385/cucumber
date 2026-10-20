@@ -31,6 +31,7 @@ from cucumber.accounts.services import add_account, deactivate, role_of, set_rol
 from cucumber.core.refusals import Refused
 from cucumber.core.tests.rows import fetch_all, fetch_one, refused_by, run
 from cucumber.core.tests.stock import make_staff, not_allowed, refused
+from cucumber.core.tests.trail import LEFT_THE_COMPANY
 from cucumber.events.tests.test_concurrency import at_the_same_moment
 
 pytestmark = pytest.mark.django_db
@@ -210,7 +211,7 @@ def test_a_group_that_is_not_a_role_reads_as_no_role(owner: User) -> None:
 
 def test_a_deactivated_account_keeps_its_role(owner: User, gene: User) -> None:
     """Q3: switching it back on returns it as it was."""
-    deactivate(owner, gene)
+    deactivate(owner, gene, LEFT_THE_COMPANY)
 
     assert roles_of(gene) == ["tech"]
 
@@ -417,7 +418,7 @@ def test_the_last_active_admin_is_not_deactivated_past_a_stale_check(
         mock.patch("cucumber.accounts.services.require", return_value=stale),
         refused("account_last_admin"),
     ):
-        deactivate(mali, owner)
+        deactivate(mali, owner, LEFT_THE_COMPANY)
 
     assert User.objects.get(pk=owner.pk).is_active
 
@@ -438,7 +439,7 @@ def lose_admin_while_waiting(admin: User) -> Any:
     "change",
     [
         lambda by, account: set_role(by, account, Role.ADMIN),
-        lambda by, account: deactivate(by, account),
+        lambda by, account: deactivate(by, account, LEFT_THE_COMPANY),
     ],
     ids=["set_role", "deactivate"],
 )
@@ -488,7 +489,7 @@ def test_deactivating_and_demoting_each_other_at_once_leave_one_admin() -> None:
 
     results = at_the_same_moment(
         [
-            lambda: deactivate(jade, mali),
+            lambda: deactivate(jade, mali, LEFT_THE_COMPANY),
             lambda: set_role(mali, jade, Role.TECH),
         ]
     )

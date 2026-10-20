@@ -33,8 +33,10 @@ STEP_LINES = [
     f"Getting {NEW} from GitHub",
     "Building the app",
     "Checking the database fits this version",
+    "Checking the database's protections",  # U0.7 step 3b
     "Saving a copy of the database",
     "Updating the database (no changes)",
+    "Checking the database's protections again",  # U0.7 step 5b
     "Restarting the app",
     "Checking the app answers",
     f"Done: staging now runs {NEW} (was {PREVIOUS}). Took ",

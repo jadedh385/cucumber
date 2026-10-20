@@ -33,6 +33,7 @@ from cucumber.accounts.services import (
 from cucumber.core.refusals import Refused
 from cucumber.core.tests.rows import as_int, fetch_one, insert, make_event
 from cucumber.core.tests.stock import intake_into_new_batch, log, make_staff
+from cucumber.core.tests.trail import LEFT_THE_COMPANY
 from cucumber.events.models import Event
 from cucumber.events.reviews import review
 from cucumber.events.services import close, correct, split, void
@@ -241,7 +242,7 @@ OTHER_WAYS_IN: dict[str, tuple[Permission, Probe]] = {
     ),
     "deactivate": (
         Permission.MANAGE_USERS,
-        Probe(lambda who, s, _: deactivate(who, other_tech())),
+        Probe(lambda who, s, _: deactivate(who, other_tech(), LEFT_THE_COMPANY)),
     ),
     "reactivate": (
         Permission.MANAGE_USERS,

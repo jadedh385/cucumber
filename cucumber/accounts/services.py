@@ -31,6 +31,7 @@ from django.http import HttpRequest
 
 from cucumber.accounts.models import LoginFailure, PasswordChangeDue
 from cucumber.accounts.permissions import Permission, Role, may, require, role_named
+from cucumber.core.audit import Reason
 from cucumber.core.refusals import Refused, database_refusals, refuse
 
 logger = logging.getLogger(__name__)
@@ -160,24 +161,24 @@ def add_account(by: User, name: str, email: str, role: Role | None) -> NewAccoun
     return NewAccount(account=account, password=password)
 
 
-def deactivate(by: User, account: User) -> None:
-    """Switch an account off; never your own, nor the last Admin (AC23, AC24).
+def deactivate(by: User, account: User, reason: Reason | None) -> None:
+    """Switch an account off, with a reason from the `deactivate` list.
 
-    Its open sessions are removed, so switching it back on later doesn't
-    sign a lost phone back in (G4 M1). The account and everything it saved
-    stay.
+    Never your own, nor the last Admin (AC23, AC24); no reason is
+    `reason_required` (U0.7 AC11, spec Q3). Its open sessions are removed,
+    so switching it back on later doesn't sign a lost phone back in (G4 M1).
+    The account and everything it saved stay.
     """
-    require(by, Permission.MANAGE_USERS)
-    if by.pk == account.pk:
-        raise refuse("account_cannot_deactivate_self")
-    with transaction.atomic():
-        lock_for_account_change(account)
-        still_manages_users(by)
-        if is_last_active_admin(account):
-            raise refuse("account_last_admin")
-        User.objects.filter(pk=account.pk).update(is_active=False)
-        end_sessions_of(account)
-    logger.info("account deactivated account=%s by=%s", account.pk, by.pk)
+    raise NotImplementedError("U0.7 G3")
+
+
+def anonymise(account: User) -> None:
+    """Remove the account's personal details for good (U0.7 design §7.2).
+
+    Run by `cucumber_anonymise` as System, with the PDPA reason. Refuses the
+    last active Admin, the System account and an account already anonymised.
+    """
+    raise NotImplementedError("U0.7 G3")
 
 
 def set_role(by: User, account: User, role: Role | None) -> None:

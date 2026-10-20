@@ -62,6 +62,18 @@ DESIGN_MESSAGES = {
     "account_cannot_change_own_role": "You can't change your own role.",
     "account_name_too_long": "A name can be at most 150 characters.",
     "account_role_required": "Choose a role.",
+    # Audit trail (U0.7 design §6)
+    "reason_required": "Choose a reason.",
+    "reason_wrong_list": "That reason doesn't fit this change. Choose another.",
+    "reason_note_too_long": "The note can be at most 500 characters.",
+    "audit_actor_required": (
+        "This change can't be saved because it doesn't say who made it."
+    ),
+    "account_anonymised": (
+        "{name}'s details were removed (PDPA), so the account can't be"
+        " switched back on."
+    ),
+    "account_is_system": "The System account can't be changed.",
 }
 
 

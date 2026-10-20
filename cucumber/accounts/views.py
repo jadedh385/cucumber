@@ -201,7 +201,7 @@ def about(account: User, message: str) -> SafeString:
 def staff_deactivate(request: HttpRequest, account_id: int) -> HttpResponse:
     by, account = account_for_button(request, account_id)
     try:
-        services.deactivate(by, account)
+        services.deactivate(by, account, None)  # U0.7 G3: the form's reason
     except Refused as refusal:
         messages.error(request, refusal_text(refusal))
     else:

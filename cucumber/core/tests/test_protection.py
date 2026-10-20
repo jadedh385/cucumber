@@ -64,7 +64,8 @@ APP_GRANTS: dict[str, set[str]] = (
         "django_session": HOUSEKEEPING,
         "django_admin_log": HOUSEKEEPING,
         "auth_user_groups": HOUSEKEEPING,
-        "auth_user_user_permissions": HOUSEKEEPING,
+        # U0.7 design §5.3 (review L1): roles are groups, so read-only.
+        "auth_user_user_permissions": {"SELECT"},
         "auth_group": {"SELECT"},
         "auth_permission": {"SELECT"},
         "auth_group_permissions": {"SELECT"},
@@ -82,7 +83,7 @@ UNCHANGED_COLUMN = {
     "event_reviews": "note",
     "plant_status_changes": "reason",
     "skus": "assigned_at",
-    "audit_log": "reason",
+    "audit_log": "note",
 }
 
 # Each reference table's first code and a valid new one (None: any seeded code).
@@ -129,7 +130,8 @@ def one_row_everywhere(user: int, reviewer: int, plant: int) -> None:
         "action": "insert",
         "before": None,
         "after": json.dumps({"full_name": "Pink Princess"}),
-        "reason": None,
+        "note": None,
+        "via": "test",
     }
     insert("audit_log", audit)
 
