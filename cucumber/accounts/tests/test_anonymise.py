@@ -6,6 +6,7 @@ fake answers by what the question says, like test_cucumber_admin.py's.
 
 import json
 import logging
+import re
 from collections.abc import Callable
 from io import StringIO
 from unittest import mock
@@ -61,7 +62,9 @@ from cucumber.events.models import Event
 
 pytestmark = pytest.mark.django_db
 
+# Escaped: the tests match it with pytest.raises(match=...), a regex.
 REMOVED = "details were removed (PDPA)"
+REMOVED_PATTERN = re.escape(REMOVED)
 
 
 class Typed:
@@ -242,7 +245,7 @@ def test_anonymising_twice_is_refused(owner: User, gene: User) -> None:
     anonymise_command(Typed("gene@example.com"))
     mark = audit_mark()
 
-    with pytest.raises(CommandError, match=REMOVED):
+    with pytest.raises(CommandError, match=REMOVED_PATTERN):
         anonymise_command(Typed(former(gene)))
 
     assert audit_mark() == mark
@@ -254,7 +257,7 @@ def test_cucumber_admin_refuses_an_anonymised_account_by_name(
     """Review L4: its message, not a raw constraint error."""
     anonymise_command(Typed("gene@example.com"))
 
-    with pytest.raises(CommandError, match=REMOVED):
+    with pytest.raises(CommandError, match=REMOVED_PATTERN):
         run_command(Answers(former(gene), promote="y"))
 
 

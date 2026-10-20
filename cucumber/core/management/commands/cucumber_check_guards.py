@@ -11,7 +11,9 @@ The deploy runs it before the copy and after migrating (U0.7 design §8.3).
 
 from typing import Any
 
-from django.core.management.base import BaseCommand, CommandParser
+from django.core.management.base import BaseCommand, CommandError, CommandParser
+
+from cucumber.core import guards
 
 
 class Command(BaseCommand):
@@ -25,4 +27,26 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args: Any, **options: Any) -> None:
-        raise NotImplementedError("U0.7 G3")
+        note: str | None = options["accept"]
+        if note is not None:
+            self.accept(note)
+            return
+        report = guards.check()
+        if report.failures:
+            for failure in report.failures:
+                self.stdout.write(failure)
+            raise CommandError(
+                f"{len(report.failures)} of the database's protections are not on."
+            )
+        self.stdout.write(f"All {report.checked} protections on.")
+
+    def accept(self, note: str) -> None:
+        try:
+            accepted = guards.accept_truncates(note)
+        except ValueError as error:
+            raise CommandError(str(error)) from None
+        if not accepted:
+            self.stdout.write("Nothing to accept.")
+            return
+        self.stdout.write(f"These were truncated: {', '.join(accepted)}")
+        self.stdout.write("Accepted. The deploy will go on.")

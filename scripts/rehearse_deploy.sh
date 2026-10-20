@@ -91,10 +91,14 @@ check() {
 }
 
 check_flags() {
-  # Flags are made by a feature's migration, as the owner; here, by hand.
-  compose run --rm migrate python manage.py shell --verbosity 0 -c \
-    "from waffle.models import Flag; Flag.objects.get_or_create(name='$FLAG', defaults={'everyone': False, 'superusers': False})" \
-    > /dev/null
+  # Flags are made by a feature's migration, as the owner; here, by hand,
+  # named as System like any script's change (U0.7 AC6).
+  compose run --rm migrate python manage.py shell --verbosity 0 -c "
+from waffle.models import Flag
+from cucumber.core.audit import SYSTEM, audited
+with audited(SYSTEM, via='rehearsal'):
+    Flag.objects.get_or_create(name='$FLAG', defaults={'everyone': False, 'superusers': False})
+" > /dev/null
   uv run --no-dev python -m scripts.flag staging "$FLAG" on
   uv run --no-dev python -m scripts.flag staging list | grep -Eq "^ +$FLAG +on$" \
     || fail "the flag isn't on after switching it"

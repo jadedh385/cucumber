@@ -23,6 +23,7 @@ from cucumber.accounts.services import (
     login_turned_away,
     one_try_at_a_time,
 )
+from cucumber.core.audit import SYSTEM, VIA_LOGIN, Reason, audited
 from cucumber.core.refusals import message_for
 
 # Design §2.2. A wrong password, an unknown email and a deactivated account
@@ -74,7 +75,12 @@ class LoginForm(AuthenticationForm):
         if login_lock(email, address):
             login_turned_away(email, address)
             return ValidationError(LOCKED, code="locked")
-        self.user_cache = authenticate(self.request, username=email, password=password)
+        # A right password may be re-hashed (after a Django upgrade): that
+        # write is System's (U0.7 design §4.3).
+        with audited(SYSTEM, via=VIA_LOGIN):
+            self.user_cache = authenticate(
+                self.request, username=email, password=password
+            )
         if self.user_cache is None:
             login_failed(email, address)
             return self.get_invalid_login_error()
@@ -126,6 +132,29 @@ class RoleForm(forms.Form):
         choices=lambda: [*role_choices(), (NO_ROLE, _("No role"))],
         widget=forms.RadioSelect,
     )
+
+
+class DeactivateForm(forms.Form):
+    """A reason from the `deactivate` list and an optional note (U0.7 AC11).
+
+    Both are plain text here: the service checks the reason's list and the
+    note's length, so the page shows the same messages a script would get.
+    """
+
+    reason_code = forms.CharField(label=_("Reason"), required=False)
+    note = forms.CharField(
+        label=_("Note (optional)"),
+        required=False,
+        strip=False,
+        help_text=_(
+            "Don't write names or health details here: notes are kept for good."
+        ),
+    )
+
+    def reason(self) -> Reason | None:
+        """The picked reason, or None when none was picked."""
+        code = self.cleaned_data.get("reason_code", "").strip()
+        return Reason(code, self.cleaned_data.get("note", "")) if code else None
 
 
 class ChangePasswordForm(PasswordChangeForm):

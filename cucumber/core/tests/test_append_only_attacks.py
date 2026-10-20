@@ -295,7 +295,7 @@ def app_writes(table: str, staff: int) -> list[str]:
             "UPDATE reasons SET label = 'Wrong batch!' WHERE code = 'void_wrong_batch'"
         ],
         "vendors": ["UPDATE vendors SET name = 'Leafy' WHERE zoho_contact_id = 'ZC-1'"],
-        "auth_user": [f"UPDATE auth_user SET is_staff = true WHERE id = {staff}"],
+        "auth_user": [f"UPDATE auth_user SET first_name = 'Gene' WHERE id = {staff}"],
         "auth_user_groups": [
             f"INSERT INTO auth_user_groups (user_id, group_id) VALUES ({staff}, {tech})"
         ],

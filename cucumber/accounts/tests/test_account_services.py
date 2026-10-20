@@ -36,7 +36,7 @@ from cucumber.accounts.tests.helpers import (
 )
 from cucumber.core.refusals import message_for
 from cucumber.core.tests.rows import run
-from cucumber.core.tests.stock import make_staff, not_allowed, refused
+from cucumber.core.tests.stock import make_staff, not_allowed, refused, switch_off
 from cucumber.core.tests.trail import LEFT_THE_COMPANY
 
 pytestmark = pytest.mark.django_db
@@ -98,7 +98,7 @@ def test_a_switched_off_admin_can_reach_no_account_change(
 ) -> None:
     """A second Admin's stale copy: switched off after their page was drawn."""
     mali = make_staff("mali", "admin")
-    User.objects.filter(pk=mali.pk).update(is_active=False)
+    switch_off(mali)
     before = (fresh(pim).is_active, fresh(pim).password, User.objects.count())
 
     with not_allowed("account_not_active"):

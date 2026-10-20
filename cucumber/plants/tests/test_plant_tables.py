@@ -5,6 +5,7 @@ AC2–AC4a, AC4c–AC4e, AC5–AC5b; AC6 (no delete) is in core/tests/test_prote
 
 import pytest
 
+from cucumber.core.audit import Reason
 from cucumber.core.tests.rows import (
     as_int,
     fetch_one,
@@ -18,6 +19,7 @@ from cucumber.core.tests.rows import (
     run,
     update,
 )
+from cucumber.core.tests.trail import as_system
 from cucumber.plants.services import zoho_link_missing
 
 pytestmark = pytest.mark.django_db
@@ -37,7 +39,8 @@ def test_ac2_portfolio_plant_needs_an_sku(plant: int) -> None:
 
 def test_portfolio_plant_with_its_sku_is_accepted(plant: int, user: int) -> None:
     give_sku(plant, "PHL001", user)
-    update("plants", plant, {"status": "portfolio"})
+    with as_system():
+        update("plants", plant, {"status": "portfolio"})
     assert plant_row(plant, "status, sku") == ("portfolio", "PHL001")
 
 
@@ -100,10 +103,12 @@ def test_ac4a_sku_cannot_change_without_a_genus_change(plant: int, user: int) ->
 
 def test_ac4a_sku_changes_together_with_the_genus(plant: int, user: int) -> None:
     """Q1 reclassification: the database allows it; the service is U0.2b."""
-    run("INSERT INTO genera (code, name, active) VALUES ('ANT', 'Anthurium', true)")
+    with as_system():
+        run("INSERT INTO genera (code, name, active) VALUES ('ANT', 'Anthurium', true)")
     give_sku(plant, "PHL005", user)
     issue_sku(plant, "ANT001", user)
-    update("plants", plant, {"genus_code": "ANT", "sku": "ANT001"})
+    with as_system():
+        update("plants", plant, {"genus_code": "ANT", "sku": "ANT001"})
     assert plant_row(plant, "genus_code, sku") == ("ANT", "ANT001")
 
 
@@ -116,7 +121,8 @@ def test_a_genus_change_must_bring_a_new_sku(plant: int, user: int) -> None:
 
 def test_a_plant_with_no_sku_can_change_genus(plant: int) -> None:
     """Design §2.2: no SKU, so nothing else has to change."""
-    update("plants", plant, {"genus_code": "HYA"})
+    with as_system():
+        update("plants", plant, {"genus_code": "HYA"})
     assert plant_row(plant, "genus_code, sku") == ("HYA", None)
 
 
@@ -124,14 +130,16 @@ def test_notes_default_to_empty(user: int) -> None:
     """Design §2.2: `notes` has a database default of ''."""
     values = plant_values(user)
     del values["notes"]
-    plant = as_int(insert("plants", values))
+    with as_system():
+        plant = as_int(insert("plants", values))
     assert plant_row(plant, "notes") == ("",)
 
 
 def test_ac4a_a_retired_plant_keeps_its_sku(plant: int, user: int) -> None:
     """Q1: other statuses keep their SKU; re-promotion reuses it."""
     give_sku(plant, "PHL003", user)
-    update("plants", plant, {"status": "retired"})
+    with as_system(Reason("retire_no_longer_grown")):
+        update("plants", plant, {"status": "retired"})
     assert plant_row(plant, "sku") == ("PHL003",)
 
 
@@ -213,7 +221,8 @@ def test_ac5a_purchase_with_zoho_link_can_join_portfolio(user: int) -> None:
         user, source="purchase", vendor_id=make_vendor(), zoho_ref="EXP-0001"
     )
     give_sku(plant, "PHL001", user)
-    update("plants", plant, {"status": "portfolio"})
+    with as_system():
+        update("plants", plant, {"status": "portfolio"})
     assert plant_row(plant, "status") == ("portfolio",)
 
 

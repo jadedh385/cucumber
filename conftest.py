@@ -12,10 +12,10 @@ APP_ROLE = "cucumber_app"
 
 # Row builders for the schema tests (U0.2a); staff and stock for the
 # service tests (U0.2b); audit rows (U0.7).
-pytest_plugins = [
+pytest_plugins = [  # each before the ones that import it
     "cucumber.core.tests.rows",
-    "cucumber.core.tests.stock",
     "cucumber.core.tests.trail",
+    "cucumber.core.tests.stock",
 ]
 
 

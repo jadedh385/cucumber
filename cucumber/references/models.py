@@ -91,10 +91,15 @@ class ReasonList(models.TextChoices):
     VOID = "void"
     CORRECTION = "correction"
     LOSS = "loss"
+    # U0.7 AC11: switching something off (design §4.2, §5.1).
+    RETIRE = "retire"
+    ARCHIVE = "archive"
+    DEACTIVATE = "deactivate"
 
 
 class Reason(models.Model):
-    """A reason staff pick for a Void, a Correction or a Loss (rule 8, Q4)."""
+    """A reason staff pick for a Void, a Correction or a Loss (rule 8, Q4),
+    or for retiring, archiving or deactivating something (U0.7 AC11)."""
 
     code = models.TextField(primary_key=True)
     label = models.TextField()

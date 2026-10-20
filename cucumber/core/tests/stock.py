@@ -25,7 +25,8 @@ from django.utils import timezone
 from cucumber.accounts.permissions import NotAllowed
 from cucumber.batches.models import Batch
 from cucumber.core.refusals import Refused
-from cucumber.core.tests.rows import run, staff_email
+from cucumber.core.tests.rows import as_system, run, staff_email
+from cucumber.core.tests.trail import LEFT_THE_COMPANY
 from cucumber.events.services import NewBatch, NewEvent, Saved, save_operation
 
 BANGKOK = ZoneInfo("Asia/Bangkok")
@@ -44,12 +45,13 @@ def make_staff(name: str, role: str | None, password: str | None = None) -> User
     `ON CONFLICT DO NOTHING`, which would hide a second role (U0.6 §6.2).
     """
     email = staff_email(name)
-    staff = User.objects.create_user(
-        username=email, email=email, password=password, first_name=name
-    )
-    if role is not None:
-        group, _ = Group.objects.get_or_create(name=role)
-        User.groups.through.objects.create(user=staff, group=group)
+    with as_system():
+        staff = User.objects.create_user(
+            username=email, email=email, password=password, first_name=name
+        )
+        if role is not None:
+            group, _ = Group.objects.get_or_create(name=role)
+            User.groups.through.objects.create(user=staff, group=group)
     return staff
 
 
@@ -93,8 +95,14 @@ def no_role() -> User:
 def deactivated_tech() -> User:
     """A Tech whose account was switched off; it keeps its role (U0.6 Q3)."""
     staff = make_staff("tech_off", "tech")
-    User.objects.filter(pk=staff.pk).update(is_active=False)
+    switch_off(staff)
     return staff
+
+
+def switch_off(staff: User) -> None:
+    """Set-up: the account is deactivated, by System, with a reason (U0.7 AC11)."""
+    with as_system(LEFT_THE_COMPANY):
+        User.objects.filter(pk=staff.pk).update(is_active=False)
 
 
 # --------------------------------------------------------------------- dates
@@ -198,8 +206,14 @@ def restore_reference_rows() -> None:
     """Seed rows the committing tests use, if missing.
 
     Tests marked `django_db(transaction=True)` commit, and pytest-django
-    empties the whole database after each, seed rows included.
+    empties the whole database after each, seed rows included. Written as
+    System: the reference lists are audited (U0.7).
     """
+    with as_system():
+        insert_reference_rows()
+
+
+def insert_reference_rows() -> None:
     run("""
         INSERT INTO genera (code, name, active) VALUES ('PHL', 'Philodendron', true)
             ON CONFLICT DO NOTHING;

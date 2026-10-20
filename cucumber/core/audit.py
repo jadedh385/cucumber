@@ -8,9 +8,14 @@ to an audited table with nobody named is refused (`audit_actor_required`).
 
 from collections.abc import Iterator
 from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass
 
 from django.contrib.auth.models import User
+from django.db import connection, transaction
+
+from cucumber.core.refusals import refuse
+from cucumber.references.models import Reason as ListedReason
 
 # Design §5.2: the reserved account for SSH commands and migrations.
 SYSTEM_USERNAME = "system@cucumber.invalid"
@@ -47,7 +52,62 @@ SYSTEM = SystemActor()
 
 def system_account() -> User:
     """The System account (design §5.2), read from the database each call."""
-    raise NotImplementedError("U0.7 G3")
+    return User.objects.get(username=SYSTEM_USERNAME)
+
+
+# The four settings the audit and reason triggers read (design §2).
+SETTINGS = ("actor_id", "via", "reason_code", "note")
+READ_SETTINGS = "SELECT " + ", ".join(
+    f"coalesce(current_setting('cucumber.{name}', true), '')" for name in SETTINGS
+)
+WRITE_SETTINGS = "SELECT " + ", ".join(
+    f"set_config('cucumber.{name}', %s, true)" for name in SETTINGS
+)
+
+# The people named by the `audited()` blocks open now, innermost last.
+_named: ContextVar[tuple[int, ...]] = ContextVar("audited_named", default=())
+
+
+def checked_note(reason: Reason | None) -> str:
+    """The reason's note, trimmed; `reason_note_too_long` past 500 characters."""
+    note = reason.note.strip() if reason else ""
+    if len(note) > LONGEST_NOTE:
+        raise refuse("reason_note_too_long")
+    return note
+
+
+def require_reason(reason: Reason | None, reason_list: str) -> Reason:
+    """The service side of the reason rule, checked before anything is written.
+
+    Design §4.2, §6: no reason is `reason_required`; a code that isn't active
+    on `reason_list` is `reason_wrong_list` (so a page can't pick an inactive
+    one, like the PDPA reason); a long note is `reason_note_too_long`.
+    """
+    if reason is None or not reason.code.strip():
+        raise refuse("reason_required")
+    listed = ListedReason.objects.filter(
+        pk=reason.code, applies_to=reason_list, active=True
+    )
+    if not listed.exists():
+        raise refuse("reason_wrong_list")
+    checked_note(reason)
+    return reason
+
+
+def actor_id(by: User | SystemActor) -> int:
+    return system_account().pk if isinstance(by, SystemActor) else by.pk
+
+
+def read_settings() -> list[str]:
+    with connection.cursor() as cursor:
+        cursor.execute(READ_SETTINGS)
+        row = cursor.fetchone()
+    return [str(value) for value in row]
+
+
+def write_settings(values: list[str]) -> None:
+    with connection.cursor() as cursor:
+        cursor.execute(WRITE_SETTINGS, values)
 
 
 @contextmanager
@@ -63,9 +123,29 @@ def audited(
     it. On the way out, normal or not, it puts back the values that were
     there before (usually empty). Nested for a different person it raises
     (a programming error, not a refusal).
+
+    Inside an outer transaction `atomic()` is a savepoint, and releasing one
+    keeps `set_config(…, true)` values, so they are put back by hand (review
+    H1). After an error the savepoint is rolled back, which puts them back.
     """
-    raise NotImplementedError("U0.7 G3")
-    yield  # pragma: no cover
+    note = checked_note(reason)
+    person = actor_id(by)
+    outer = _named.get()
+    if outer and outer[-1] != person:
+        raise RuntimeError(
+            f"audited() for account {person} inside audited() for {outer[-1]}:"
+            " one change has one person."
+        )
+    values = [str(person), via, reason.code if reason else "", note]
+    token = _named.set((*outer, person))
+    try:
+        with transaction.atomic():
+            previous = read_settings()
+            write_settings(values)
+            yield
+            write_settings(previous)
+    finally:
+        _named.reset(token)
 
 
 # ------------------------------------------------------------- AC17, §9

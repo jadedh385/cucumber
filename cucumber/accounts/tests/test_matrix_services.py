@@ -33,7 +33,7 @@ from cucumber.accounts.services import (
 from cucumber.core.refusals import Refused
 from cucumber.core.tests.rows import as_int, fetch_one, insert, make_event
 from cucumber.core.tests.stock import intake_into_new_batch, log, make_staff
-from cucumber.core.tests.trail import LEFT_THE_COMPANY
+from cucumber.core.tests.trail import LEFT_THE_COMPANY, as_system
 from cucumber.events.models import Event
 from cucumber.events.reviews import review
 from cucumber.events.services import close, correct, split, void
@@ -77,7 +77,8 @@ class Stock:
 @pytest.fixture
 def stock(plant: int, admin: User) -> Stock:
     other = make_staff("tech_9", "tech")
-    insert("genera", {"code": "ANT", "name": "Anthurium", "active": True}, "code")
+    with as_system():
+        insert("genera", {"code": "ANT", "name": "Anthurium", "active": True}, "code")
     batch = intake_into_new_batch(admin, plant, 10)
     others_entry = log(other, batch, "out", qty_out=1)
     undone = log(other, batch, "out", qty_out=1)

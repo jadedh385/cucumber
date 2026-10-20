@@ -31,8 +31,8 @@ from cucumber.accounts.tests.helpers import (
     temporary_password_in,
     text,
 )
-from cucumber.core.tests.stock import make_staff
-from cucumber.core.tests.trail import LEFT_COMPANY
+from cucumber.core.tests.stock import make_staff, switch_off
+from cucumber.core.tests.trail import LEFT_COMPANY, as_system
 
 pytestmark = pytest.mark.django_db
 
@@ -66,7 +66,7 @@ def test_the_list_shows_every_account_and_its_state(
     owner_client: Client, gene: User, pim: User
 ) -> None:
     before = text(owner_client.get(STAFF))
-    User.objects.filter(pk=pim.pk).update(is_active=False)
+    switch_off(pim)
     add_failures("gene@example.com", 5)
 
     html = text(owner_client.get(STAFF))
@@ -113,7 +113,7 @@ def test_another_accounts_page_has_its_buttons(
 def test_a_deactivated_accounts_page_offers_reactivate(
     owner_client: Client, gene: User
 ) -> None:
-    User.objects.filter(pk=gene.pk).update(is_active=False)
+    switch_off(gene)
 
     html = text(owner_client.get(f"{STAFF}{gene.pk}/"))
 
@@ -291,7 +291,7 @@ STAFF_REQUESTS = [
 @pytest.fixture
 def target(pim: User) -> User:
     """A deactivated, locked account, so every button has something to change."""
-    User.objects.filter(pk=pim.pk).update(is_active=False)
+    switch_off(pim)
     add_failures("pim@example.com", 5)
     return fresh(pim)
 
@@ -340,9 +340,10 @@ def test_someone_signed_out_is_sent_to_login_from_every_staff_page(
 
 
 def test_a_new_account_without_a_role_sees_only_home(owner: User) -> None:
-    mali = User.objects.create_user(
-        username="mali@example.com", email="mali@example.com", password=PASSWORD
-    )
+    with as_system():
+        mali = User.objects.create_user(
+            username="mali@example.com", email="mali@example.com", password=PASSWORD
+        )
     client = signed_in(mali)
 
     assert client.get(HOME).status_code == 200

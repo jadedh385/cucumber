@@ -19,12 +19,16 @@ from datetime import datetime
 from typing import Any
 
 import pytest
+from django.db import connection
+from psycopg.pq import TransactionStatus
 
-from cucumber.core.audit import SYSTEM, SYSTEM_USERNAME, Reason, audited
+from cucumber.core.audit import SYSTEM_USERNAME, Reason
+
+# `VIA_TEST` and `as_system` live with the row builders, which use them; the
+# tests import them from here.
+from cucumber.core.tests.rows import VIA_TEST as VIA_TEST
 from cucumber.core.tests.rows import as_int, fetch_all, fetch_one, run
-
-# A test's own `via`, so its set-up rows are easy to tell apart.
-VIA_TEST = "test"
+from cucumber.core.tests.rows import as_system as as_system
 
 # The three reason lists references 0004 adds (design §5.1, Q1).
 NEW_REASONS = {
@@ -33,7 +37,7 @@ NEW_REASONS = {
     "archive": ["No longer used", "Duplicate", "Entered by mistake", "Other"],
 }
 PDPA_CODE = "deactivate_pdpa_request"
-LEFT_COMPANY = "deactivate_left_company"
+LEFT_COMPANY = "deactivate_left_the_company"
 NO_LONGER_GROWN = "retire_no_longer_grown"
 NO_LONGER_USED = "archive_no_longer_used"
 DUPLICATE_ENTRY = "void_duplicate_entry"
@@ -125,13 +129,6 @@ def trail_start(db: None) -> int:
 # ----------------------------------------------------------- naming a person
 
 
-@contextmanager
-def as_system() -> Iterator[None]:
-    """Test set-up that writes audited tables, made by System (design §13)."""
-    with audited(SYSTEM, via=VIA_TEST):
-        yield
-
-
 SETTINGS = ("actor_id", "via", "reason_code", "note")
 
 
@@ -146,7 +143,8 @@ def named_in_sql(
     """Name a person the way raw SQL would: `set_config(…, true)` (design §2).
 
     Inside a test's transaction the values would outlive the block, so they
-    are emptied again on the way out.
+    are emptied again on the way out, unless an error has aborted the
+    transaction: its rollback empties them.
     """
     values = {
         "actor_id": None if actor_id is None else str(actor_id),
@@ -160,8 +158,15 @@ def named_in_sql(
                 run("SELECT set_config(%s, %s, true)", [f"cucumber.{name}", value])
         yield
     finally:
-        for name in SETTINGS:
-            run("SELECT set_config(%s, '', true)", [f"cucumber.{name}"])
+        if not in_failed_transaction():
+            for name in SETTINGS:
+                run("SELECT set_config(%s, '', true)", [f"cucumber.{name}"])
+
+
+def in_failed_transaction() -> bool:
+    """True after an error, until the transaction or savepoint is rolled back."""
+    raw = connection.connection
+    return raw is not None and raw.info.transaction_status == TransactionStatus.INERROR
 
 
 def setting(name: str) -> str:
@@ -214,6 +219,22 @@ def restore_audit_rows() -> None:
         )
     finally:
         run("ALTER TABLE reasons ENABLE TRIGGER USER")
+
+
+@pytest.fixture(autouse=True)
+def system_after_a_flush(request: pytest.FixtureRequest) -> None:
+    """A committing test starts after a flush: put System and the lists back.
+
+    Only rows, never a person named (review H3): a service that forgets
+    `audited()` still fails. Other tests see the migrated rows.
+    """
+    marker = request.node.get_closest_marker("django_db")
+    committing = (marker is not None and marker.kwargs.get("transaction")) or any(
+        name in request.fixturenames for name in ("transactional_db", "live_server")
+    )
+    if committing:
+        request.getfixturevalue("transactional_db")
+        restore_audit_rows()
 
 
 def accept_noticed_truncates() -> None:

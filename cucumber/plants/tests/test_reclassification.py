@@ -10,6 +10,7 @@ from django.contrib.auth.models import User
 
 from cucumber.core.tests.rows import give_sku, insert, issue_sku, make_plant, refused_by
 from cucumber.core.tests.stock import not_allowed, refused
+from cucumber.core.tests.trail import as_system
 from cucumber.plants.models import Plant, PlantStatusChange, Sku
 from cucumber.plants.services import find_by_sku, former_skus, reclassify_genus
 
@@ -19,13 +20,14 @@ pytestmark = pytest.mark.django_db
 @pytest.fixture
 def ant() -> str:
     """Anthurium, a genus the Admin adds (it isn't seeded)."""
-    return str(
-        insert(
-            "genera",
-            {"code": "ANT", "name": "Anthurium", "active": True},
-            returning="code",
+    with as_system():
+        return str(
+            insert(
+                "genera",
+                {"code": "ANT", "name": "Anthurium", "active": True},
+                returning="code",
+            )
         )
-    )
 
 
 @pytest.fixture

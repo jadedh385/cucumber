@@ -32,6 +32,7 @@ from django.db import connection  # noqa: E402
 
 from cucumber.accounts.permissions import Role  # noqa: E402
 from cucumber.accounts.services import replace_role  # noqa: E402
+from cucumber.core.audit import SYSTEM, audited  # noqa: E402
 from cucumber.env import env  # noqa: E402
 from cucumber.events.reviews import review, review_queue, waiting_for_review  # noqa: E402
 from cucumber.events.services import (  # noqa: E402
@@ -140,6 +141,9 @@ def check_database(name: str) -> None:
         )
 
 
+# How the loaded rows show in the audit trail (U0.7 design §3.1).
+LOADED_BY = "timing load"
+
 # ------------------------------------------------------------------- the load
 
 
@@ -157,9 +161,12 @@ def make_staff() -> Staff:
         replace_role(user, Role(role))
         return user
 
-    return Staff(
-        member("admin", "admin"), member("sup", "supervisor"), member("tech", "tech")
-    )
+    with audited(SYSTEM, via=LOADED_BY):  # also run again by `measure`
+        return Staff(
+            member("admin", "admin"),
+            member("sup", "supervisor"),
+            member("tech", "tech"),
+        )
 
 
 def seed_reference_rows() -> None:
@@ -253,13 +260,15 @@ def mark_reviewed_but_backlog(scale: Scale, supervisor: User) -> None:
 
 
 def load(scale: Scale) -> Staff:
-    staff = make_staff()
-    seed_reference_rows()
-    load_plants(scale, staff.tech)
-    load_batches(1, scale.batches, scale.events_per_batch, scale, staff.tech)
-    busy = scale.batches + 1
-    load_batches(busy, busy, scale.busy_events, scale, staff.tech)
-    mark_reviewed_but_backlog(scale, staff.supervisor)
+    """The rows, made by System like any script's (U0.7 AC6): audited too."""
+    with audited(SYSTEM, via=LOADED_BY):
+        staff = make_staff()
+        seed_reference_rows()
+        load_plants(scale, staff.tech)
+        load_batches(1, scale.batches, scale.events_per_batch, scale, staff.tech)
+        busy = scale.batches + 1
+        load_batches(busy, busy, scale.busy_events, scale, staff.tech)
+        mark_reviewed_but_backlog(scale, staff.supervisor)
     run_sql("ANALYZE")
     return staff
 
@@ -329,19 +338,23 @@ def service_timings(staff: Staff, runs: int) -> list[Summary]:
     ]
 
 
+def insert_plant(app: AppConnection, tech: User, name: str) -> None:
+    """One plant as `cucumber_app`, naming the Tech as `audited()` does (U0.7)."""
+    with app.transaction():
+        app.execute("SELECT set_config('cucumber.actor_id', %s, true)", [str(tech.pk)])
+        app.execute(
+            """INSERT INTO plants (genus_code, full_name, status, created_by)
+               VALUES (%s, %s, 'candidate', %s)""",
+            [GENUS, name, tech.pk],
+        )
+
+
 def app_timings(app: AppConnection, tech: User, runs: int) -> list[Summary]:
     """Single statements as `cucumber_app`, each its own transaction."""
     batch = column("SELECT id FROM batches ORDER BY id LIMIT 1")[0]
     tag = uuid.uuid4().hex[:8]  # new names each time the script runs
     return [
-        timed(
-            lambda n: app.execute(
-                """INSERT INTO plants (genus_code, full_name, status, created_by)
-               VALUES (%s, %s, 'candidate', %s)""",
-                [GENUS, f"Timed plant {tag} {n}", tech.pk],
-            ),
-            runs,
-        ),
+        timed(lambda n: insert_plant(app, tech, f"Timed plant {tag} {n}"), runs),
         timed(
             lambda n: app.execute(
                 "SELECT id FROM plants WHERE name_key LIKE %s", [f"%plant {n * 97}%"]

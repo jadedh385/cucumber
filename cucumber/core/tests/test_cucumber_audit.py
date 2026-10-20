@@ -5,6 +5,8 @@ that one insert), so the filters and Bangkok times can be checked exactly.
 """
 
 import json
+from collections.abc import Iterator
+from contextlib import contextmanager
 from io import StringIO
 
 import pytest
@@ -14,7 +16,7 @@ from waffle.models import Flag
 
 from cucumber.core.tests.rows import insert, run
 from cucumber.core.tests.stock import make_staff
-from cucumber.core.tests.trail import LEFT_COMPANY, as_system, audit_mark, system_id
+from cucumber.core.tests.trail import LEFT_COMPANY, audit_mark, system_id
 
 pytestmark = pytest.mark.django_db
 
@@ -38,10 +40,27 @@ def audit_row_at(at: str, **values: object) -> None:
     run("SET CONSTRAINTS ALL DEFERRED")
 
 
+SET_UP_TABLES = ("auth_user", "auth_user_groups", "waffle_flag")
+
+
+@contextmanager
+def left_out_of_the_trail() -> Iterator[None]:
+    """Set-up the trail doesn't record, so each test reads only its four rows."""
+    run("SET CONSTRAINTS ALL IMMEDIATE")
+    for table in SET_UP_TABLES:
+        run(f"ALTER TABLE {table} DISABLE TRIGGER {table}_audit")
+    try:
+        yield
+    finally:
+        for table in SET_UP_TABLES:
+            run(f"ALTER TABLE {table} ENABLE TRIGGER {table}_audit")
+        run("SET CONSTRAINTS ALL DEFERRED")
+
+
 @pytest.fixture
 def people() -> tuple[User, User]:
     """Jade (Admin) and Mali (Tech)."""
-    with as_system():
+    with left_out_of_the_trail():
         return make_staff("jade", "admin"), make_staff("mali", "tech")
 
 
@@ -49,7 +68,7 @@ def people() -> tuple[User, User]:
 def trail(people: tuple[User, User]) -> dict[str, int]:
     """Four rows: Jade changes Mali twice and gives a role; System switches a flag."""
     jade, mali = people
-    with as_system():
+    with left_out_of_the_trail():
         flag = Flag.objects.create(name="lab_screens")
     tech = Group.objects.get(name="tech")
     audit_row_at(

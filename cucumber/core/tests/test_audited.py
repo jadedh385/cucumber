@@ -109,10 +109,10 @@ def test_nesting_for_a_different_person_is_a_programming_error(
 
 def test_an_error_inside_undoes_the_writes(jade: User, gene: User) -> None:
     with pytest.raises(ValueError, match="boom"), audited(jade):
-        update("auth_user", gene.pk, {"is_staff": True})
+        update("auth_user", gene.pk, {"first_name": "Gene Two"})
         raise ValueError("boom")
 
-    assert User.objects.get(pk=gene.pk).is_staff is False
+    assert User.objects.get(pk=gene.pk).first_name == "gene"
 
 
 # ------------------------------------------------------------------- System
@@ -137,7 +137,7 @@ def test_a_change_made_as_system_names_it_in_the_trail(gene: User) -> None:
     mark = audit_mark()
 
     with audited(SYSTEM, via="cucumber_admin"):
-        update("auth_user", gene.pk, {"is_staff": True})
+        update("auth_user", gene.pk, {"first_name": "Gene Two"})
 
     row = only_row(mark, "auth_user")
     assert (row.actor_id, row.via) == (system_id(), "cucumber_admin")
@@ -152,7 +152,7 @@ def test_after_a_builder_a_write_without_audited_is_still_refused(
         make_staff("pim", "tech")
 
     with refused_by("audit_actor_required"):
-        update("auth_user", gene.pk, {"is_staff": True})
+        update("auth_user", gene.pk, {"first_name": "Gene Two"})
 
 
 def test_set_up_rows_are_marked_as_the_tests_own() -> None:
@@ -172,8 +172,8 @@ def test_system_is_looked_up_again_after_the_database_is_emptied() -> None:
     first = system_id()
     run("ALTER TABLE auth_user DISABLE TRIGGER USER")
     run(
-        "UPDATE auth_user SET username = 'old-system@cucumber.invalid'"
-        " WHERE username = %s",
+        "UPDATE auth_user SET username = 'old-system@cucumber.invalid',"
+        " email = 'old-system@cucumber.invalid' WHERE username = %s",
         [SYSTEM_USERNAME],
     )
     run("ALTER TABLE auth_user ENABLE TRIGGER USER")

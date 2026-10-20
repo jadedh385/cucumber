@@ -244,8 +244,10 @@ def test_cucumber_admin_letting_the_owner_back_in_is_system(owner: User) -> None
 
 
 def make_flag(name: str) -> Any:
+    """Every field off, as a feature's migration makes it (Waffle's own
+    default has `superusers` on, which `cucumber_flag` would switch off)."""
     with as_system():
-        return Flag.objects.create(name=name, everyone=False)
+        return Flag.objects.create(name=name, everyone=False, superusers=False)
 
 
 def cucumber_flag(*args: str) -> None:

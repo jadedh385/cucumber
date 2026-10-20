@@ -6,6 +6,7 @@ core/tests/test_protection.py; here are the per-list checks and the seeds.
 
 import pytest
 
+from cucumber.core.audit import Reason
 from cucumber.core.tests.rows import (
     as_int,
     fetch_all,
@@ -16,6 +17,7 @@ from cucumber.core.tests.rows import (
     run,
     update,
 )
+from cucumber.core.tests.trail import as_system
 
 pytestmark = pytest.mark.django_db
 
@@ -115,7 +117,8 @@ def test_subculture_interval_must_be_positive() -> None:
 def test_a_used_stage_can_be_deactivated(plant: int, user: int) -> None:
     """AC20: deactivating is how a code is retired."""
     make_batch(plant, user, location_code="lab", stage_code="P2")
-    update("stages", "P2", {"active": False}, key_column="code")
+    with as_system(Reason("archive_no_longer_used")):
+        update("stages", "P2", {"active": False}, key_column="code")
     assert fetch_one("SELECT active FROM stages WHERE code = 'P2'") == (False,)
 
 
@@ -152,7 +155,8 @@ def test_two_genera_cannot_share_a_name() -> None:
 
 
 def test_the_admin_can_add_a_genus() -> None:
-    insert("genera", new_genus("ANT", "Anthurium"), returning="code")
+    with as_system():
+        insert("genera", new_genus("ANT", "Anthurium"), returning="code")
     assert fetch_one("SELECT name FROM genera WHERE code = 'ANT'") == ("Anthurium",)
 
 

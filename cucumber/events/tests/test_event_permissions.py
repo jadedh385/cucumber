@@ -22,7 +22,9 @@ from cucumber.core.tests.stock import (
     not_allowed,
     refused,
     save,
+    switch_off,
 )
+from cucumber.core.tests.trail import as_system
 from cucumber.events.models import Action, Event, Operation
 from cucumber.events.permissions import ACTION_ROWS, NOT_THROUGH_SAVE, UNDO_WINDOW
 from cucumber.events.reviews import review, review_queue
@@ -373,7 +375,7 @@ def test_a_switched_off_person_with_an_open_session_saves_nothing(
     stock: int, tech: User
 ) -> None:
     """The page holds the old User; the service reads the database."""
-    User.objects.filter(pk=tech.pk).update(is_active=False)
+    switch_off(tech)
     before = operations()
 
     with not_allowed("account_not_active"):
@@ -386,7 +388,8 @@ def test_a_role_taken_away_applies_to_the_very_next_save(
     stock: int, tech: User
 ) -> None:
     log(tech, stock, "out", qty_out=1)
-    User.groups.through.objects.filter(user_id=tech.pk).delete()
+    with as_system():
+        User.groups.through.objects.filter(user_id=tech.pk).delete()
 
     with not_allowed("role_not_allowed"):
         log(tech, stock, "out", qty_out=1)
@@ -396,7 +399,7 @@ def test_a_switched_off_reviewer_reviews_nothing(
     stock: int, supervisor: User, tech: User
 ) -> None:
     entry = log(tech, stock, "out", qty_out=1)
-    User.objects.filter(pk=supervisor.pk).update(is_active=False)
+    switch_off(supervisor)
 
     with not_allowed("account_not_active"):
         review(supervisor, operation_of(entry))
@@ -477,7 +480,7 @@ def test_a_resend_by_someone_switched_off_since_is_refused(
     operation_id = uuid.uuid4()
     entry = [NewEvent("out", batch_id=stock, qty_out=1)]
     save_operation(operation_id, tech, entry)
-    User.objects.filter(pk=tech.pk).update(is_active=False)
+    switch_off(tech)
 
     with not_allowed("account_not_active"):
         save_operation(operation_id, tech, entry)

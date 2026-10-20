@@ -16,12 +16,12 @@ from datetime import datetime
 from typing import Any
 
 from django.contrib.auth.models import User
-from django.db import transaction
 from django.utils import timezone
 
 from cucumber.accounts.permissions import Permission, require
 from cucumber.accounts.services import active_workers
 from cucumber.batches.models import Batch, BatchOrigin, BatchStatus
+from cucumber.core.audit import audited
 from cucumber.core.refusals import Refused, database_refusals, refuse
 from cucumber.events.models import Action, Event
 from cucumber.events.permissions import (
@@ -142,9 +142,12 @@ def save_once(
 ) -> Saved:
     """Run `write` in one transaction. A resent `operation_id` writes nothing
     and gets the original result instead (§3.3), but only if `recorded_by`
-    saved it first (U0.6 design §4.3: `operation_saved_by_other`)."""
+    saved it first (U0.6 design §4.3: `operation_saved_by_other`).
+
+    The new batches it makes are audit rows by `recorded_by` (U0.7 §3.3).
+    """
     try:
-        with database_refusals(), transaction.atomic():
+        with database_refusals(), audited(recorded_by):
             return write()
     except Refused as refusal:
         if refusal.rule != ALREADY_SAVED:

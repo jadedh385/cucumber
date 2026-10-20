@@ -192,6 +192,46 @@ staff note by hand.
   Claude.
 - **Wrong wording after publishing:** edit the release on GitHub; Discord
   keeps the first post, so post a short correction there.
+- **Deploy stopped at "The database's protections are not all on"**: see
+  [the protections check](#the-protections-check-u07) below.
+
+## The protections check (U0.7)
+
+From U0.7 every deploy runs `cucumber_check_guards` twice: before the copy
+(step 3b) and after migrating (step 5b). It checks the append-only, reason and
+audit triggers, their functions, `cucumber_app`'s grants and the app role
+itself, and lists anything missing, switched off or changed, one line each.
+Run it by hand the same way, on the server:
+
+```bash
+ssh -t cucumber-staging            # or cucumber-server for production
+cd ~/cucumber/staging/src          # or ~/cucumber/production/src
+export IMAGE_NAME=cucumber-staging CUCUMBER_VERSION="$(cat ../current)"
+dc() { docker compose -p cucumber-staging --env-file ../secrets.env -f deploy/compose.server.yaml "$@"; }
+dc run --rm migrate python manage.py cucumber_check_guards
+```
+
+- **Stopped before the copy (3b):** nothing changed and the old version still
+  runs. A line that says a table **was truncated** means someone emptied a
+  protected table as the database owner. If that was you (on staging, a
+  practice-data reset), accept it, saying why, then deploy again:
+
+  ```bash
+  dc run --rm migrate python manage.py cucumber_check_guards --accept "staging reset with practice data"
+  ```
+
+  If nobody meant to, don't accept: on production, restore the copy from
+  before it happened, with Claude. Any other line (a trigger disabled, a
+  grant added) means the database was changed by hand: stop, and look at it
+  with Claude before going on.
+- **Stopped after migrating (5b):** the database was updated, but the new
+  version's own migration broke a protection. The app was not restarted, so
+  the previous version still runs, against a database it may not fit. Restore
+  the copy the command names, with Claude, and fix the migration in a pull
+  request. CI runs the same check, so this should never reach a server.
+- **To read the trail:** `dc exec -T app python manage.py cucumber_audit`
+  (`--person`, `--table`, `--row`, `--since`, `--until`, `--limit`). People are
+  shown by id; look the id up on the Staff page.
 
 ## Admin account: the first one, or a rescue
 

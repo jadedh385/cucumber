@@ -28,9 +28,15 @@ from cucumber.accounts.tests.helpers import (
     mark_change_due,
     signed_in_as,
 )
-from cucumber.core.tests.stock import make_staff
+from cucumber.core.audit import SYSTEM_USERNAME
+from cucumber.core.tests.stock import make_staff, switch_off
 
 pytestmark = pytest.mark.django_db
+
+
+def staff_count() -> int:
+    """Accounts other than System, which migrations add (U0.7 design §5.2)."""
+    return User.objects.exclude(username=SYSTEM_USERNAME).count()
 
 
 class Answers:
@@ -95,7 +101,7 @@ def test_adds_the_first_admin() -> None:
 # ----------------------------------------------------------------- rescue
 def test_lets_a_locked_out_admin_back_in() -> None:
     jade = make_staff("jade", "admin", "forgotten-pw-77")
-    User.objects.filter(pk=jade.pk).update(is_active=False)
+    switch_off(jade)
     add_failures("jade@example.com", 5)
     mark_change_due(jade)
     answers = Answers("jade@example.com")
@@ -208,7 +214,7 @@ def test_a_closed_keyboard_stops_cleanly_and_adds_nothing() -> None:
     ):
         call_command("cucumber_admin", stdout=StringIO())
 
-    assert User.objects.count() == 0
+    assert staff_count() == 0
 
 
 def roles_of(user: User) -> list[str]:
@@ -282,4 +288,4 @@ def test_a_closed_keyboard_at_the_password_stops_cleanly() -> None:
     ):
         call_command("cucumber_admin", stdout=StringIO())
 
-    assert User.objects.count() == 0
+    assert staff_count() == 0

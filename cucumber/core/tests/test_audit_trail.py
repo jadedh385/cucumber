@@ -142,7 +142,9 @@ CASES = {
         {"label": "Spilled jar"},
     ),
     "vendors": Case("zoho_contact_id", new_vendor, {"name": "Green Leaf Company"}),
-    "auth_user": Case("id", new_account, {"is_staff": True}),
+    # Not `is_staff`: U0.5's auth_user_no_superuser refuses it before any
+    # audit trigger runs. The time as the test connection (UTC) shows it.
+    "auth_user": Case("id", new_account, {"date_joined": "2026-10-01T02:00:00+00:00"}),
     "waffle_flag": Case("id", new_flag, {"everyone": True}),
 }
 UPDATABLE = sorted(CASES)
@@ -302,6 +304,8 @@ NEW_PERSONAL_VALUES = {
     "first_name": "Gene Two",
     "last_name": "Somchai",
 }
+# U0.5's auth_user_username_is_email: the two always change together.
+CHANGED_WITH = {"username": {"username", "email"}, "email": {"username", "email"}}
 
 
 @pytest.mark.parametrize("column", sorted(MASKED["auth_user"]))
@@ -309,14 +313,15 @@ def test_an_accounts_personal_columns_show_only_that_they_changed(
     column: str, staff: int
 ) -> None:
     new_value = NEW_PERSONAL_VALUES[column]
+    columns = CHANGED_WITH.get(column, {column})
     mark = audit_mark()
 
     with named_in_sql(staff):
-        set_columns("auth_user", "id", staff, {column: new_value})
+        set_columns("auth_user", "id", staff, dict.fromkeys(columns, new_value))
 
     row = only_row(mark, "auth_user")
-    assert row.before == {column: "changed"}
-    assert row.after == {column: "changed"}
+    assert row.before == dict.fromkeys(columns, "changed")
+    assert row.after == dict.fromkeys(columns, "changed")
     assert new_value not in json.dumps([row.before, row.after])
 
 

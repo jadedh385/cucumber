@@ -32,6 +32,7 @@ from cucumber.core.tests.stock import (
     restore_reference_rows,
     subculture_entries,
 )
+from cucumber.core.tests.trail import as_system
 from cucumber.events.models import Event, Operation
 from cucumber.events.services import NewEvent, Saved, save_operation, split, void
 
@@ -163,8 +164,9 @@ def test_a_split_takes_the_parent_s_stage_after_waiting_for_its_lock() -> None:
     split waits for it, then copies the parent as it is after the change.
     """
     restore_reference_rows()
-    run("""INSERT INTO stages (code, label, sort_order, active)
-           VALUES ('P3', 'P3', 4, true) ON CONFLICT DO NOTHING""")
+    with as_system():
+        run("""INSERT INTO stages (code, label, sort_order, active)
+               VALUES ('P3', 'P3', 4, true) ON CONFLICT DO NOTHING""")
     tech = make_staff("tech_1", "tech")
     parent = new_lab_batch(tech, make_plant(tech.pk), 10)
     locked = threading.Event()
