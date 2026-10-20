@@ -19,7 +19,15 @@ from django.contrib.auth.models import User
 from django.db import transaction
 from django.db.models import Exists, OuterRef
 
-from cucumber.accounts.permissions import Permission, Role, require, standing
+from cucumber.accounts.permissions import (
+    NotAllowed,
+    Permission,
+    Role,
+    Standing,
+    may,
+    require,
+    standing,
+)
 from cucumber.accounts.services import ADMIN, SUPERVISOR, has_role, members_of
 from cucumber.core.refusals import database_refusals, refuse
 from cucumber.events.models import Action, Event, EventReview
@@ -62,9 +70,13 @@ class Reviewer:
 
 
 def reviewer_for(user: User) -> Reviewer:
-    """The reviewer's role, read from the database now (U0.6 §4.2): someone
+    """The reviewer's role, read from the database now (U0.6 §4.2)."""
+    return reviewer_from(user, standing(user))
+
+
+def reviewer_from(user: User, current: Standing) -> Reviewer:
+    """The reviewer, from the standing already read for `user`: someone
     switched off reviews nothing."""
-    current = standing(user)
     role = current.role if current.is_active else None
     return Reviewer(
         user_id=user.pk,
@@ -166,13 +178,15 @@ def review(reviewer: User, operation_id: uuid.UUID, note: str = "") -> None:
     voided, or no such operation.
     """
     with database_refusals(), transaction.atomic():
-        require(reviewer, Permission.REVIEW_EVENTS)
-        who = reviewer_for(reviewer)
+        current = require(reviewer, Permission.REVIEW_EVENTS)
+        who = reviewer_from(reviewer, current)
         waiting = waiting_for_review(operation_id)
         if not waiting:
             raise refuse("event_review_once")
-        if any(event.action == Action.VOID for event in waiting):
-            require(reviewer, Permission.REVIEW_VOIDS)
+        if any(event.action == Action.VOID for event in waiting) and not may(
+            current.role, Permission.REVIEW_VOIDS
+        ):
+            raise NotAllowed("role_not_allowed")
         if not all(may_review(who, event) for event in waiting):
             raise refuse("review_not_allowed")
         write_reviews(reviewer, [event.pk for event in waiting], note)

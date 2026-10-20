@@ -94,8 +94,14 @@ class Command(BaseCommand):
         with transaction.atomic():
             account.set_password(password)
             account.is_active = True
-            account.save()
+            is_new = account.pk is None
+            if is_new:
+                account.save()  # a new row: nobody else is waiting on it
+            # Before the UPDATE locks the account's row: the Staff pages lock
+            # it and the Admins together, in id order (G4 L2).
             lock_for_account_change(account)
+            if not is_new:
+                account.save()
             old = role_of(account)
             if old != Role.ADMIN:
                 replace_role(account, Role.ADMIN)

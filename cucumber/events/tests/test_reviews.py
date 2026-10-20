@@ -378,3 +378,20 @@ def test_the_queue_takes_the_same_queries_however_many_batches_wait(
     for _ in range(4):
         log(tech, intake_into_new_batch(tech, plant, 5), "count", counted_qty=5)
     assert queue_queries(supervisor) == few
+
+
+def test_a_review_reads_the_reviewer_s_role_once(
+    stock: int, tech: User, supervisor: User
+) -> None:
+    """One standing query, then the matrix rows are checked on it (G4 L5)."""
+    operation_id = Event.objects.get(pk=log(tech, stock, "out", qty_out=1)).operation_id
+
+    with CaptureQueriesContext(connection) as queries:
+        review(supervisor, operation_id)
+
+    standing_reads = [
+        query["sql"]
+        for query in queries.captured_queries
+        if query["sql"].startswith('SELECT "auth_user"."is_active"')
+    ]
+    assert len(standing_reads) == 1, standing_reads

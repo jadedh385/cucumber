@@ -177,6 +177,30 @@ def test_a_tech_undoes_their_own_entry_within_10_minutes(
     assert voids_of(entry) == 1
 
 
+@pytest.mark.parametrize(
+    ("age", "is_allowed"),
+    [
+        (timedelta(minutes=9, seconds=59), True),
+        (timedelta(minutes=10, seconds=1), False),
+    ],
+    ids=["9m59s", "10m01s"],
+)
+def test_the_undo_window_ends_at_10_minutes_exactly(
+    stock: int, tech: User, age: timedelta, is_allowed: bool
+) -> None:
+    """Pins the edge (G4 L4), not only 9 and 11 minutes."""
+    entry = log(tech, stock, "out", qty_out=1)
+    saved_ago(entry, age)
+
+    if is_allowed:
+        void(tech, entry, VOID_REASON)
+    else:
+        with refused("undo_too_late"):
+            void(tech, entry, VOID_REASON)
+
+    assert voids_of(entry) == (1 if is_allowed else 0)
+
+
 def test_after_10_minutes_a_tech_asks_a_reviewer(stock: int, tech: User) -> None:
     entry = log(tech, stock, "out", qty_out=1)
     saved_ago(entry, timedelta(minutes=11))

@@ -49,12 +49,15 @@ class StaffRow:
         return str(ROLE_LABELS[self.role]) if self.role else _("No role")
 
 
-def staff_row(request: HttpRequest, account: User, role: Role | str | None) -> StaffRow:
+def staff_row(
+    request: HttpRequest, account: User, role: Role | None, may_be_locked: bool = True
+) -> StaffRow:
+    """`may_be_locked=False` skips the lock look-up for an account that can't be."""
     return StaffRow(
-        role=role_named(role) if isinstance(role, str) else role,
+        role=role,
         account=account,
         is_you=account.pk == request.user.pk,
-        locked_until=services.locked_until(account.username),
+        locked_until=services.locked_until(account.username) if may_be_locked else None,
     )
 
 
@@ -111,7 +114,17 @@ def password(request: HttpRequest) -> HttpResponse:
 def staff_list(request: HttpRequest) -> HttpResponse:
     accounts = User.objects.order_by("first_name", "username")
     roles = dict(User.groups.through.objects.values_list("user_id", "group__name"))
-    rows = [staff_row(request, account, roles.get(account.pk)) for account in accounts]
+    # One query for the few that could be locked, not one per account (G4 L5).
+    may_be_locked = services.emails_that_may_be_locked()
+    rows = [
+        staff_row(
+            request,
+            account,
+            role_named(roles.get(account.pk)),
+            services.failure_key(account.username) in may_be_locked,
+        )
+        for account in accounts
+    ]
     return render(request, "accounts/staff_list.html", {"rows": rows})
 
 

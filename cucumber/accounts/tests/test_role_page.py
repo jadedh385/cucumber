@@ -135,6 +135,19 @@ def test_an_account_s_page_offers_every_role_and_no_role(
     assert checked_values(page) == {"tech"}
 
 
+def test_an_account_in_a_group_that_is_not_a_role_shows_no_role(
+    owner_client: Client,
+) -> None:
+    """An old group (a flag's `Owner`) reads as no role, never a 500 (G4 M1)."""
+    pim = make_staff("pim", "Owner")
+
+    response = owner_client.get(f"{STAFF}{pim.pk}/")
+
+    assert response.status_code == 200
+    assert checked_values(page_text(response)) == {"none"}
+    assert "No role" in list_row_of(page_text(owner_client.get(STAFF)), "pim@")
+
+
 def test_your_own_page_shows_your_role_without_a_form(
     owner_client: Client, owner: User
 ) -> None:

@@ -8,7 +8,9 @@ import logging
 
 import pytest
 from django.contrib.auth.models import User
+from django.db import connection
 from django.test import Client
+from django.test.utils import CaptureQueriesContext
 
 from cucumber.accounts.tests.helpers import (
     HOME,
@@ -29,6 +31,7 @@ from cucumber.accounts.tests.helpers import (
     temporary_password_in,
     text,
 )
+from cucumber.core.tests.stock import make_staff
 
 pytestmark = pytest.mark.django_db
 
@@ -69,6 +72,24 @@ def test_the_list_shows_every_account_and_its_state(
     # One more of each than before, whatever the column headings say.
     assert html.count("Deactivated") == before.count("Deactivated") + 1
     assert html.count("Locked") == before.count("Locked") + 1
+
+
+def test_the_list_takes_as_many_queries_for_ten_accounts_as_for_one(
+    owner_client: Client,
+) -> None:
+    """No look-up per account (G4 L5), even with some wrong tries counted."""
+    add_failures("jade@example.com", 2)
+
+    def queries_for_the_list() -> int:
+        with CaptureQueriesContext(connection) as queries:
+            owner_client.get(STAFF)
+        return len(queries.captured_queries)
+
+    for_one = queries_for_the_list()
+    for number in range(9):
+        add_failures(make_staff(f"staff{number}", "tech").username, 2)
+
+    assert queries_for_the_list() == for_one
 
 
 def test_an_unknown_account_is_not_found(owner_client: Client) -> None:

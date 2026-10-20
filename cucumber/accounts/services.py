@@ -30,7 +30,7 @@ from django.db.models.functions import Now
 from django.http import HttpRequest
 
 from cucumber.accounts.models import LoginFailure, PasswordChangeDue
-from cucumber.accounts.permissions import Permission, Role, may, require
+from cucumber.accounts.permissions import Permission, Role, may, require, role_named
 from cucumber.core.refusals import Refused, database_refusals, refuse
 
 logger = logging.getLogger(__name__)
@@ -172,6 +172,7 @@ def deactivate(by: User, account: User) -> None:
         raise refuse("account_cannot_deactivate_self")
     with transaction.atomic():
         lock_for_account_change(account)
+        still_manages_users(by)
         if is_last_active_admin(account):
             raise refuse("account_last_admin")
         User.objects.filter(pk=account.pk).update(is_active=False)
@@ -190,6 +191,7 @@ def set_role(by: User, account: User, role: Role | None) -> None:
         raise refuse("account_cannot_change_own_role")
     with transaction.atomic():
         lock_for_account_change(account)
+        still_manages_users(by)
         old = role_of(account)
         if old == role:
             return
@@ -199,6 +201,16 @@ def set_role(by: User, account: User, role: Role | None) -> None:
     log_role_change(account, old, role, str(by.pk))
 
 
+def still_manages_users(by: User) -> None:
+    """The Admin's own role, read again once the locks are held (G4 L1).
+
+    The first check was made before waiting: another Admin may have taken
+    `by`'s role meanwhile. `by` is among the locked Admins, so that change
+    has committed by now and this read sees it.
+    """
+    require(by, Permission.MANAGE_USERS)
+
+
 def role_of(account: User) -> Role | None:
     """The account's role now, read from the database."""
     name = (
@@ -206,7 +218,8 @@ def role_of(account: User) -> Role | None:
         .values_list("groups__name", flat=True)
         .first()
     )
-    return Role(name) if name else None
+    # A group that isn't a role reads as none, as in `standing` (G4 M1).
+    return role_named(name)
 
 
 def replace_role(account: User, role: Role | None) -> None:
@@ -396,6 +409,22 @@ def login_lock(email: str, address: str | None) -> bool:
         address=address, at__gt=Now() - LOCK_WINDOW
     ).count()
     return from_address >= ADDRESS_LIMIT
+
+
+def emails_that_may_be_locked() -> frozenset[str]:
+    """The email keys with enough recent failures to be locked, in one query.
+
+    A lock needs 5 failures within 15 minutes and the newest within the last
+    15, so all 5 fall within twice the window. `locked_until` then decides
+    for these few only (the Staff list, G4 L5).
+    """
+    return frozenset(
+        LoginFailure.objects.filter(at__gt=Now() - 2 * LOCK_WINDOW)
+        .values("email_key")
+        .annotate(tries=Count("pk"))
+        .filter(tries__gte=LOCK_AFTER_FAILURES)
+        .values_list("email_key", flat=True)
+    )
 
 
 def locked_until(email: str) -> datetime | None:

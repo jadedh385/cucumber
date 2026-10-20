@@ -14,7 +14,9 @@ from unittest import mock
 import pytest
 from django.contrib.auth.models import User
 from django.core.management import CommandError, call_command
+from django.db import connection
 from django.test import Client
+from django.test.utils import CaptureQueriesContext
 
 from cucumber.accounts.services import ADMIN, has_role
 from cucumber.accounts.tests.helpers import (
@@ -107,6 +109,32 @@ def test_lets_a_locked_out_admin_back_in() -> None:
     assert has_role(jade, ADMIN)
     assert not answers.asked_to_promote
     assert can_log_in("jade@example.com")
+
+
+def test_lets_back_in_an_admin_whose_group_is_not_a_role() -> None:
+    """An old group (a flag's `Owner`) reads as no role, never a crash (G4 M1)."""
+    jade = make_staff("jade", "Owner")
+
+    run_command(Answers("jade@example.com", promote="y"))
+
+    groups = User.objects.get(pk=jade.pk).groups.values_list("name", flat=True)
+    assert list(groups) == [ADMIN]
+    assert can_log_in("jade@example.com")
+
+
+def test_locks_the_admins_before_it_writes_the_account() -> None:
+    """The Staff pages' lock order, so the two can't wait on each other (G4 L2)."""
+    make_staff("jade", "admin", "forgotten-pw-77")
+
+    with CaptureQueriesContext(connection) as queries:
+        run_command(Answers("jade@example.com"))
+
+    sql = [query["sql"] for query in queries.captured_queries]
+    lock = next(i for i, text in enumerate(sql) if "FOR NO KEY UPDATE" in text)
+    write = next(
+        i for i, text in enumerate(sql) if text.startswith('UPDATE "auth_user"')
+    )
+    assert lock < write
 
 
 def test_writes_its_log_line(caplog: pytest.LogCaptureFixture) -> None:

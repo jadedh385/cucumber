@@ -18,6 +18,7 @@ from django.db import connection
 from django.test.utils import CaptureQueriesContext
 from waffle.models import Flag
 
+from cucumber.accounts import services
 from cucumber.accounts.permissions import (
     NotAllowed,
     Permission,
@@ -26,7 +27,7 @@ from cucumber.accounts.permissions import (
     require,
     standing,
 )
-from cucumber.accounts.services import add_account, deactivate, set_role
+from cucumber.accounts.services import add_account, deactivate, role_of, set_role
 from cucumber.core.refusals import Refused
 from cucumber.core.tests.rows import fetch_all, fetch_one, refused_by, run
 from cucumber.core.tests.stock import make_staff, not_allowed, refused
@@ -154,6 +155,18 @@ def test_the_pre_check_names_accounts_with_two_roles_or_an_unmatched_email() -> 
     assert "mali@example.com" not in str(caught.value)
 
 
+def test_the_pre_check_names_accounts_in_a_group_that_is_not_a_role() -> None:
+    """Every group is a role (Q1); an old one, like a flag's `Owner`, isn't (G4 M1)."""
+    make_staff("gene", "Owner")
+    make_staff("mali", "tech")
+
+    with pytest.raises(RuntimeError) as caught:
+        migration("0006_one_role").refuse_bad_accounts(apps, None)
+
+    assert "gene@example.com (Owner)" in str(caught.value)
+    assert "mali@example.com" not in str(caught.value)
+
+
 def test_the_pre_check_passes_when_every_account_is_fine() -> None:
     make_staff("gene", "tech")
     make_staff("pim", None)
@@ -183,6 +196,16 @@ def test_an_account_without_a_role_can_be_given_one(owner: User) -> None:
     set_role(owner, mali, Role.SUPERVISOR)
 
     assert roles_of(mali) == ["supervisor"]
+
+
+def test_a_group_that_is_not_a_role_reads_as_no_role(owner: User) -> None:
+    """Like `standing`, never a crash (G4 M1), and a new role replaces it."""
+    pim = make_staff("pim", "Owner")
+
+    assert role_of(pim) is None
+    set_role(owner, pim, Role.TECH)
+
+    assert roles_of(pim) == ["tech"]
 
 
 def test_a_deactivated_account_keeps_its_role(owner: User, gene: User) -> None:
@@ -397,6 +420,40 @@ def test_the_last_active_admin_is_not_deactivated_past_a_stale_check(
         deactivate(mali, owner)
 
     assert User.objects.get(pk=owner.pk).is_active
+
+
+def lose_admin_while_waiting(admin: User) -> Any:
+    """`lock_for_account_change` that, once it has the locks, finds `admin`
+    demoted: another Admin's change committed while this one waited."""
+    real = services.lock_for_account_change
+
+    def lock(account: User) -> None:
+        real(account)
+        services.replace_role(admin, Role.TECH)
+
+    return mock.patch("cucumber.accounts.services.lock_for_account_change", lock)
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        lambda by, account: set_role(by, account, Role.ADMIN),
+        lambda by, account: deactivate(by, account),
+    ],
+    ids=["set_role", "deactivate"],
+)
+def test_an_admin_demoted_while_waiting_for_the_locks_changes_nothing(
+    owner: User, gene: User, change: Any
+) -> None:
+    """The Admin's own role is read again under the locks (G4 L1)."""
+    mali = make_staff("mali", "admin")
+
+    with lose_admin_while_waiting(mali), not_allowed():
+        change(mali, gene)
+
+    gene = User.objects.get(pk=gene.pk)
+    assert roles_of(gene) == ["tech"]
+    assert gene.is_active
 
 
 # ------------------------------------------------- AC7: two Admins at once
