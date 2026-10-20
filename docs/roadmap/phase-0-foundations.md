@@ -174,6 +174,7 @@ exits · *Gate focus* = unit-specific checks on top of [the standard gates](gate
   void without a reason is rejected; Undo is refused after 10 minutes or for
   an event someone else saved; audit rows can't be edited by any role.
 - **Gate focus:** G2 tests that try to mutate events through the API **and** raw SQL · G4 security review.
+- **Spec:** [U0.7 spec](units/u0.7-spec.md) (G0 passed 2026-10-20).
 
 ### U0.8 · ID sequence service
 - **Size:** S · **Deps:** U0.2a
