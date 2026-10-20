@@ -12,6 +12,8 @@ from django.contrib.auth.models import User
 from django.db import DatabaseError, connection, transaction
 from psycopg import sql
 
+from cucumber.accounts.permissions import Role
+from cucumber.accounts.services import replace_role
 from cucumber.core.refusals import Refused, message_for, rule_of
 from cucumber.env import env
 from cucumber.events.services import NewEvent, save_operation
@@ -101,12 +103,14 @@ class Story:
     def __init__(self, app: App) -> None:
         self.app = app
         # User names are emails (U0.5's auth_user rule).
-        self.admin = self.person("admin@example.com")
-        self.tech = self.person("tech-a@example.com")
+        self.admin = self.person("admin@example.com", Role.ADMIN)
+        self.tech = self.person("tech-a@example.com", Role.TECH)
 
     @staticmethod
-    def person(email: str) -> int:
-        return User.objects.create_user(username=email, email=email).pk
+    def person(email: str, role: Role) -> int:
+        user = User.objects.create_user(username=email, email=email)
+        replace_role(user, role)  # services refuse an account with no role (U0.6)
+        return user.pk
 
     # Times, from the database clock
 
