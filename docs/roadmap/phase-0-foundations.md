@@ -136,13 +136,15 @@ exits · *Gate focus* = unit-specific checks on top of [the standard gates](gate
 | Edit reference lists | ✅ | — | — | — |
 | See Zoho references | ✅ | — | — | — |
 | View dashboards | ✅ | ✅ | ✅ | ✅ |
-| Manage users: add, deactivate, give a new password, lift a lock (U0.5); give, change or remove a role (U0.6) | ✅ | — | — | — |
+| Manage users: add, deactivate (with a reason, U0.7), give a new password, lift a lock (U0.5); give, change or remove a role (U0.6) | ✅ | — | — | — |
 | Log in, log out, change own password, home page (U0.5); also an account with no role | ✅ | ✅ | ✅ | ✅ |
 
 - **Acceptance:** every endpoint has a permission test for each role (allowed and denied);
   a Supervisor can't review or correct an event they did or saved (D-03).
   The quarantine-release row was **?** (U0.2 architect review M6); settled at U0.6 G0 (Q2).
   One role per account (Q1); more than one Admin allowed (Q3).
+  Reading the audit trail (`cucumber_audit`) and anonymising a former staff member
+  (`cucumber_anonymise`) are SSH commands, so only the Owner's server login can run them (U0.7).
 - **Granting and removing roles** (Owner 2026-10-12): the Admin gives, changes
   or removes a user's role; the change applies on the user's next request
   (no stale session keeps the old role); every change is recorded (who, when,
@@ -174,7 +176,8 @@ exits · *Gate focus* = unit-specific checks on top of [the standard gates](gate
   void without a reason is rejected; Undo is refused after 10 minutes or for
   an event someone else saved; audit rows can't be edited by any role.
 - **Gate focus:** G2 tests that try to mutate events through the API **and** raw SQL · G4 security review.
-- **Spec:** [U0.7 spec](units/u0.7-spec.md) (G0 passed 2026-10-20).
+- **Spec:** [U0.7 spec](units/u0.7-spec.md) (G0 passed 2026-10-20) ·
+  **Design:** [u0.7-design.md](units/u0.7-design.md) (G1 passed 2026-10-20)
 
 ### U0.8 · ID sequence service
 - **Size:** S · **Deps:** U0.2a
