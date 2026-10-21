@@ -141,6 +141,11 @@ audited tables are refused, and the 5-second `lock_timeout` can abort core 0006.
 The business is not yet relying on the app, so a short outage is fine. Do it
 on staging first.
 
+**U0.7 only: everyone is signed out once.** The new login backend
+(`AuditedRehashBackend`) replaces the old one, and Django ends any session made
+through a backend that is no longer listed. Each person logs in again after the
+release; nothing else is lost. Tell staff beforehand.
+
 Production takes **version tags only** (AC11). The command takes the
 database copy first, migrates, starts the app and checks `/health/`. If the
 check fails it puts the previous version back by itself (AC12) and says so;
