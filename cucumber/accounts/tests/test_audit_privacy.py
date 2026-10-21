@@ -66,7 +66,7 @@ def every_account_change(owner: User, gene: User, pim: User) -> list[str]:
     give_new_password(owner, gene)
     add_failures("pim@example.com", 5)
     lift_lock(owner, pim)
-    deactivate(owner, mali, Reason(LEFT_COMPANY, "moved away"))
+    deactivate(owner, mali, Reason(LEFT_COMPANY))
     reactivate(owner, mali)
     run_command(Answers("jade@example.com"))
     anonymise_command(Typed("mali@example.com"))

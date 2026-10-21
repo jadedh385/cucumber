@@ -127,12 +127,12 @@ def test_changing_a_role_is_a_delete_and_an_insert_together(
 def test_deactivating_names_the_admin_and_the_reason(owner: User, gene: User) -> None:
     mark = audit_mark()
 
-    deactivate(owner, gene, Reason(LEFT_COMPANY, "moved to Chiang Mai"))
+    deactivate(owner, gene, Reason(LEFT_COMPANY))
 
     row = only_row(mark, "auth_user")
     assert (row.actor_id, row.via) == (owner.pk, "app")
     assert (row.before, row.after) == ({"is_active": True}, {"is_active": False})
-    assert (row.reason_code, row.note) == (LEFT_COMPANY, "moved to Chiang Mai")
+    assert (row.reason_code, row.note) == (LEFT_COMPANY, None)
 
 
 def test_reactivating_names_the_admin_and_needs_no_reason(

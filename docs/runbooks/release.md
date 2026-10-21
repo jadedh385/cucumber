@@ -135,6 +135,12 @@ cd ~/cucumber/tools && git pull
 uv run --no-dev python -m scripts.deploy production <version>
 ```
 
+**U0.7 only: stop the app before the deploy** (`dc stop app`, as in the
+restore steps below). While `migrate` runs, the old version's writes to the
+audited tables are refused, and the 5-second `lock_timeout` can abort core 0006.
+The business is not yet relying on the app, so a short outage is fine. Do it
+on staging first.
+
 Production takes **version tags only** (AC11). The command takes the
 database copy first, migrates, starts the app and checks `/health/`. If the
 check fails it puts the previous version back by itself (AC12) and says so;

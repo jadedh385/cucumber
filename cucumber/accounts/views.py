@@ -233,7 +233,7 @@ def staff_deactivate(request: HttpRequest, account_id: int) -> HttpResponse:
     """Deactivate with a reason (U0.7 AC11); a reason refusal shows under its box."""
     by, account = account_for_button(request, account_id)
     form = DeactivateForm(request.POST)
-    if not form.is_valid():  # e.g. a NUL in the note: say so, don't drop it
+    if not form.is_valid():
         return staff_detail_page(request, account, form)
     try:
         services.deactivate(by, account, form.reason())
@@ -251,7 +251,6 @@ def staff_deactivate(request: HttpRequest, account_id: int) -> HttpResponse:
 REASON_FIELDS = {
     "reason_required": "reason_code",
     "reason_wrong_list": "reason_code",
-    "reason_note_too_long": "note",
 }
 
 

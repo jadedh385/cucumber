@@ -132,26 +132,19 @@ class RoleForm(forms.Form):
 
 
 class DeactivateForm(forms.Form):
-    """A reason from the `deactivate` list and an optional note (U0.7 AC11).
+    """A reason from the `deactivate` list (U0.7 AC11, D2).
 
-    Both are plain text here: the service checks the reason's list and the
-    note's length, so the page shows the same messages a script would get.
+    Plain text here: the service checks the reason's list, so the page shows
+    the same messages a script would get. There is no note: free text would
+    be kept for good and `anonymise` couldn't reach it.
     """
 
     reason_code = forms.CharField(label=_("Reason"), required=False)
-    note = forms.CharField(
-        label=_("Note (optional)"),
-        required=False,
-        strip=False,
-        help_text=_(
-            "Don't write names or health details here: notes are kept for good."
-        ),
-    )
 
     def reason(self) -> Reason | None:
         """The picked reason, or None when none was picked."""
         code = self.cleaned_data.get("reason_code", "").strip()
-        return Reason(code, self.cleaned_data.get("note", "")) if code else None
+        return Reason(code) if code else None
 
 
 class ChangePasswordForm(PasswordChangeForm):

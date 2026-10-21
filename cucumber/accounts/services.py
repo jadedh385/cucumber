@@ -204,7 +204,8 @@ def deactivate(by: User, account: User, reason: Reason | None) -> None:
     """Switch an account off, with a reason from the `deactivate` list.
 
     Never your own, nor the last Admin (AC23, AC24); no reason is
-    `reason_required` (U0.7 AC11, spec Q3). Its open sessions are removed,
+    `reason_required` (U0.7 AC11, spec Q3). The reason code only: a note is
+    dropped, as free text is kept for good (D2). Its open sessions are removed,
     so switching it back on later doesn't sign a lost phone back in (G4 M1).
     The account and everything it saved stay.
     """
@@ -212,8 +213,9 @@ def deactivate(by: User, account: User, reason: Reason | None) -> None:
     if by.pk == account.pk:
         raise refuse("account_cannot_deactivate_self")
     refuse_system(account)
-    require_reason(reason, ReasonList.DEACTIVATE)
-    with database_refusals(), audited(by, reason=reason):
+    code_only = Reason(reason.code) if reason else None
+    require_reason(code_only, ReasonList.DEACTIVATE)
+    with database_refusals(), audited(by, reason=code_only):
         lock_for_account_change(account)
         still_manages_users(by)
         if is_last_active_admin(account):

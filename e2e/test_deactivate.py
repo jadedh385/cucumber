@@ -38,7 +38,6 @@ def test_the_admin_deactivates_with_a_reason_on_a_phone(
 
     mark = audit_mark()
     page.get_by_label("Reason").select_option(label="Left the company")
-    page.get_by_label("Note (optional)").fill("moved to Chiang Mai")
     fits_the_phone(page)
     page.get_by_role("button", name="Deactivate").click()
 
@@ -46,4 +45,4 @@ def test_the_admin_deactivates_with_a_reason_on_a_phone(
     expect(page.get_by_text("gene's account is deactivated.")).to_be_visible()
     assert not User.objects.get(pk=gene.pk).is_active
     row = only_row(mark, "auth_user")
-    assert (row.reason_code, row.note) == (LEFT_COMPANY, "moved to Chiang Mai")
+    assert (row.reason_code, row.note) == (LEFT_COMPANY, None)

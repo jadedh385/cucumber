@@ -12,7 +12,7 @@ from django.test import Client
 
 from cucumber.accounts.services import deactivate
 from cucumber.accounts.tests.helpers import STAFF, session_ended, text
-from cucumber.core.audit import LONGEST_NOTE, Reason
+from cucumber.core.audit import Reason
 from cucumber.core.tests.stock import refused
 from cucumber.core.tests.trail import (
     LEFT_COMPANY,
@@ -28,7 +28,6 @@ pytestmark = pytest.mark.django_db
 
 CHOOSE = "Choose a reason."
 WRONG_LIST = "That reason doesn't fit this change. Choose another."
-TOO_LONG = "The note can be at most 500 characters."
 HINT = "Don't write names or health details here: notes are kept for good."
 
 
@@ -65,17 +64,20 @@ def test_the_pdpa_reason_is_for_anonymising_only(owner: User, gene: User) -> Non
     assert is_active(gene)
 
 
-def test_a_note_over_500_characters_is_refused(owner: User, gene: User) -> None:
-    with refused("reason_note_too_long"):
-        deactivate(owner, gene, Reason(LEFT_COMPANY, "x" * (LONGEST_NOTE + 1)))
+def test_a_note_is_not_kept_only_the_reason_code(owner: User, gene: User) -> None:
+    """D2: a deactivation note is free text kept for good, so there is none."""
+    mark = audit_mark()
 
-    assert is_active(gene)
+    deactivate(owner, gene, Reason(LEFT_COMPANY, "moved to Chiang Mai"))
+
+    row = only_row(mark, "auth_user")
+    assert (row.reason_code, row.note) == (LEFT_COMPANY, None)
 
 
 def test_with_a_reason_the_account_is_off_and_its_sessions_end(
     owner: User, gene: User, gene_client: Client
 ) -> None:
-    deactivate(owner, gene, Reason(LEFT_COMPANY, "  moved to Chiang Mai  "))
+    deactivate(owner, gene, Reason(LEFT_COMPANY))
 
     assert not is_active(gene)
     assert session_ended(gene_client)
@@ -97,7 +99,7 @@ def post(client: Client, account: User, **data: str) -> str:
     return text(response)
 
 
-def test_the_page_offers_the_four_reasons_and_a_note(
+def test_the_page_offers_the_four_reasons_and_no_note(
     owner_client: Client, gene: User
 ) -> None:
     html = page(owner_client, gene)
@@ -108,8 +110,8 @@ def test_the_page_offers_the_four_reasons_and_a_note(
     assert options[0] == ("", "Choose a reason")
     assert [label for _, label in options[1:]] == NEW_REASONS["deactivate"]
     assert PDPA_CODE not in select[0]
-    assert 'name="note"' in html
-    assert HINT in html
+    assert 'name="note"' not in html
+    assert HINT not in html
 
 
 def test_posting_without_a_reason_shows_the_message_and_changes_nothing(
@@ -126,7 +128,7 @@ def test_posting_with_a_reason_deactivates_and_records_it(
 ) -> None:
     mark = audit_mark()
 
-    html = post(owner_client, gene, reason_code=LEFT_COMPANY, note="moved away")
+    html = post(owner_client, gene, reason_code=LEFT_COMPANY, note="ignored")
 
     assert "gene's account is deactivated." in html
     assert not is_active(gene)
@@ -134,26 +136,16 @@ def test_posting_with_a_reason_deactivates_and_records_it(
     assert (row.actor_id, row.reason_code, row.note) == (
         owner.pk,
         LEFT_COMPANY,
-        "moved away",
+        None,
     )
-
-
-def test_a_note_with_a_null_character_is_shown_not_dropped(
-    owner_client: Client, gene: User
-) -> None:
-    html = post(owner_client, gene, reason_code=LEFT_COMPANY, note="a\x00b")
-
-    assert "Null characters are not allowed." in html
-    assert is_active(gene)
 
 
 @pytest.mark.parametrize(
     ("data", "message"),
     [
         ({"reason_code": NO_LONGER_USED}, WRONG_LIST),
-        ({"reason_code": LEFT_COMPANY, "note": "x" * (LONGEST_NOTE + 1)}, TOO_LONG),
     ],
-    ids=["wrong list", "long note"],
+    ids=["wrong list"],
 )
 def test_the_other_reason_refusals_show_on_the_page(
     owner_client: Client, gene: User, data: dict[str, str], message: str
