@@ -6,6 +6,8 @@ tells it who is making the change, and why when a reason is needed. A change
 to an audited table with nobody named is refused (`audit_actor_required`).
 """
 
+import getpass
+import os
 from collections.abc import Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
@@ -26,6 +28,31 @@ LONGEST_NOTE = 500
 VIA_APP = "app"
 VIA_LOGIN = "login"
 VIA_MIGRATION = "migration"
+
+
+def printable(text: str) -> str:
+    """`text` without control characters: an environment value can't dress up a row."""
+    return "".join(char for char in text if char.isprintable()).strip()
+
+
+def process_user() -> str:
+    try:
+        return getpass.getuser()
+    except (KeyError, OSError):
+        return "unknown"
+
+
+def ssh_via(command: str) -> str:
+    """`via` for a command run over SSH: who ran it, and from where (review #3).
+
+    Every such command acts as System, so the person is only in `via`. The
+    container can't see the SSH session: the runbook and `scripts/flag.py`
+    pass `SSH_USER` and `SSH_CONNECTION` in.
+    """
+    user = printable(os.environ.get("SSH_USER", "")) or process_user()
+    connection = printable(os.environ.get("SSH_CONNECTION", ""))
+    where = f"ssh {connection}" if connection else "no ssh connection"
+    return f"{command} by {user} ({where})"
 
 
 @dataclass(frozen=True)

@@ -188,8 +188,16 @@ def plant_values(created_by: int, **overrides: object) -> dict[str, object]:
     }
 
 
+# A plant that starts out off needs the reason its switch would (U0.7 AC11).
+OFF_PLANT_REASONS = {
+    "retired": Reason("retire_no_longer_grown"),
+    "voided": Reason("void_duplicate_entry"),
+}
+
+
 def make_plant(created_by: int, **overrides: object) -> int:
-    with as_system():
+    reason = OFF_PLANT_REASONS.get(str(overrides.get("status")))
+    with as_system(reason):
         return as_int(insert("plants", plant_values(created_by, **overrides)))
 
 

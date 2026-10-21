@@ -55,6 +55,7 @@ APPEND_ONLY_TYPE = trigger_type("BEFORE", "UPDATE OR DELETE")
 NO_DELETE_TYPE = trigger_type("BEFORE", "DELETE")
 BEFORE_UPDATE = trigger_type("BEFORE", "UPDATE")
 BEFORE_INSERT = trigger_type("BEFORE", "INSERT")
+BEFORE_INSERT_OR_UPDATE = trigger_type("BEFORE", "INSERT OR UPDATE")
 TRUNCATE_TYPE = trigger_type("AFTER", "TRUNCATE", per="STATEMENT")
 
 APPEND_ONLY_BY = {
@@ -118,7 +119,10 @@ TRIGGERS: dict[str, tuple[Trigger, str]] = {
     **{
         f"{spec.table}_reason_required": (
             Trigger(
-                spec.table, "cucumber_reason_required", BEFORE_UPDATE, spec.arguments
+                spec.table,
+                "cucumber_reason_required",
+                BEFORE_INSERT_OR_UPDATE,
+                spec.arguments,
             ),
             U07,
         )
@@ -152,7 +156,7 @@ FUNCTIONS: dict[str, tuple[Function, str]] = {
         U07,
     ),
     "cucumber_reason_required": (
-        Function("fdbda1a7fdeb9f64947fa656a41e3b1d", FIXED_SEARCH_PATH),
+        Function("85214ff55acc9bd801da429095eab6ab", FIXED_SEARCH_PATH),
         U07,
     ),
     "cucumber_truncate_noticed": (
@@ -228,6 +232,24 @@ APP_ROLE_CHECKS = {
     "owner member": AppRoleCheck(
         "SELECT pg_has_role(%(app)s, %(owner)s, 'MEMBER')",
         f"{APP_ROLE} is a member of {OWNER_ROLE}",
+        CORE_0003,
+    ),
+    "create roles": AppRoleCheck(
+        "SELECT coalesce("
+        "(SELECT rolcreaterole FROM pg_roles WHERE rolname = %(app)s), false)",
+        f"{APP_ROLE} may create roles",
+        CORE_0003,
+    ),
+    "bypass row security": AppRoleCheck(
+        "SELECT coalesce("
+        "(SELECT rolbypassrls FROM pg_roles WHERE rolname = %(app)s), false)",
+        f"{APP_ROLE} bypasses row security",
+        CORE_0003,
+    ),
+    "replication": AppRoleCheck(
+        "SELECT coalesce("
+        "(SELECT rolreplication FROM pg_roles WHERE rolname = %(app)s), false)",
+        f"{APP_ROLE} may start replication",
         CORE_0003,
     ),
     "role setting": AppRoleCheck(

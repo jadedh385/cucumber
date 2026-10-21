@@ -137,6 +137,18 @@ class Migration(migrations.Migration):
             model_name="auditlog",
             index=models.Index(fields=["actor", "at"], name="audit_log_actor_at"),
         ),
+        migrations.AddIndex(
+            model_name="auditlog",
+            index=models.Index(fields=["at", "id"], name="audit_log_at_id"),
+        ),
+        migrations.AddIndex(
+            model_name="auditlog",
+            index=models.Index(
+                fields=["id"],
+                name="audit_log_notices",
+                condition=models.Q(action__in=("truncate", "guards_accepted")),
+            ),
+        ),
         *(migrations.RunSQL(sql.forward, sql.reverse) for sql in FUNCTIONS),
         *(migrations.RunSQL(sql.forward, sql.reverse) for sql in TRIGGERS),
         migrations.RunSQL(GRANTS, UNDO_GRANTS),

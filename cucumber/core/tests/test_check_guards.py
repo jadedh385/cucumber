@@ -11,6 +11,7 @@ from io import StringIO
 import pytest
 from django.core.management import CommandError, call_command
 
+from cucumber.core import expected, guards
 from cucumber.core.guards import GUARDS, Kind
 from cucumber.core.tests.rows import AppConnection, fetch_all, run
 from cucumber.core.tests.trail import (
@@ -39,9 +40,9 @@ def failures() -> str:
     return out.getvalue()
 
 
-def accept(note: str) -> str:
+def accept(note: str, *options: str) -> str:
     out = StringIO()
-    call_command("cucumber_check_guards", "--accept", note, stdout=out)
+    call_command("cucumber_check_guards", "--accept", note, *options, stdout=out)
     return out.getvalue()
 
 
@@ -119,6 +120,35 @@ BREAKS = {
         " FOR EACH ROW EXECUTE FUNCTION cucumber_audit('id', 'name_key', '')",
         "plants_audit",
     ),
+    "trigger calls a same-named function in another schema": (
+        "CREATE SCHEMA elsewhere;"
+        " CREATE FUNCTION elsewhere.cucumber_audit() RETURNS trigger"
+        " LANGUAGE plpgsql AS $$ BEGIN RETURN NULL; END $$;"
+        " DROP TRIGGER plants_audit ON plants;"
+        " CREATE TRIGGER plants_audit AFTER INSERT OR UPDATE ON plants"
+        " FOR EACH ROW EXECUTE FUNCTION elsewhere.cucumber_audit('id', 'name_key', '')",
+        "plants_audit",
+    ),
+    "trigger given a WHEN": (
+        "DROP TRIGGER plants_audit ON plants;"
+        " CREATE TRIGGER plants_audit AFTER INSERT OR UPDATE ON plants"
+        " FOR EACH ROW WHEN (false)"
+        " EXECUTE FUNCTION cucumber_audit('id', 'name_key', '')",
+        "plants_audit",
+    ),
+    "trigger limited to some columns": (
+        "DROP TRIGGER plants_audit ON plants;"
+        " CREATE TRIGGER plants_audit AFTER INSERT OR UPDATE OF notes ON plants"
+        " FOR EACH ROW EXECUTE FUNCTION cucumber_audit('id', 'name_key', '')",
+        "plants_audit",
+    ),
+    "trigger made deferrable": (
+        "DROP TRIGGER plants_audit ON plants;"
+        " CREATE CONSTRAINT TRIGGER plants_audit AFTER INSERT OR UPDATE ON plants"
+        " DEFERRABLE INITIALLY DEFERRED"
+        " FOR EACH ROW EXECUTE FUNCTION cucumber_audit('id', 'name_key', '')",
+        "plants_audit",
+    ),
     "trigger calls another function": (
         "DROP TRIGGER events_append_only ON events;"
         " CREATE TRIGGER events_append_only BEFORE UPDATE OR DELETE ON events"
@@ -188,7 +218,7 @@ def test_accepting_writes_a_row_and_the_check_passes_again() -> None:
     noticed = truncate_rows("event_reviews")
     mark = audit_mark()
 
-    output = accept("staging reset with practice data")
+    output = accept("staging reset with practice data", "--yes")
 
     assert "These were truncated: event_reviews (" in output
     assert "sql as cucumber_owner" in output
@@ -200,7 +230,8 @@ def test_accepting_writes_a_row_and_the_check_passes_again() -> None:
         system_id(),
     )
     assert row.note == "staging reset with practice data"
-    assert (row.via, row.db_user) == ("cucumber_check_guards", "cucumber_owner")
+    assert row.via.startswith("cucumber_check_guards by ")
+    assert row.db_user == "cucumber_owner"
     assert row.after == {"truncate_rows": noticed}
     assert "protections on." in check()
 
@@ -211,7 +242,7 @@ def test_accepting_needs_a_reason(note: str) -> None:
     mark = audit_mark()
 
     with pytest.raises(CommandError):
-        accept(note)
+        accept(note, "--yes")
 
     assert audit_rows_since(mark) == []
 
@@ -219,7 +250,7 @@ def test_accepting_needs_a_reason(note: str) -> None:
 def test_with_nothing_to_accept_nothing_is_written() -> None:
     mark = audit_mark()
 
-    output = accept("just checking")
+    output = accept("just checking", "--yes")
 
     assert "Nothing to accept." in output
     assert audit_rows_since(mark) == []
@@ -244,3 +275,151 @@ def test_an_acceptance_written_by_the_app_user_doesnt_count(
     )
 
     assert "event_reviews" in failures()
+
+
+# ------------------------------------------- the app role's attributes (§8.1)
+ROLE_ATTRIBUTES = {
+    "createrole": "may create roles",
+    "bypassrls": "bypasses row security",
+    "replication": "may start replication",
+}
+
+
+@pytest.mark.parametrize("attribute", sorted(ROLE_ATTRIBUTES))
+def test_an_app_role_attribute_that_gets_round_the_triggers_is_reported(
+    attribute: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The tests' login can't change `cucumber_app`, so a role that has it."""
+    row = fetch_all(f"SELECT rolname FROM pg_roles WHERE rol{attribute} LIMIT 1")  # noqa: S608
+    if not row:
+        pytest.skip(f"no role with {attribute} in this database")
+    monkeypatch.setattr(expected, "APP_ROLE", str(row[0][0]))
+
+    output = failures()
+
+    assert ROLE_ATTRIBUTES[attribute] in output
+
+
+# ------------------------------------- a migration that is missing (review #1)
+def test_a_missing_migration_with_later_ones_applied_is_a_failure() -> None:
+    """A deleted `django_migrations` row would skip that migration's guards."""
+    run("DELETE FROM django_migrations WHERE app = 'core' AND name = '0003_app_grants'")
+
+    output = failures()
+
+    assert "core.0003_app_grants" in output
+    assert "not recorded as applied" in output
+
+
+def test_a_migration_not_yet_run_is_not_a_failure() -> None:
+    """Step 3b checks the old database with the new code: that is expected."""
+    run(
+        "DELETE FROM django_migrations WHERE app = 'core' AND name = '0006_audit_trail'"
+    )
+
+    assert "protections on." in check()
+
+
+# ----------------------------------- --accept: ids, lock, confirm, owner (#2)
+def test_accepting_lists_what_it_will_accept_and_asks_first(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    truncate("event_reviews")
+    mark = audit_mark()
+    monkeypatch.setattr("builtins.input", lambda prompt="": "no")
+
+    output = accept("staging reset")
+
+    assert "event_reviews" in output
+    assert "Nothing accepted." in output
+    assert audit_rows_since(mark) == []
+    assert "event_reviews" in failures()
+
+
+def test_accepting_after_yes_writes_the_row(monkeypatch: pytest.MonkeyPatch) -> None:
+    truncate("event_reviews")
+    mark = audit_mark()
+    monkeypatch.setattr("builtins.input", lambda prompt="": "yes")
+
+    output = accept("staging reset")
+
+    assert "Accepted. The deploy will go on." in output
+    assert [row.action for row in audit_rows_since(mark)] == ["guards_accepted"]
+
+
+def test_no_keyboard_counts_as_no(monkeypatch: pytest.MonkeyPatch) -> None:
+    truncate("event_reviews")
+
+    def no_keyboard(prompt: str = "") -> str:
+        raise EOFError
+
+    monkeypatch.setattr("builtins.input", no_keyboard)
+
+    assert "Nothing accepted." in accept("staging reset")
+
+
+def test_only_the_listed_truncates_are_accepted() -> None:
+    truncate("event_reviews")
+    [listed] = truncate_rows("event_reviews")
+    truncate("plant_status_changes")
+
+    guards.accept_truncates("only the first", [listed])
+
+    output = failures()
+    assert "plant_status_changes" in output
+    assert "event_reviews" not in output
+
+
+def test_a_truncate_after_the_listing_is_still_noticed() -> None:
+    truncate("event_reviews")
+    listed = [row_id for row_id, _, _ in guards.noticed_truncates()]
+    truncate("plant_status_changes")
+
+    guards.accept_truncates("what I saw", listed)
+
+    assert "plant_status_changes" in failures()
+
+
+def test_accepting_takes_a_lock_on_the_trail(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A truncate can't slip in between the listing and the acceptance."""
+    truncate("event_reviews")
+    locked: list[bool] = []
+    monkeypatch.setattr(guards, "lock_trail", lambda: locked.append(True))
+
+    guards.accept_truncates(
+        "why", [row_id for row_id, _, _ in guards.noticed_truncates()]
+    )
+
+    assert locked == [True]
+
+
+def test_accepting_is_refused_unless_the_session_user_is_the_owner(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    truncate("event_reviews")
+    mark = audit_mark()
+    monkeypatch.setattr(guards, "session_user", lambda: "cucumber_app")
+
+    with pytest.raises(CommandError, match="database owner"):
+        accept("staging reset", "--yes")
+
+    assert audit_rows_since(mark) == []
+
+
+# ------------------------------------------ the SSH user and connection (#3)
+def test_an_acceptance_names_the_ssh_user_and_connection(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("SSH_USER", "sawat")
+    monkeypatch.setenv("SSH_CONNECTION", "203.0.113.5 52211 10.0.0.2 22")
+    truncate("event_reviews")
+    mark = audit_mark()
+
+    accept("staging reset", "--yes")
+
+    [row] = audit_rows_since(mark)
+    assert row.via == (
+        "cucumber_check_guards by sawat (ssh 203.0.113.5 52211 10.0.0.2 22)"
+    )

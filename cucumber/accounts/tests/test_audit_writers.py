@@ -74,7 +74,8 @@ UPGRADING_HASHERS = [
 
 
 def who(rows: list[AuditRow]) -> set[tuple[int | None, str]]:
-    return {(row.actor_id, row.via) for row in rows}
+    """Actor and command; an SSH command's `via` also names the person (review #3)."""
+    return {(row.actor_id, row.via.split(" by ")[0]) for row in rows}
 
 
 def shape(rows: list[AuditRow]) -> list[tuple[str, str, str]]:
@@ -239,7 +240,8 @@ def test_cucumber_admin_letting_the_owner_back_in_is_system(owner: User) -> None
     run_command(Answers("jade@example.com"))
 
     row = only_row(mark, "auth_user")
-    assert (row.actor_id, row.via) == (system_id(), "cucumber_admin")
+    assert row.actor_id == system_id()
+    assert row.via.startswith("cucumber_admin by ")
     assert row.after == PASSWORD_CHANGED
 
 
@@ -262,11 +264,8 @@ def test_switching_a_flag_is_system_via_cucumber_flag(db: None) -> None:
     cucumber_flag("lab_screens", "on")
 
     row = only_row(mark, "waffle_flag")
-    assert (row.actor_id, row.via, row.row_pk) == (
-        system_id(),
-        "cucumber_flag",
-        str(flag.pk),
-    )
+    assert (row.actor_id, row.row_pk) == (system_id(), str(flag.pk))
+    assert row.via.startswith("cucumber_flag by ")
     assert (row.before, row.after) == ({"everyone": False}, {"everyone": True})
 
 

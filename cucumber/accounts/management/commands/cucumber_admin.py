@@ -31,7 +31,7 @@ from cucumber.accounts.services import (
     replace_role,
     role_of,
 )
-from cucumber.core.audit import SYSTEM, audited
+from cucumber.core.audit import SYSTEM, audited, ssh_via
 from cucumber.core.refusals import Refused, message_for
 
 logger = logging.getLogger(__name__)
@@ -102,7 +102,7 @@ class Command(BaseCommand):
 
         Made by System: nobody is signed in (U0.7 AC6).
         """
-        with audited(SYSTEM, via="cucumber_admin"):
+        with audited(SYSTEM, via=ssh_via("cucumber_admin")):
             account.set_password(password)
             account.is_active = True
             is_new = account.pk is None

@@ -19,7 +19,7 @@ from django.contrib.auth.models import Group
 from django.core.management.base import BaseCommand, CommandError, CommandParser
 from waffle.models import Flag
 
-from cucumber.core.audit import SYSTEM, audited
+from cucumber.core.audit import SYSTEM, audited, ssh_via
 
 # Waffle's switches other than `everyone` and groups, each in its off state.
 ALWAYS_OFF = {
@@ -67,7 +67,7 @@ class Command(BaseCommand):
             raise CommandError("off is for everyone; --group goes with on only.")
         flag = self.find_flag(name)
         groups = self.find_groups(group_names)
-        with audited(SYSTEM, via="cucumber_flag"):
+        with audited(SYSTEM, via=ssh_via("cucumber_flag")):
             for field, off in ALWAYS_OFF.items():
                 setattr(flag, field, off)
             flag.everyone = None if groups else state == "on"

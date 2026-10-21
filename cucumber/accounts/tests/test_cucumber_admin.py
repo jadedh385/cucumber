@@ -30,6 +30,7 @@ from cucumber.accounts.tests.helpers import (
 )
 from cucumber.core.audit import SYSTEM_USERNAME
 from cucumber.core.tests.stock import make_staff, switch_off
+from cucumber.core.tests.trail import audit_mark, audit_rows_since
 
 pytestmark = pytest.mark.django_db
 
@@ -96,6 +97,18 @@ def test_adds_the_first_admin() -> None:
     assert has_role(jade, ADMIN)
     assert not change_due(jade)
     assert can_log_in("jade@example.com")
+
+
+def test_the_trail_names_the_ssh_user(monkeypatch: pytest.MonkeyPatch) -> None:
+    """G4 review #3: System made the change; `via` says who ran the command."""
+    monkeypatch.setenv("SSH_USER", "sawat")
+    monkeypatch.setenv("SSH_CONNECTION", "203.0.113.5 52211 10.0.0.2 22")
+    mark = audit_mark()
+
+    run_command(Answers("jade@example.com", "Jade"))
+
+    vias = {row.via for row in audit_rows_since(mark, "auth_user")}
+    assert vias == {"cucumber_admin by sawat (ssh 203.0.113.5 52211 10.0.0.2 22)"}
 
 
 # ----------------------------------------------------------------- rescue

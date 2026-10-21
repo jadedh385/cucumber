@@ -58,6 +58,14 @@ class AuditLog(models.Model):
         indexes = [
             Index(fields=["table_name", "row_pk", "at"], name="audit_log_row_at"),
             Index(fields=["actor", "at"], name="audit_log_actor_at"),
+            # Newest first (`cucumber_audit`); ties broken by id.
+            Index(fields=["at", "id"], name="audit_log_at_id"),
+            # The deploy's guard check reads only these rows (review #10).
+            Index(
+                fields=["id"],
+                name="audit_log_notices",
+                condition=Q(action__in=("truncate", "guards_accepted")),
+            ),
         ]
 
     def __str__(self) -> str:

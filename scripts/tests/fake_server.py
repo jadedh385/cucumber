@@ -227,6 +227,10 @@ def make_home(
     return home
 
 
+SSH_USER = "sawat"
+SSH_CONNECTION = "203.0.113.5 52211 10.0.0.2 22"
+
+
 def shell_environment(home: Path) -> dict[str, str]:
     """The Owner's shell: what the commands may pass on, plus strays they mustn't."""
     return {
@@ -234,6 +238,8 @@ def shell_environment(home: Path) -> dict[str, str]:
         "HOME": str(home.parent),
         "CUCUMBER_HOME": str(home),
         "DOCKER_HOST": "unix:///pretend/docker.sock",
+        "USER": SSH_USER,
+        "SSH_CONNECTION": SSH_CONNECTION,
         "DB_PASSWORD": STRAY_SHELL_PASSWORD,
         "DJANGO_SECRET_KEY": "stray-shell-secret-key",
     }

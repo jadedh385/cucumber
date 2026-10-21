@@ -189,12 +189,15 @@ END
 
 REASON_REQUIRED_BODY = """
 DECLARE
-  old_value text := to_jsonb(OLD) ->> TG_ARGV[0];
+  old_value text;
   new_value text := to_jsonb(NEW) ->> TG_ARGV[0];
   picked text := nullif(current_setting('cucumber.reason_code', true), '');
   needed text;
   picked_list text;
 BEGIN
+  IF TG_OP = 'UPDATE' THEN  -- a new row has no old value: off at birth counts
+    old_value := to_jsonb(OLD) ->> TG_ARGV[0];
+  END IF;
   IF new_value IS NOT DISTINCT FROM old_value THEN
     RETURN NEW;
   END IF;
@@ -210,7 +213,9 @@ BEGIN
     RAISE EXCEPTION '% % = % needs a reason', TG_TABLE_NAME, TG_ARGV[0], new_value
       USING ERRCODE = 'restrict_violation', CONSTRAINT = 'reason_required';
   END IF;
-  SELECT applies_to INTO picked_list FROM public.reasons WHERE code = picked;
+  -- Only `cucumber_anonymise` uses the PDPA reason, which no list offers.
+  SELECT applies_to INTO picked_list FROM public.reasons
+   WHERE code = picked AND (active OR code = 'deactivate_pdpa_request');
   IF picked_list IS DISTINCT FROM needed THEN
     RAISE EXCEPTION 'reason % is not on the % list', picked, needed
       USING ERRCODE = 'restrict_violation', CONSTRAINT = 'reason_wrong_list';
@@ -307,7 +312,8 @@ def reason_required(spec: SwitchOff) -> Sql:
     name = f"{spec.table}_reason_required"
     return Sql(
         forward=(
-            f"CREATE TRIGGER {name} BEFORE UPDATE ON {spec.table} FOR EACH ROW"
+            f"CREATE TRIGGER {name} BEFORE INSERT OR UPDATE ON {spec.table}"
+            " FOR EACH ROW"
             f" EXECUTE FUNCTION cucumber_reason_required({quoted(spec.arguments)});"
         ),
         reverse=f"DROP TRIGGER {name} ON {spec.table};",

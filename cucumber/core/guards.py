@@ -11,16 +11,18 @@ What each protection should look like is in `expected.py` (triggers,
 function bodies, grants); this module reads the database and compares.
 """
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any
 from zoneinfo import ZoneInfo
 
 from django.db import connection
+from django.db.migrations.loader import MigrationLoader
 from django.db.migrations.recorder import MigrationRecorder
 
 from cucumber.core import expected
-from cucumber.core.audit import SYSTEM, audited, system_account
+from cucumber.core.audit import SYSTEM, audited, ssh_via, system_account
 from cucumber.core.models import AuditLog
 
 BANGKOK = ZoneInfo("Asia/Bangkok")
@@ -78,12 +80,36 @@ def applied_migrations() -> set[str]:
     return {f"{app}.{name}" for app, name in applied}
 
 
+def migration_holes() -> list[str]:
+    """Guard migrations not recorded as applied while a later one is (review #1).
+
+    One that simply hasn't run yet (step 3b: the old database, the new code)
+    has nothing after it applied. A hole means its protections would be
+    skipped without a word: a restored copy, a hand-edited `django_migrations`.
+    """
+    loader = MigrationLoader(connection)
+    applied = set(loader.applied_migrations)
+    later = [key for key in applied if key in loader.graph.nodes]
+    holes = []
+    for name in sorted({guard.migration for guard in GUARDS}):
+        key = tuple(name.split(".", 1))
+        if key in applied or key not in loader.graph.nodes:
+            continue
+        if any(key in loader.graph.forwards_plan(node) for node in later):
+            holes.append(
+                f"migration {name} is not recorded as applied, but later ones are:"
+                " its protections can't be checked"
+            )
+    return holes
+
+
 def check() -> Report:
     """Every protection in `GUARDS` whose migration has run, checked (§8.1)."""
     applied = applied_migrations()
     due = [guard for guard in GUARDS if guard.migration in applied]
     names = {kind: {g.name for g in due if g.kind == kind} for kind in Kind}
     failures = [
+        *migration_holes(),
         *trigger_failures(names[Kind.TRIGGER]),
         *function_failures(names[Kind.FUNCTION]),
         *grant_failures(names[Kind.GRANT]),
@@ -102,11 +128,14 @@ def fetch(sql: str, params: Any = None) -> list[tuple[Any, ...]]:
 # ------------------------------------------------------------------ triggers
 
 TRIGGERS_NOW = """
-SELECT t.tgname, c.relname, p.proname, t.tgtype, t.tgenabled, t.tgnargs, t.tgargs
+SELECT t.tgname, c.relname, p.proname, t.tgtype, t.tgenabled, t.tgnargs, t.tgargs,
+       t.tgfoid = to_regprocedure('public.' || p.proname || '()')::oid,
+       pn.nspname, t.tgqual IS NOT NULL, t.tgattr::text <> '', t.tgdeferrable
   FROM pg_trigger t
   JOIN pg_class c ON c.oid = t.tgrelid
   JOIN pg_namespace n ON n.oid = c.relnamespace
   JOIN pg_proc p ON p.oid = t.tgfoid
+  JOIN pg_namespace pn ON pn.oid = p.pronamespace
  WHERE NOT t.tgisinternal AND n.nspname = 'public'
 """
 ON = {"O", "A"}  # fires in normal sessions (O: origin, A: always)
@@ -116,35 +145,59 @@ def trigger_arguments(count: int, raw: bytes | memoryview) -> tuple[str, ...]:
     return tuple(bytes(raw).decode().split("\x00")[:count])
 
 
+@dataclass(frozen=True)
+class Firing:
+    """How a trigger fires, beyond what `expected.Trigger` pins (review #1)."""
+
+    enabled: str
+    is_ours: bool  # calls the zero-argument function of that name in `public`
+    function_schema: str
+    has_when: bool
+    some_columns: bool  # UPDATE OF <columns>
+    deferrable: bool
+
+
 def trigger_failures(names: set[str]) -> list[str]:
     found = {
         name: (
             expected.Trigger(table, function, tgtype, trigger_arguments(count, raw)),
-            enabled,
+            Firing(enabled, ours, schema, has_when, some_columns, deferrable),
         )
-        for name, table, function, tgtype, enabled, count, raw in fetch(TRIGGERS_NOW)
-    }
+        for (
+            name, table, function, tgtype, enabled, count, raw,
+            ours, schema, has_when, some_columns, deferrable,
+        ) in fetch(TRIGGERS_NOW)
+    }  # fmt: skip
     failures = []
     for name in sorted(names):
         want = expected.TRIGGERS[name][0]
         if name not in found:
             failures.append(f"trigger {name} on {want.table} is missing")
             continue
-        have, enabled = found[name]
-        failures += trigger_differences(name, want, have, enabled)
+        have, firing = found[name]
+        failures += trigger_differences(name, want, have, firing)
     return failures
 
 
 def trigger_differences(
-    name: str, want: expected.Trigger, have: expected.Trigger, enabled: str
+    name: str, want: expected.Trigger, have: expected.Trigger, firing: Firing
 ) -> list[str]:
     where = f"trigger {name} on {have.table}"
     problems = []
-    if enabled not in ON:
-        state = "replica only" if enabled == "R" else "disabled"
+    if firing.enabled not in ON:
+        state = "replica only" if firing.enabled == "R" else "disabled"
         problems.append(f"{where} is {state}")
-    if have.function != want.function:
-        problems.append(f"{where} calls {have.function}(), not {want.function}()")
+    if have.function != want.function or not firing.is_ours:
+        problems.append(
+            f"{where} calls {firing.function_schema}.{have.function}(),"
+            f" not public.{want.function}()"
+        )
+    if firing.has_when:
+        problems.append(f"{where} has a WHEN condition, so it skips some rows")
+    if firing.some_columns:
+        problems.append(f"{where} fires on some columns only (UPDATE OF)")
+    if firing.deferrable:
+        problems.append(f"{where} is deferrable, so it can run late or never")
     if (have.table, have.tgtype) != (want.table, want.tgtype):
         problems.append(f"{where} fires on the wrong table or at the wrong time")
     if have.arguments != want.arguments:
@@ -262,13 +315,20 @@ def app_role_failures(names: set[str]) -> list[str]:
 def noticed_truncates() -> list[tuple[int, str, str]]:
     """(id, table, "<Bangkok time>, <via>") of truncates not yet accepted (§8.2).
 
-    Only an acceptance the owner wrote counts (review M3).
+    Only an acceptance the owner wrote counts (review M3), and only for the
+    rows it lists (review #2).
     """
     accepted = AuditLog.objects.filter(
         action="guards_accepted", db_user=expected.OWNER_ROLE
+    ).values_list("after", flat=True)
+    listed = {
+        row_id
+        for after in accepted
+        for row_id in (after or {}).get("truncate_rows", [])
+    }
+    rows = (
+        AuditLog.objects.filter(action="truncate").exclude(id__in=listed).order_by("id")
     )
-    last = accepted.order_by("-id").values_list("id", flat=True).first() or 0
-    rows = AuditLog.objects.filter(action="truncate", id__gt=last).order_by("id")
     return [
         (row.id, row.table_name, f"{in_bangkok(row)}, {row.via}")
         for row in rows.only("id", "table_name", "at", "via")
@@ -287,17 +347,41 @@ def truncate_failures() -> list[str]:
     ]
 
 
-def accept_truncates(note: str) -> list[str]:
-    """Accept the noticed TRUNCATEs (§8.2); returns what was accepted, as lines.
+def session_user() -> str:
+    return str(fetch("SELECT session_user")[0][0])
 
-    Writes one `guards_accepted` row as System. Nothing noticed: nothing
-    written, and no lines. A blank note is a `ValueError`.
+
+def require_owner() -> None:
+    """Only the database owner's acceptance counts, so only it may write one."""
+    if session_user() != expected.OWNER_ROLE:
+        raise ValueError(
+            f"Only the database owner ({expected.OWNER_ROLE}) can accept"
+            " truncates: run this through the migrate service."
+        )
+
+
+def lock_trail() -> None:
+    """Hold off other writers to the trail, so no truncate lands unseen."""
+    with connection.cursor() as cursor:
+        cursor.execute("LOCK TABLE audit_log IN SHARE ROW EXCLUSIVE MODE")
+
+
+def accept_truncates(note: str, listed: Sequence[int]) -> list[str]:
+    """Accept the listed TRUNCATEs (§8.2); returns what was accepted, as lines.
+
+    Only rows in `listed` that are still noticed, read under a lock on the
+    trail: a truncate that came after the listing stays noticed. Writes one
+    `guards_accepted` row as System. Nothing to accept: nothing written, and
+    no lines. A blank note, or a session that isn't the owner's, is a
+    `ValueError`.
     """
     note = note.strip()
     if not note:
         raise ValueError("Say why the truncates are accepted.")
-    with audited(SYSTEM, via=ACCEPT_VIA):
-        noticed = noticed_truncates()
+    require_owner()
+    with audited(SYSTEM, via=ssh_via(ACCEPT_VIA)):
+        lock_trail()
+        noticed = [row for row in noticed_truncates() if row[0] in set(listed)]
         if not noticed:
             return []
         AuditLog.objects.create(
@@ -307,6 +391,6 @@ def accept_truncates(note: str) -> list[str]:
             action="guards_accepted",
             after={"truncate_rows": [row_id for row_id, _, _ in noticed]},
             note=note,
-            via=ACCEPT_VIA,
+            via=ssh_via(ACCEPT_VIA),
         )
     return [f"{table} ({when})" for _, table, when in noticed]

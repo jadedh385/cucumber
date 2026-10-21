@@ -16,6 +16,7 @@ from cucumber.core.tests.rows import (
     insert,
     make_plant,
     make_user,
+    plant_values,
     quote,
     refused_by,
     run,
@@ -243,3 +244,80 @@ def test_the_pdpa_request_reason_is_seeded_switched_off() -> None:
     )
 
     assert row == ("deactivate", "PDPA request", False)
+
+
+# ------------------------------------- G4 review: inactive reasons, INSERT
+def test_a_reason_that_was_archived_is_refused(staff: int) -> None:
+    """The service refuses an inactive reason; so must the database (#4)."""
+    with as_system():
+        gene = make_user("gene")
+    with named_in_sql(staff, reason_code=NO_LONGER_USED):
+        run("UPDATE reasons SET active = false WHERE code = %s", [LEFT_COMPANY])
+
+    with named_in_sql(staff, reason_code=LEFT_COMPANY), refused_by("reason_wrong_list"):
+        run("UPDATE auth_user SET is_active = false WHERE id = %s", [gene])
+
+    assert fetch_one("SELECT is_active FROM auth_user WHERE id = %s", [gene]) == (True,)
+
+
+def new_vendor(staff: int) -> None:
+    values = {
+        "zoho_contact_id": "ZC-9",
+        "name": "New Co.",
+        "active": False,
+        "synced_at": db_now(),
+    }
+    insert("vendors", values, "zoho_contact_id")
+
+
+def new_genus(staff: int) -> None:
+    insert("genera", {"code": "ZZZ", "name": "Zed", "active": False}, "code")
+
+
+def new_account(staff: int) -> None:
+    values = {
+        "password": "!",
+        "is_superuser": False,
+        "username": "new@example.com",
+        "first_name": "",
+        "last_name": "",
+        "email": "new@example.com",
+        "is_staff": False,
+        "is_active": False,
+        "date_joined": db_now(),
+    }
+    insert("auth_user", values)
+
+
+def new_retired_plant(staff: int) -> None:
+    insert("plants", plant_values(staff, status="retired"))
+
+
+# name: (adds a row that is already off, its right reason, its table)
+NEW_ROWS_OFF = {
+    "genus": (new_genus, NO_LONGER_USED, "genera"),
+    "vendor": (new_vendor, NO_LONGER_USED, "vendors"),
+    "account": (new_account, LEFT_COMPANY, "auth_user"),
+    "plant": (new_retired_plant, NO_LONGER_GROWN, "plants"),
+}
+
+
+@pytest.mark.parametrize("name", sorted(NEW_ROWS_OFF))
+def test_a_row_inserted_already_off_needs_a_reason(name: str, staff: int) -> None:
+    add_row, _, _ = NEW_ROWS_OFF[name]
+
+    with named_in_sql(staff), refused_by("reason_required"):
+        add_row(staff)
+
+
+@pytest.mark.parametrize("name", sorted(NEW_ROWS_OFF))
+def test_a_row_inserted_already_off_with_the_right_reason_is_saved(
+    name: str, staff: int
+) -> None:
+    add_row, reason, table = NEW_ROWS_OFF[name]
+    mark = audit_mark()
+
+    with named_in_sql(staff, reason_code=reason):
+        add_row(staff)
+
+    assert only_row(mark, table).reason_code == reason

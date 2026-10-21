@@ -189,11 +189,8 @@ def test_the_anonymising_is_an_audit_row_without_personal_data(
     anonymise_command(Typed("gene@example.com"))
 
     row = only_row(mark, "auth_user")
-    assert (row.actor_id, row.via, row.row_pk) == (
-        system_id(),
-        "cucumber_anonymise",
-        str(gene.pk),
-    )
+    assert (row.actor_id, row.row_pk) == (system_id(), str(gene.pk))
+    assert row.via.startswith("cucumber_anonymise by ")
     assert row.reason_code == PDPA_CODE
     assert row.after == {
         "first_name": "changed",

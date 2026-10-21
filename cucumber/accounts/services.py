@@ -39,6 +39,7 @@ from cucumber.core.audit import (
     Reason,
     audited,
     require_reason,
+    ssh_via,
 )
 from cucumber.core.models import AuditLog
 from cucumber.core.refusals import Refused, database_refusals, refuse
@@ -239,7 +240,7 @@ def anonymise(account: User) -> None:
     former = anonymised_email(account)
     with (
         database_refusals(),
-        audited(SYSTEM, via=ANONYMISE_VIA, reason=PDPA_REQUEST),
+        audited(SYSTEM, via=ssh_via(ANONYMISE_VIA), reason=PDPA_REQUEST),
     ):
         lock_for_account_change(account)
         if is_last_active_admin(account):

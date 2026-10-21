@@ -112,3 +112,23 @@ def test_the_trail_undo_is_allowed_while_it_is_empty() -> None:
     assert count("SELECT count(*) FROM audit_log") == 0
 
     migration("core", "0006_audit_trail").refuse_if_audited(apps, None)
+
+
+def index_definition(name: str) -> str:
+    return str(
+        fetch_one("SELECT indexdef FROM pg_indexes WHERE indexname = %s", [name])[0]
+    )
+
+
+def test_the_guard_check_reads_the_trail_through_a_partial_index() -> None:
+    """G4 review #10: each deploy looks for truncates, not at every row."""
+    definition = index_definition("audit_log_notices")
+
+    assert "(id)" in definition
+    assert "truncate" in definition
+    assert "guards_accepted" in definition
+    assert "WHERE" in definition
+
+
+def test_the_trail_has_a_time_and_id_index_for_reading_newest_first() -> None:
+    assert "(at, id)" in index_definition("audit_log_at_id")
