@@ -29,6 +29,7 @@ FUNCTIONS = [
 TRIGGERS = [
     db_rules.AUDIT_LOG_STAMP,
     db_rules.no_delete("auth_user"),
+    db_rules.SYSTEM_USERNAME_FIXED,
     *(db_rules.audit(spec) for spec in db_rules.AUDITED_TABLES),
     *(db_rules.reason_required(spec) for spec in db_rules.SWITCH_OFFS),
     *(db_rules.truncate_noticed(table) for table in db_rules.TRUNCATE_NOTICED_TABLES),

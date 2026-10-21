@@ -9,6 +9,7 @@ one is needed). The plain log lines stay as well (test_log_lines.py).
 import uuid
 from io import StringIO
 from typing import Any
+from unittest import mock
 
 import pytest
 from django.contrib.auth.hashers import PBKDF2PasswordHasher
@@ -27,11 +28,13 @@ from cucumber.accounts.services import (
     set_role,
 )
 from cucumber.accounts.tests.helpers import (
+    HOME,
     NEW_PASSWORD,
     PASSWORD,
     PASSWORD_PAGE,
     add_failures,
     log_in,
+    signed_in_as,
 )
 from cucumber.accounts.tests.test_cucumber_admin import Answers, run_command
 from cucumber.core.audit import Reason
@@ -217,6 +220,42 @@ def test_a_password_re_hashed_at_login_is_recorded_as_system(gene: User) -> None
     assert (row.actor_id, row.via) == (system_id(), "login")
     assert row.after == PASSWORD_CHANGED
     assert User.objects.get(pk=gene.pk).password.startswith("pbkdf2_sha256$")
+
+
+def test_a_plain_login_never_opens_the_audit_block(gene: User) -> None:
+    """System is only named for a re-hash write, not for every try (G4 item 8)."""
+    with mock.patch("cucumber.accounts.backends.audited") as opened:
+        log_in(Client(), "gene@example.com")
+        log_in(Client(), "gene@example.com", "not-the-password")
+
+    opened.assert_not_called()
+
+
+def test_a_re_hash_with_no_system_account_is_skipped_not_a_500(gene: User) -> None:
+    """No write without a name: the hash stays, the person still gets in."""
+    mark = audit_mark()
+    before = User.objects.get(pk=gene.pk).password
+
+    with (
+        override_settings(PASSWORD_HASHERS=UPGRADING_HASHERS),
+        mock.patch("cucumber.core.audit.system_account", side_effect=User.DoesNotExist),
+    ):
+        response = log_in(Client(), "gene@example.com")
+
+    assert response.status_code == 302
+    assert User.objects.get(pk=gene.pk).password == before
+    assert audit_rows_since(mark) == []
+
+
+def test_a_re_hashed_login_stays_signed_in(gene: User) -> None:
+    """The session is tied to the stored hash, so the re-hash must keep both."""
+    client = Client()
+
+    with override_settings(PASSWORD_HASHERS=UPGRADING_HASHERS):
+        log_in(client, "gene@example.com")
+
+    assert signed_in_as(client) == gene.pk
+    assert client.get(HOME).status_code == 200
 
 
 # ------------------------------------------------------- SSH commands (AC6)

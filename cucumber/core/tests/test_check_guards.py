@@ -33,11 +33,16 @@ def check() -> str:
 
 
 def failures() -> str:
-    """The command's output when something is off; it must stop with an error."""
+    """What the error says when something is off.
+
+    The lines are in the error, not on stdout: the deploy shows a failed
+    command's stderr, and stdout is dropped (G4 review, item 5).
+    """
     out = StringIO()
-    with pytest.raises(CommandError):
+    with pytest.raises(CommandError) as raised:
         call_command("cucumber_check_guards", stdout=out)
-    return out.getvalue()
+    assert out.getvalue() == ""
+    return str(raised.value)
 
 
 def accept(note: str, *options: str) -> str:

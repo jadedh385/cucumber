@@ -3,8 +3,8 @@
     cucumber_check_guards                      check; exit 1 if any is off
     cucumber_check_guards --accept "why"       list the noticed TRUNCATEs, ask, accept
 
-Prints one line per protection that is missing, switched off or changed,
-then stops with an error (exit 1); with none, prints `All N protections on.`
+Stops with an error (exit 1) that has one line per protection that is missing,
+switched off or changed; with none, prints `All N protections on.`
 The deploy runs it before the copy and after migrating (U0.7 design §8.3).
 `--accept` runs as the database owner, through the migrate service (§8.2); it
 accepts exactly the TRUNCATEs it listed, once you type yes (`--yes` skips the
@@ -38,10 +38,11 @@ class Command(BaseCommand):
             return
         report = guards.check()
         if report.failures:
-            for failure in report.failures:
-                self.stdout.write(failure)
+            # In the error, not on stdout: the deploy keeps only stderr.
+            lines = "\n".join(report.failures)
             raise CommandError(
-                f"{len(report.failures)} of the database's protections are not on."
+                f"{len(report.failures)} of the database's protections are not on:\n"
+                f"{lines}"
             )
         self.stdout.write(f"All {report.checked} protections on.")
 

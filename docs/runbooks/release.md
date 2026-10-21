@@ -205,9 +205,9 @@ Run it by hand the same way, on the server:
 
 ```bash
 ssh -t cucumber-staging            # or cucumber-server for production
-cd ~/cucumber/staging/src          # or ~/cucumber/production/src
-export IMAGE_NAME=cucumber-staging CUCUMBER_VERSION="$(cat ../current)"
-dc() { docker compose -p cucumber-staging --env-file ../secrets.env -f deploy/compose.server.yaml "$@"; }
+cd ~/cucumber/<staging|production>/src
+export IMAGE_NAME=cucumber-<staging|production> CUCUMBER_VERSION="$(cat ../current)"
+dc() { docker compose -p cucumber-<staging|production> --env-file ../secrets.env -f deploy/compose.server.yaml "$@"; }
 dc run --rm migrate python manage.py cucumber_check_guards
 ```
 

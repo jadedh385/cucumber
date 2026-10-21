@@ -141,7 +141,7 @@ def write_settings(values: list[str]) -> None:
 def audited(
     by: User | SystemActor,
     *,
-    via: str = VIA_APP,
+    via: str | None = None,
     reason: Reason | None = None,
 ) -> Iterator[None]:
     """A transaction in which every audited write names `by` (design §3).
@@ -150,6 +150,9 @@ def audited(
     it. On the way out, normal or not, it puts back the values that were
     there before (usually empty). Nested for a different person it raises
     (a programming error, not a refusal).
+
+    A nested block is the same change: without a `reason` or `via` it keeps
+    the outer block's, and a different reason raises (G4 review, item 9).
 
     Inside an outer transaction `atomic()` is a savepoint, and releasing one
     keeps `set_config(…, true)` values, so they are put back by hand (review
@@ -163,16 +166,39 @@ def audited(
             f"audited() for account {person} inside audited() for {outer[-1]}:"
             " one change has one person."
         )
-    values = [str(person), via, reason.code if reason else "", note]
     token = _named.set((*outer, person))
     try:
         with transaction.atomic():
             previous = read_settings()
-            write_settings(values)
+            write_settings(
+                nested_values(person, via, reason, note, previous, bool(outer))
+            )
             yield
             write_settings(previous)
     finally:
         _named.reset(token)
+
+
+def nested_values(
+    person: int,
+    via: str | None,
+    reason: Reason | None,
+    note: str,
+    previous: list[str],
+    is_nested: bool,
+) -> list[str]:
+    """The four settings for a block: its own, else the outer block's."""
+    _, outer_via, outer_code, outer_note = previous if is_nested else ["", "", "", ""]
+    if reason is None:
+        code, note = outer_code, outer_note
+    elif outer_code and reason.code != outer_code:
+        raise RuntimeError(
+            f"audited() with reason {reason.code} inside audited() with reason"
+            f" {outer_code}: one change has one reason."
+        )
+    else:
+        code = reason.code
+    return [str(person), via or outer_via or VIA_APP, code, note]
 
 
 # ------------------------------------------------------------- AC17, §9

@@ -136,6 +136,10 @@ TRIGGERS: dict[str, tuple[Trigger, str]] = {
         for table in db_rules.TRUNCATE_NOTICED_TABLES
     },
     "audit_log_stamp": (Trigger("audit_log", "audit_log_stamp", BEFORE_INSERT), U07),
+    "auth_user_system_username_fixed": (
+        Trigger("auth_user", "cucumber_system_username_fixed", BEFORE_UPDATE),
+        U07,
+    ),
 }
 
 # ----------------------------------------------------------------- functions
@@ -165,6 +169,10 @@ FUNCTIONS: dict[str, tuple[Function, str]] = {
     ),
     "audit_log_stamp": (
         Function("b265eb44fc5ee489b61a4d3b653ca266", FIXED_SEARCH_PATH),
+        U07,
+    ),
+    "cucumber_system_username_fixed": (
+        Function("5510fc28a2d34167763007fdd8d561a1", FIXED_SEARCH_PATH),
         U07,
     ),
 }

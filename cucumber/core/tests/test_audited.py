@@ -20,6 +20,7 @@ from cucumber.core.tests.rows import refused_by, run, update
 from cucumber.core.tests.stock import make_staff, refused
 from cucumber.core.tests.trail import (
     LEFT_COMPANY,
+    NO_LONGER_USED,
     VIA_TEST,
     as_system,
     audit_mark,
@@ -105,6 +106,34 @@ def test_nesting_for_a_different_person_is_a_programming_error(
 ) -> None:
     with pytest.raises(RuntimeError), audited(jade), audited(gene):
         pass
+
+
+def test_an_inner_block_without_a_reason_keeps_the_outer_one(jade: User) -> None:
+    """Nested writes belong to the same change: reason, note and how stay (item 9)."""
+    with audited(jade, via="cucumber_x", reason=Reason(LEFT_COMPANY, "moved")):
+        with audited(jade):
+            assert setting("reason_code") == LEFT_COMPANY
+            assert setting("note") == "moved"
+            assert setting("via") == "cucumber_x"
+        assert setting("reason_code") == LEFT_COMPANY
+
+
+def test_an_inner_block_may_name_a_reason_the_outer_one_lacks(jade: User) -> None:
+    with audited(jade):
+        with audited(jade, reason=Reason(LEFT_COMPANY)):
+            assert setting("reason_code") == LEFT_COMPANY
+        assert setting("reason_code") == ""
+
+
+def test_an_inner_block_with_another_reason_is_a_programming_error(
+    jade: User,
+) -> None:
+    with pytest.raises(RuntimeError, match="reason"):
+        with (
+            audited(jade, reason=Reason(LEFT_COMPANY)),
+            audited(jade, reason=Reason(NO_LONGER_USED)),
+        ):
+            pass
 
 
 def test_an_error_inside_undoes_the_writes(jade: User, gene: User) -> None:

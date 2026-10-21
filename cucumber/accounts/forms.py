@@ -23,7 +23,7 @@ from cucumber.accounts.services import (
     login_turned_away,
     one_try_at_a_time,
 )
-from cucumber.core.audit import SYSTEM, VIA_LOGIN, Reason, audited
+from cucumber.core.audit import Reason
 from cucumber.core.refusals import message_for
 
 # Design §2.2. A wrong password, an unknown email and a deactivated account
@@ -75,12 +75,9 @@ class LoginForm(AuthenticationForm):
         if login_lock(email, address):
             login_turned_away(email, address)
             return ValidationError(LOCKED, code="locked")
-        # A right password may be re-hashed (after a Django upgrade): that
-        # write is System's (U0.7 design §4.3).
-        with audited(SYSTEM, via=VIA_LOGIN):
-            self.user_cache = authenticate(
-                self.request, username=email, password=password
-            )
+        # A right password may be re-hashed (after a Django upgrade): the
+        # backend writes that as System (U0.7 design §4.3).
+        self.user_cache = authenticate(self.request, username=email, password=password)
         if self.user_cache is None:
             login_failed(email, address)
             return self.get_invalid_login_error()

@@ -163,6 +163,11 @@ def refuse_system(account: User) -> None:
         raise refuse("account_is_system")
 
 
+def refuse_if_anonymised(account: User) -> None:
+    if is_anonymised(account):
+        raise refuse("account_anonymised")
+
+
 def add_account(by: User, name: str, email: str, role: Role | None) -> NewAccount:
     """Add an account with a role and a temporary password it must change.
 
@@ -235,14 +240,15 @@ def anonymise(account: User) -> None:
     change-due mark go; its role and everything it saved stay (AC12).
     """
     refuse_system(account)
-    if is_anonymised(account):
-        raise refuse("account_anonymised")
+    refuse_if_anonymised(account)
     former = anonymised_email(account)
     with (
         database_refusals(),
         audited(SYSTEM, via=ssh_via(ANONYMISE_VIA), reason=PDPA_REQUEST),
     ):
         lock_for_account_change(account)
+        # Read again now it is locked: it may have been anonymised meanwhile.
+        refuse_if_anonymised(User.objects.get(pk=account.pk))
         if is_last_active_admin(account):
             raise refuse("account_last_admin")
         User.objects.filter(pk=account.pk).update(
@@ -415,6 +421,7 @@ def lift_lock(by: User, account: User) -> None:
     (U0.7 design §5.4): counts only, as an address can identify a person.
     """
     require(by, Permission.MANAGE_USERS)
+    refuse_system(account)
     with audited(by):
         recent = LoginFailure.objects.filter(at__gt=Now() - LOCK_WINDOW)
         locked = {

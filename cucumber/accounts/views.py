@@ -173,7 +173,7 @@ def refusal_field(refusal: Refused) -> str:
 @allowed_for(Permission.MANAGE_USERS)
 @require_safe
 def staff_detail(request: HttpRequest, account_id: int) -> HttpResponse:
-    account = get_object_or_404(User, pk=account_id)
+    account = staff_account(account_id)
     return staff_detail_page(request, account, DeactivateForm())
 
 
@@ -200,7 +200,14 @@ def temporary_password_page(
 
 def account_for_button(request: HttpRequest, account_id: int) -> tuple[User, User]:
     """(the Admin, the account) for one of the Staff buttons."""
-    return signed_in_user(request), get_object_or_404(User, pk=account_id)
+    return signed_in_user(request), staff_account(account_id)
+
+
+def staff_account(account_id: int) -> User:
+    """A staff account; System has no page, as it has no row in the list."""
+    return get_object_or_404(
+        User.objects.exclude(username=SYSTEM_USERNAME), pk=account_id
+    )
 
 
 def name_of(account: User) -> str:
@@ -226,7 +233,8 @@ def staff_deactivate(request: HttpRequest, account_id: int) -> HttpResponse:
     """Deactivate with a reason (U0.7 AC11); a reason refusal shows under its box."""
     by, account = account_for_button(request, account_id)
     form = DeactivateForm(request.POST)
-    form.is_valid()  # two optional text boxes: always valid
+    if not form.is_valid():  # e.g. a NUL in the note: say so, don't drop it
+        return staff_detail_page(request, account, form)
     try:
         services.deactivate(by, account, form.reason())
     except Refused as refusal:

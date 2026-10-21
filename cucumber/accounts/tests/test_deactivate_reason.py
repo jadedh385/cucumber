@@ -138,6 +138,15 @@ def test_posting_with_a_reason_deactivates_and_records_it(
     )
 
 
+def test_a_note_with_a_null_character_is_shown_not_dropped(
+    owner_client: Client, gene: User
+) -> None:
+    html = post(owner_client, gene, reason_code=LEFT_COMPANY, note="a\x00b")
+
+    assert "Null characters are not allowed." in html
+    assert is_active(gene)
+
+
 @pytest.mark.parametrize(
     ("data", "message"),
     [

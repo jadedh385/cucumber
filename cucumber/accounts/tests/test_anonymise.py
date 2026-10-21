@@ -23,6 +23,7 @@ from cucumber.accounts.services import (
     anonymise,
     deactivate,
     give_new_password,
+    lift_lock,
     reactivate,
     set_role,
 )
@@ -54,6 +55,7 @@ from cucumber.core.tests.trail import (
     PDPA_CODE,
     as_system,
     audit_mark,
+    audit_rows_since,
     named_in_sql,
     only_row,
     system_id,
@@ -298,6 +300,20 @@ def test_system_is_refused(owner: User) -> None:
         anonymise_command(Typed(SYSTEM_USERNAME))
 
 
+def test_an_account_anonymised_meanwhile_is_refused_after_the_lock(
+    owner: User, gene: User
+) -> None:
+    """The state is read again once the account is locked (G4 review, item 9)."""
+    stale = User.objects.get(pk=gene.pk)
+    anonymise(User.objects.get(pk=gene.pk))
+    mark = audit_mark()
+
+    with refused("account_anonymised"):
+        anonymise(stale)
+
+    assert audit_rows_since(mark) == []
+
+
 # ------------------------------------------- the System account (§5.2, §10)
 def test_the_services_refuse_to_change_system(owner: User) -> None:
     system = system_account()
@@ -307,6 +323,7 @@ def test_the_services_refuse_to_change_system(owner: User) -> None:
         "deactivate": lambda: deactivate(owner, system, Reason(LEFT_COMPANY)),
         "password": lambda: give_new_password(owner, system),
         "anonymise": lambda: anonymise(system),
+        "lift lock": lambda: lift_lock(owner, system),
     }
 
     for name, change in changes.items():
@@ -320,6 +337,15 @@ def test_system_stays_off_even_by_raw_sql(owner: User) -> None:
         run(
             "UPDATE auth_user SET is_active = true WHERE username = %s",
             [SYSTEM_USERNAME],
+        )
+
+
+def test_system_cant_be_renamed_even_by_raw_sql(owner: User) -> None:
+    """`audited()` finds System by its name, so a rename would break every write."""
+    with named_in_sql(owner.pk), refused_by("auth_user_system_username_fixed"):
+        run(
+            "UPDATE auth_user SET username = %s WHERE username = %s",
+            ["renamed@cucumber.invalid", SYSTEM_USERNAME],
         )
 
 
@@ -337,6 +363,12 @@ def test_cucumber_admin_refuses_the_reserved_domain(db: None) -> None:
 
 
 # ----------------------------------------------------------- the Staff pages
+def test_the_staff_detail_page_of_system_is_not_found(owner_client: Client) -> None:
+    response = owner_client.get(f"{STAFF}{system_id()}/")
+
+    assert response.status_code == 404
+
+
 def test_the_staff_list_hides_system(owner_client: Client) -> None:
     html = text(owner_client.get(STAFF))
 

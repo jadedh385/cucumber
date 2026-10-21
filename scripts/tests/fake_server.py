@@ -114,15 +114,20 @@ class FakeServer:
         if kind in self.failing:
             raise RuntimeError(f"`{' '.join(command)}` failed: pretend {kind} error")
         if kind == "guards":
-            return self._guards()
+            return self._guards(command)
         return self._answer(kind, list(command), env or {}, stdout)
 
-    def _guards(self) -> str:
+    def _guards(self, command: Sequence[str]) -> str:
+        """`guard_results` holds the failing lines; like the real command, they
+        reach the deploy only inside the error on stderr, never on stdout."""
         result = self.guard_results[0]
         if len(self.guard_results) > 1:
             self.guard_results.pop(0)
         if result is not None:
-            raise RuntimeError(result)
+            stderr = (
+                f"CommandError: 1 of the database's protections are not on:\n{result}"
+            )
+            raise RuntimeError(f"`{' '.join(command)}` failed: {stderr}")
         return "All 120 protections on.\n"
 
     def get(self, url: str, headers: Mapping[str, str]) -> tuple[int, str]:

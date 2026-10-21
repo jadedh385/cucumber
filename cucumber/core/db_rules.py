@@ -240,11 +240,24 @@ BEGIN
 END
 """
 
+SYSTEM_USERNAME_FIXED_BODY = """
+BEGIN
+  IF OLD.username = 'system@cucumber.invalid'
+     AND NEW.username IS DISTINCT FROM OLD.username THEN
+    RAISE EXCEPTION 'the System account can''t be renamed'
+      USING ERRCODE = 'restrict_violation',
+            CONSTRAINT = 'auth_user_system_username_fixed';
+  END IF;
+  RETURN NEW;
+END
+"""
+
 AUDIT_FUNCTIONS = {
     "cucumber_audit": AUDIT_BODY,
     "cucumber_reason_required": REASON_REQUIRED_BODY,
     "cucumber_truncate_noticed": TRUNCATE_NOTICED_BODY,
     "audit_log_stamp": AUDIT_LOG_STAMP_BODY,
+    "cucumber_system_username_fixed": SYSTEM_USERNAME_FIXED_BODY,
 }
 
 
@@ -375,6 +388,15 @@ AUDIT_LOG_STAMP = Sql(
         " FOR EACH ROW EXECUTE FUNCTION audit_log_stamp();"
     ),
     reverse="DROP TRIGGER audit_log_stamp ON audit_log;",
+)
+
+# G4 review, item 7: `audited()` finds System by its name.
+SYSTEM_USERNAME_FIXED = Sql(
+    forward=(
+        "CREATE TRIGGER auth_user_system_username_fixed BEFORE UPDATE ON auth_user"
+        " FOR EACH ROW EXECUTE FUNCTION cucumber_system_username_fixed();"
+    ),
+    reverse="DROP TRIGGER auth_user_system_username_fixed ON auth_user;",
 )
 
 # Design §3.1 (review M4): what `audited(SYSTEM, via="migration")` sets, as
