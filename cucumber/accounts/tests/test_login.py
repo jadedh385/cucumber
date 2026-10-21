@@ -23,6 +23,7 @@ from cucumber.accounts.tests.helpers import (
     text,
     without_values,
 )
+from cucumber.core.tests.stock import switch_off
 
 pytestmark = pytest.mark.django_db
 
@@ -75,8 +76,7 @@ def refused_page(email: str, password: str) -> tuple[int, str]:
 def test_wrong_password_unknown_email_and_deactivated_look_the_same(
     gene: User, pim: User
 ) -> None:
-    pim.is_active = False
-    pim.save()
+    switch_off(pim)
 
     wrong_password = refused_page("gene@example.com", "not-the-password")
     unknown_email = refused_page("nobody@example.com", PASSWORD)

@@ -50,6 +50,7 @@ def kind_of(command: Sequence[str]) -> str:
         ("checkout", "checkout" in words),
         ("rev-parse", "rev-parse" in words),
         ("pending", "pending_migrations" in words),
+        ("guards", "cucumber_check_guards" in words),
         ("flag", "cucumber_flag" in words),
         ("backup", "pg_dump" in words),
         ("backup-check", "pg_restore" in words),
@@ -73,6 +74,8 @@ class FakeServer:
     tag_sha: str = SHA
     stray_files: str = ""
     pending_outputs: list[str] = field(default_factory=lambda: [NO_CHANGES])
+    # Each guard check in turn: None passes, a text fails with it (the last repeats).
+    guard_results: list[str | None] = field(default_factory=lambda: [None])
     failing: set[str] = field(default_factory=set)
     broken_versions: set[str] = field(default_factory=set)
     image_tags: list[str] = field(default_factory=list)
@@ -110,7 +113,22 @@ class FakeServer:
         self.clock += timedelta(seconds=COMMAND_SECONDS.get(kind, 1.0))
         if kind in self.failing:
             raise RuntimeError(f"`{' '.join(command)}` failed: pretend {kind} error")
+        if kind == "guards":
+            return self._guards(command)
         return self._answer(kind, list(command), env or {}, stdout)
+
+    def _guards(self, command: Sequence[str]) -> str:
+        """`guard_results` holds the failing lines; like the real command, they
+        reach the deploy only inside the error on stderr, never on stdout."""
+        result = self.guard_results[0]
+        if len(self.guard_results) > 1:
+            self.guard_results.pop(0)
+        if result is not None:
+            stderr = (
+                f"CommandError: 1 of the database's protections are not on:\n{result}"
+            )
+            raise RuntimeError(f"`{' '.join(command)}` failed: {stderr}")
+        return "All 120 protections on.\n"
 
     def get(self, url: str, headers: Mapping[str, str]) -> tuple[int, str]:
         self.calls.append(Call("health", [url], dict(headers)))
@@ -214,6 +232,10 @@ def make_home(
     return home
 
 
+SSH_USER = "sawat"
+SSH_CONNECTION = "203.0.113.5 52211 10.0.0.2 22"
+
+
 def shell_environment(home: Path) -> dict[str, str]:
     """The Owner's shell: what the commands may pass on, plus strays they mustn't."""
     return {
@@ -221,6 +243,8 @@ def shell_environment(home: Path) -> dict[str, str]:
         "HOME": str(home.parent),
         "CUCUMBER_HOME": str(home),
         "DOCKER_HOST": "unix:///pretend/docker.sock",
+        "USER": SSH_USER,
+        "SSH_CONNECTION": SSH_CONNECTION,
         "DB_PASSWORD": STRAY_SHELL_PASSWORD,
         "DJANGO_SECRET_KEY": "stray-shell-secret-key",
     }

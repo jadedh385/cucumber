@@ -23,6 +23,7 @@ from waffle.models import Flag
 from cucumber.accounts.permissions import Role
 from cucumber.accounts.services import replace_role
 from cucumber.core.tests.rows import staff_email
+from cucumber.core.tests.trail import as_system
 
 pytestmark = pytest.mark.django_db
 
@@ -48,23 +49,25 @@ def cucumber_flag(*args: str) -> str:
 
 def make_flag(name: str) -> FlagRow:
     """A flag as a feature's migration makes it: every field off."""
-    return Flag.objects.create(name=name, everyone=False, superusers=False)
+    with as_system():
+        return Flag.objects.create(name=name, everyone=False, superusers=False)
 
 
 def make_messy_flag(name: str) -> FlagRow:
     """A flag with every other Waffle switch set, and a group."""
-    flag: FlagRow = Flag.objects.create(
-        name=name,
-        everyone=None,
-        superusers=True,
-        staff=True,
-        authenticated=True,
-        testing=True,
-        rollout=True,
-        percent=Decimal("50.0"),
-        languages="th",
-    )
-    flag.groups.add(Group.objects.get_or_create(name="supervisor")[0])
+    with as_system():
+        flag: FlagRow = Flag.objects.create(
+            name=name,
+            everyone=None,
+            superusers=True,
+            staff=True,
+            authenticated=True,
+            testing=True,
+            rollout=True,
+            percent=Decimal("50.0"),
+            languages="th",
+        )
+        flag.groups.add(Group.objects.get_or_create(name="supervisor")[0])
     return flag
 
 
@@ -182,8 +185,9 @@ def test_list_shows_every_flag_and_who_it_is_on_for(owner_group: Group) -> None:
 def test_a_change_shows_on_the_very_next_page_load(owner_group: Group) -> None:
     make_flag("needs_attention")
     email = staff_email("jade")
-    owner = User.objects.create_user(username=email, email=email)
-    replace_role(owner, Role.ADMIN)
+    with as_system():
+        owner = User.objects.create_user(username=email, email=email)
+        replace_role(owner, Role.ADMIN)
     page = RequestFactory().get("/")
     page.user = owner
     other_page = RequestFactory().get("/")

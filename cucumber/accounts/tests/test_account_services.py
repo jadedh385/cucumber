@@ -36,7 +36,8 @@ from cucumber.accounts.tests.helpers import (
 )
 from cucumber.core.refusals import message_for
 from cucumber.core.tests.rows import run
-from cucumber.core.tests.stock import make_staff, not_allowed, refused
+from cucumber.core.tests.stock import make_staff, not_allowed, refused, switch_off
+from cucumber.core.tests.trail import LEFT_THE_COMPANY
 
 pytestmark = pytest.mark.django_db
 
@@ -71,7 +72,7 @@ def test_staff_see_the_designed_message(rule: str, message: str) -> None:
 
 # ----------------------------------------------------------- AC28 admin
 ADMIN_ONLY: list[Callable[[User, User], Any]] = [
-    deactivate,
+    lambda by, account: deactivate(by, account, LEFT_THE_COMPANY),
     reactivate,
     give_new_password,
     lift_lock,
@@ -97,7 +98,7 @@ def test_a_switched_off_admin_can_reach_no_account_change(
 ) -> None:
     """A second Admin's stale copy: switched off after their page was drawn."""
     mali = make_staff("mali", "admin")
-    User.objects.filter(pk=mali.pk).update(is_active=False)
+    switch_off(mali)
     before = (fresh(pim).is_active, fresh(pim).password, User.objects.count())
 
     with not_allowed("account_not_active"):
@@ -176,13 +177,13 @@ def test_a_150_character_email_fits(owner: User) -> None:
 def test_deactivate_switches_an_account_off_and_keeps_it(
     owner: User, gene: User
 ) -> None:
-    deactivate(owner, gene)
+    deactivate(owner, gene, LEFT_THE_COMPANY)
 
     assert not fresh(gene).is_active
 
 
 def test_reactivate_switches_it_back_on(owner: User, gene: User) -> None:
-    deactivate(owner, gene)
+    deactivate(owner, gene, LEFT_THE_COMPANY)
 
     reactivate(owner, gene)
 
@@ -191,7 +192,7 @@ def test_reactivate_switches_it_back_on(owner: User, gene: User) -> None:
 
 def test_the_admin_cannot_deactivate_themselves(owner: User) -> None:
     with refused("account_cannot_deactivate_self"):
-        deactivate(owner, owner)
+        deactivate(owner, owner, LEFT_THE_COMPANY)
 
     assert fresh(owner).is_active
 
@@ -311,7 +312,7 @@ def test_one_admin_may_deactivate_another_while_one_stays(owner: User) -> None:
     moment (test_roles.py): a switched-off Admin is refused before that."""
     mali = make_staff("mali", "admin")
 
-    deactivate(owner, mali)
+    deactivate(owner, mali, LEFT_THE_COMPANY)
 
     assert not fresh(mali).is_active
 

@@ -1,10 +1,10 @@
 """Rules for the plants app. Views call these; they never hold rules themselves."""
 
 from django.contrib.auth.models import User
-from django.db import transaction
 from django.db.models import Q, QuerySet
 
 from cucumber.accounts.permissions import Permission, require
+from cucumber.core.audit import audited
 from cucumber.core.refusals import database_refusals, refuse
 from cucumber.plants.models import (
     Plant,
@@ -40,7 +40,7 @@ def reclassify_genus(admin: User, plant_id: int, genus_code: str) -> Plant:
     becomes a former SKU, still found by search and never issued again. The
     change is logged in `plant_status_changes` with reason "genus reclassified".
     """
-    with database_refusals(), transaction.atomic():
+    with database_refusals(), audited(admin):
         require(admin, Permission.RECLASSIFY_GENUS)
         plant = Plant.objects.select_for_update(no_key=True).filter(pk=plant_id).first()
         if plant is None:

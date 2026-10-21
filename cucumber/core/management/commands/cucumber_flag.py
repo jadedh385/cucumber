@@ -8,7 +8,8 @@
 
 Waffle's other switches (superusers, staff, percentage, ...) are always off.
 Flags are created by the feature's migration; an unknown name is refused, so
-a typo can't create one (U0.4a design §7). Runs as `cucumber_app`.
+a typo can't create one (U0.4a design §7). Runs as `cucumber_app`; each
+switch is an audit row by System (U0.7 AC6, AC10).
 """
 
 from typing import Any
@@ -16,8 +17,9 @@ from typing import Any
 from django.conf import settings
 from django.contrib.auth.models import Group
 from django.core.management.base import BaseCommand, CommandError, CommandParser
-from django.db import transaction
 from waffle.models import Flag
+
+from cucumber.core.audit import SYSTEM, audited, ssh_via
 
 # Waffle's switches other than `everyone` and groups, each in its off state.
 ALWAYS_OFF = {
@@ -65,7 +67,7 @@ class Command(BaseCommand):
             raise CommandError("off is for everyone; --group goes with on only.")
         flag = self.find_flag(name)
         groups = self.find_groups(group_names)
-        with transaction.atomic():
+        with audited(SYSTEM, via=ssh_via("cucumber_flag")):
             for field, off in ALWAYS_OFF.items():
                 setattr(flag, field, off)
             flag.everyone = None if groups else state == "on"

@@ -33,7 +33,7 @@ TABLE_COLUMNS = {
     "event_reviews": {"id", "event_id", "reviewer_id", "reviewed_at", "note"},
     "audit_log": {
         "id", "actor_id", "at", "table_name", "row_pk", "action", "before",
-        "after", "reason",
+        "after", "reason_code", "note", "via", "db_user",
     },
 }  # fmt: skip
 
@@ -112,7 +112,7 @@ NULLABLE_COLUMNS = {
     "batches": {"parent_batch_id", "stage_code", "closed_at", "voided_at"},
     "events": {"counted_qty", "media_code", "stage_to", "reason_code",
                "voids_event_id", "corrects_event_id"},
-    "audit_log": {"before", "after", "reason"},
+    "audit_log": {"actor_id", "before", "after", "reason_code", "note"},  # U0.7
 }  # fmt: skip
 
 # The links Django can't declare (design §2.4, M3). They are checked at once,

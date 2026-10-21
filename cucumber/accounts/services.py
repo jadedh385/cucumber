@@ -31,7 +31,20 @@ from django.http import HttpRequest
 
 from cucumber.accounts.models import LoginFailure, PasswordChangeDue
 from cucumber.accounts.permissions import Permission, Role, may, require, role_named
+from cucumber.core.audit import (
+    PDPA_REQUEST,
+    SYSTEM,
+    SYSTEM_USERNAME,
+    VIA_APP,
+    Reason,
+    audited,
+    require_reason,
+    ssh_via,
+)
+from cucumber.core.models import AuditLog
 from cucumber.core.refusals import Refused, database_refusals, refuse
+from cucumber.references.models import Reason as ListedReason
+from cucumber.references.models import ReasonList
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +71,9 @@ LONGEST_NAME = 150
 LONGEST_KEY = 150
 # The rule the database names when the email is already taken (AC18).
 EMAIL_TAKEN_RULE = "auth_user_username_key"
+# U0.7 design §5.2: kept for System and anonymised accounts, never for staff.
+RESERVED_DOMAIN = "@cucumber.invalid"
+ANONYMISE_VIA = "cucumber_anonymise"
 
 # Design §7.3: letters and digits without look-alikes (no 0 o 1 l i),
 # three groups of four joined by dashes, about 60 bits.
@@ -123,9 +139,33 @@ def checked_email(email: str) -> str:
         validate_email(key)
     except ValidationError:
         raise refuse("account_email_invalid") from None
-    if len(key) > LONGEST_EMAIL:
+    if len(key) > LONGEST_EMAIL or key.endswith(RESERVED_DOMAIN):
         raise refuse("account_email_invalid")
     return key
+
+
+def is_system(account: User) -> bool:
+    return account.username == SYSTEM_USERNAME
+
+
+def is_anonymised(account: User) -> bool:
+    """Anonymised for a PDPA request (U0.7 AC12): it can never come back on."""
+    return account.username == anonymised_email(account)
+
+
+def anonymised_email(account: User) -> str:
+    return f"former-staff-{account.pk}{RESERVED_DOMAIN}"
+
+
+def refuse_system(account: User) -> None:
+    """Nobody changes the System account (U0.7 design §5.2)."""
+    if is_system(account):
+        raise refuse("account_is_system")
+
+
+def refuse_if_anonymised(account: User) -> None:
+    if is_anonymised(account):
+        raise refuse("account_anonymised")
 
 
 def add_account(by: User, name: str, email: str, role: Role | None) -> NewAccount:
@@ -146,7 +186,7 @@ def add_account(by: User, name: str, email: str, role: Role | None) -> NewAccoun
     password = new_temporary_password(account)
     account.set_password(password)
     try:
-        with database_refusals(), transaction.atomic():
+        with database_refusals(), audited(by):
             account.save()
             PasswordChangeDue.objects.create(user=account)
             replace_role(account, role)
@@ -160,17 +200,22 @@ def add_account(by: User, name: str, email: str, role: Role | None) -> NewAccoun
     return NewAccount(account=account, password=password)
 
 
-def deactivate(by: User, account: User) -> None:
-    """Switch an account off; never your own, nor the last Admin (AC23, AC24).
+def deactivate(by: User, account: User, reason: Reason | None) -> None:
+    """Switch an account off, with a reason from the `deactivate` list.
 
-    Its open sessions are removed, so switching it back on later doesn't
-    sign a lost phone back in (G4 M1). The account and everything it saved
-    stay.
+    Never your own, nor the last Admin (AC23, AC24); no reason is
+    `reason_required` (U0.7 AC11, spec Q3). The reason code only: a note is
+    dropped, as free text is kept for good (D2). Its open sessions are removed,
+    so switching it back on later doesn't sign a lost phone back in (G4 M1).
+    The account and everything it saved stay.
     """
     require(by, Permission.MANAGE_USERS)
     if by.pk == account.pk:
         raise refuse("account_cannot_deactivate_self")
-    with transaction.atomic():
+    refuse_system(account)
+    code_only = Reason(reason.code) if reason else None
+    require_reason(code_only, ReasonList.DEACTIVATE)
+    with database_refusals(), audited(by, reason=code_only):
         lock_for_account_change(account)
         still_manages_users(by)
         if is_last_active_admin(account):
@@ -178,6 +223,48 @@ def deactivate(by: User, account: User) -> None:
         User.objects.filter(pk=account.pk).update(is_active=False)
         end_sessions_of(account)
     logger.info("account deactivated account=%s by=%s", account.pk, by.pk)
+
+
+def deactivate_reasons() -> list[tuple[str, str]]:
+    """(code, label) of the reasons a page may pick, by label, Other last."""
+    reasons = ListedReason.objects.filter(
+        applies_to=ReasonList.DEACTIVATE, active=True
+    ).values_list("code", "label")
+    return sorted(reasons, key=lambda reason: (reason[1] == "Other", reason[1]))
+
+
+def anonymise(account: User) -> None:
+    """Remove the account's personal details for good (U0.7 design §7.2).
+
+    Run by `cucumber_anonymise` as System, with the PDPA reason. Refuses the
+    last active Admin, the System account and an account already anonymised.
+    The name becomes `Former staff #<id>`; its sessions, login failures and
+    change-due mark go; its role and everything it saved stay (AC12).
+    """
+    refuse_system(account)
+    refuse_if_anonymised(account)
+    former = anonymised_email(account)
+    with (
+        database_refusals(),
+        audited(SYSTEM, via=ssh_via(ANONYMISE_VIA), reason=PDPA_REQUEST),
+    ):
+        lock_for_account_change(account)
+        # Read again now it is locked: it may have been anonymised meanwhile.
+        refuse_if_anonymised(User.objects.get(pk=account.pk))
+        if is_last_active_admin(account):
+            raise refuse("account_last_admin")
+        User.objects.filter(pk=account.pk).update(
+            first_name=f"Former staff #{account.pk}",
+            last_name="",
+            username=former,
+            email=former,
+            password=make_password(None),
+            is_active=False,
+        )
+        end_sessions_of(account)
+        LoginFailure.objects.filter(email_key=failure_key(account.username)).delete()
+        PasswordChangeDue.objects.filter(user_id=account.pk).delete()
+    logger.info("account anonymised account=%s", account.pk)
 
 
 def set_role(by: User, account: User, role: Role | None) -> None:
@@ -189,7 +276,8 @@ def set_role(by: User, account: User, role: Role | None) -> None:
     require(by, Permission.MANAGE_USERS)
     if by.pk == account.pk:
         raise refuse("account_cannot_change_own_role")
-    with transaction.atomic():
+    refuse_system(account)
+    with audited(by):
         lock_for_account_change(account)
         still_manages_users(by)
         old = role_of(account)
@@ -293,9 +381,13 @@ def end_sessions_of(account: User) -> None:
 
 
 def reactivate(by: User, account: User) -> None:
-    """Switch an account back on (AC23)."""
+    """Switch an account back on (AC23); never System or an anonymised one."""
     require(by, Permission.MANAGE_USERS)
-    User.objects.filter(pk=account.pk).update(is_active=True)
+    refuse_system(account)
+    if is_anonymised(account):
+        raise refuse("account_anonymised")
+    with audited(by):
+        User.objects.filter(pk=account.pk).update(is_active=True)
     logger.info("account reactivated account=%s by=%s", account.pk, by.pk)
 
 
@@ -308,8 +400,9 @@ def give_new_password(by: User, account: User) -> str:
     require(by, Permission.MANAGE_USERS)
     if by.pk == account.pk:
         raise refuse("account_cannot_reset_self")
+    refuse_system(account)
     password = new_temporary_password(account)
-    with transaction.atomic():
+    with audited(by):
         User.objects.filter(pk=account.pk).update(password=make_password(password))
         # The app may add and remove these rows, never edit them (§3.2).
         PasswordChangeDue.objects.filter(user_id=account.pk).delete()
@@ -325,9 +418,13 @@ def lift_lock(by: User, account: User) -> None:
     their email may have no failures to point at the address. So every
     address at or over the 50-try limit is lifted too; each is logged with
     its count first, because deleting the rows removes the evidence.
+
+    Nothing in an audited table changes, so the audit row is written here
+    (U0.7 design §5.4): counts only, as an address can identify a person.
     """
     require(by, Permission.MANAGE_USERS)
-    with transaction.atomic():
+    refuse_system(account)
+    with audited(by):
         recent = LoginFailure.objects.filter(at__gt=Now() - LOCK_WINDOW)
         locked = {
             row["address"]: row["tries"]
@@ -338,8 +435,16 @@ def lift_lock(by: User, account: User) -> None:
         }
         for address, tries in locked.items():
             logger.info("network lock lifted address=%s failures=%s", address, tries)
-        LoginFailure.objects.filter(email_key=account.username).delete()
+        cleared, _ = LoginFailure.objects.filter(email_key=account.username).delete()
         recent.filter(address__in=list(locked)).delete()
+        AuditLog.objects.create(
+            actor=by,
+            table_name="auth_user",
+            row_pk=str(account.pk),
+            action="lock_lifted",
+            after={"failures_cleared": cleared, "networks_lifted": len(locked)},
+            via=VIA_APP,
+        )
     logger.info(
         "lock lifted account=%s by=%s addresses=%s", account.pk, by.pk, len(locked)
     )

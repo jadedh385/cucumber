@@ -10,6 +10,7 @@ from playwright.sync_api import BrowserContext, Route
 
 from cucumber.accounts.permissions import Role
 from cucumber.core.tests.stock import make_staff
+from cucumber.core.tests.trail import restore_audit_rows
 from e2e.site import access_headers, login_account, remote_site
 
 PHONE_VIEWPORT = {"width": 375, "height": 812}
@@ -86,5 +87,6 @@ def account(request: pytest.FixtureRequest, is_remote: bool) -> tuple[str, str]:
     request.getfixturevalue("transactional_db")
     for role in Role:  # a browser test's flush removes the seeded groups
         Group.objects.get_or_create(name=role)
+    restore_audit_rows()  # and System, who makes set-up accounts (U0.7)
     owner = make_staff("jade", "admin", E2E_PASSWORD)
     return owner.username, E2E_PASSWORD

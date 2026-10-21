@@ -19,6 +19,7 @@ from waffle.models import Flag
 from cucumber.core.tests.rows import refused_for_app
 from cucumber.core.tests.startup import error_line, run_python
 from cucumber.core.tests.test_protection import FLAG_GRANTS
+from cucumber.core.tests.trail import as_system, system_id
 from cucumber.env import env
 
 AppConnection = psycopg.Connection[tuple[object, ...]]
@@ -49,7 +50,8 @@ def app_rights(table: str) -> set[str]:
 
 @pytest.fixture
 def flag(transactional_db: None) -> Any:
-    return Flag.objects.create(name="needs_attention", everyone=False)
+    with as_system():
+        return Flag.objects.create(name="needs_attention", everyone=False)
 
 
 def test_the_app_can_switch_a_flag_and_its_groups(
@@ -57,12 +59,18 @@ def test_the_app_can_switch_a_flag_and_its_groups(
 ) -> None:
     group = Group.objects.create(name="Owner")
 
-    app_db.execute("UPDATE waffle_flag SET everyone = NULL WHERE id = %s", [flag.pk])
-    app_db.execute(
-        "INSERT INTO waffle_flag_groups (flag_id, group_id) VALUES (%s, %s)",
-        [flag.pk, group.pk],
-    )
-    app_db.execute("DELETE FROM waffle_flag_groups WHERE flag_id = %s", [flag.pk])
+    with app_db.transaction():  # U0.7: each change names its person
+        app_db.execute(
+            "SELECT set_config('cucumber.actor_id', %s, true)", [str(system_id())]
+        )
+        app_db.execute(
+            "UPDATE waffle_flag SET everyone = NULL WHERE id = %s", [flag.pk]
+        )
+        app_db.execute(
+            "INSERT INTO waffle_flag_groups (flag_id, group_id) VALUES (%s, %s)",
+            [flag.pk, group.pk],
+        )
+        app_db.execute("DELETE FROM waffle_flag_groups WHERE flag_id = %s", [flag.pk])
 
 
 def test_the_app_can_not_create_or_delete_a_flag(
@@ -101,8 +109,18 @@ def test_the_command_can_switch_a_flag_as_the_app_user(
     assert not flag.groups.exists()
 
 
+def empty_the_trail() -> None:
+    """Undoing core 0006 refuses while `audit_log` has rows (U0.7 design §5.5),
+    and a flush leaves `truncate` rows. Test databases only: triggers off."""
+    with connection.cursor() as cursor:
+        cursor.execute("ALTER TABLE audit_log DISABLE TRIGGER USER")
+        cursor.execute("TRUNCATE audit_log")
+        cursor.execute("ALTER TABLE audit_log ENABLE TRIGGER USER")
+
+
 @pytest.fixture
 def grants_undone(transactional_db: None) -> Iterator[None]:
+    empty_the_trail()
     call_command("migrate", "core", BEFORE_GRANTS, verbosity=0)
     try:
         yield

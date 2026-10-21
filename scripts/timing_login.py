@@ -40,7 +40,9 @@ from django.utils.crypto import get_random_string  # noqa: E402
 from cucumber.accounts.middleware import LOGIN_AT  # noqa: E402
 from cucumber.accounts.permissions import Role  # noqa: E402
 from cucumber.accounts.services import replace_role  # noqa: E402
+from cucumber.core.audit import SYSTEM, audited  # noqa: E402
 from scripts.timing_10x import (  # noqa: E402
+    LOADED_BY,
     RUNS,
     Summary,
     as_table,
@@ -159,7 +161,8 @@ def load_failures(scale: LoginScale) -> None:
 
 
 def load(scale: LoginScale) -> list[User]:
-    accounts = load_accounts(scale)
+    with audited(SYSTEM, via=LOADED_BY):  # accounts are audited (U0.7 AC6)
+        accounts = load_accounts(scale)
     load_sessions(scale, accounts)
     load_failures(scale)
     run_sql("ANALYZE")

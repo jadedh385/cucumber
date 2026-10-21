@@ -35,10 +35,22 @@
   </form>
   {% if not row.is_you %}
   {% if account.is_active %}
-  <form method="post" action="{% url 'staff_deactivate' account.pk %}">
+  <form method="post" action="{% url 'staff_deactivate' account.pk %}" class="deactivate">
     {% csrf_token %}
+    {% with reason=deactivate_form.reason_code %}
+    <div class="field">
+      <label for="{{ reason.id_for_label }}">{{ reason.label }}</label>
+      <select name="reason_code" id="{{ reason.id_for_label }}">
+        <option value="">{% translate "Choose a reason" %}</option>
+        {% for code, label in deactivate_reasons %}<option value="{{ code }}"{% if code == reason.value %} selected{% endif %}>{% translate label %}</option>{% endfor %}
+      </select>
+      {% for error in reason.errors %}<p class="form-error" role="alert">{{ error }}</p>{% endfor %}
+    </div>
+    {% endwith %}
     <button type="submit" class="danger">{% translate "Deactivate" %}</button>
   </form>
+  {% elif row.is_anonymised %}
+  <p>{% translate "Their details were removed (PDPA): this account can't be switched back on." %}</p>
   {% else %}
   <form method="post" action="{% url 'staff_reactivate' account.pk %}">
     {% csrf_token %}

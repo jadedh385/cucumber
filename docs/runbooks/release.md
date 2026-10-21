@@ -135,6 +135,17 @@ cd ~/cucumber/tools && git pull
 uv run --no-dev python -m scripts.deploy production <version>
 ```
 
+**U0.7 only: stop the app before the deploy** (`dc stop app`, as in the
+restore steps below). While `migrate` runs, the old version's writes to the
+audited tables are refused, and the 5-second `lock_timeout` can abort core 0006.
+The business is not yet relying on the app, so a short outage is fine. Do it
+on staging first.
+
+**U0.7 only: everyone is signed out once.** The new login backend
+(`AuditedRehashBackend`) replaces the old one, and Django ends any session made
+through a backend that is no longer listed. Each person logs in again after the
+release; nothing else is lost. Tell staff beforehand.
+
 Production takes **version tags only** (AC11). The command takes the
 database copy first, migrates, starts the app and checks `/health/`. If the
 check fails it puts the previous version back by itself (AC12) and says so;
@@ -192,6 +203,46 @@ staff note by hand.
   Claude.
 - **Wrong wording after publishing:** edit the release on GitHub; Discord
   keeps the first post, so post a short correction there.
+- **Deploy stopped at "The database's protections are not all on"**: see
+  [the protections check](#the-protections-check-u07) below.
+
+## The protections check (U0.7)
+
+From U0.7 every deploy runs `cucumber_check_guards` twice: before the copy
+(step 3b) and after migrating (step 5b). It checks the append-only, reason and
+audit triggers, their functions, `cucumber_app`'s grants and the app role
+itself, and lists anything missing, switched off or changed, one line each.
+Run it by hand the same way, on the server:
+
+```bash
+ssh -t cucumber-staging            # or cucumber-server for production
+cd ~/cucumber/<staging|production>/src
+export IMAGE_NAME=cucumber-<staging|production> CUCUMBER_VERSION="$(cat ../current)"
+dc() { docker compose -p cucumber-<staging|production> --env-file ../secrets.env -f deploy/compose.server.yaml "$@"; }
+dc run --rm migrate python manage.py cucumber_check_guards
+```
+
+- **Stopped before the copy (3b):** nothing changed and the old version still
+  runs. A line that says a table **was truncated** means someone emptied a
+  protected table as the database owner. If that was you (on staging, a
+  practice-data reset), accept it, saying why, then deploy again:
+
+  ```bash
+  dc run --rm migrate python manage.py cucumber_check_guards --accept "staging reset with practice data"
+  ```
+
+  If nobody meant to, don't accept: on production, restore the copy from
+  before it happened, with Claude. Any other line (a trigger disabled, a
+  grant added) means the database was changed by hand: stop, and look at it
+  with Claude before going on.
+- **Stopped after migrating (5b):** the database was updated, but the new
+  version's own migration broke a protection. The app was not restarted, so
+  the previous version still runs, against a database it may not fit. Restore
+  the copy the command names, with Claude, and fix the migration in a pull
+  request. CI runs the same check, so this should never reach a server.
+- **To read the trail:** `dc exec -T app python manage.py cucumber_audit`
+  (`--person`, `--table`, `--row`, `--since`, `--until`, `--limit`). People are
+  shown by id; look the id up on the Staff page.
 
 ## Admin account: the first one, or a rescue
 

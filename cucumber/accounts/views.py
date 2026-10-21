@@ -29,9 +29,11 @@ from cucumber.accounts.forms import (
     ROLE_LABELS,
     AddAccountForm,
     ChangePasswordForm,
+    DeactivateForm,
     RoleForm,
 )
 from cucumber.accounts.permissions import Permission, Role, allowed_for, role_named
+from cucumber.core.audit import SYSTEM_USERNAME, audited
 from cucumber.core.refusals import Refused
 
 
@@ -43,6 +45,7 @@ class StaffRow:
     is_you: bool
     locked_until: datetime | None
     role: Role | None
+    is_anonymised: bool = False
 
     @property
     def role_label(self) -> str:
@@ -58,6 +61,7 @@ def staff_row(
         account=account,
         is_you=account.pk == request.user.pk,
         locked_until=services.locked_until(account.username) if may_be_locked else None,
+        is_anonymised=services.is_anonymised(account),
     )
 
 
@@ -95,15 +99,24 @@ def password(request: HttpRequest) -> HttpResponse:
     user = signed_in_user(request)
     is_forced = services.change_is_due(user)
     form = ChangePasswordForm(user, request.POST or None)
-    if request.method == "POST" and form.is_valid():
-        form.save()
-        # This session stays signed in; the person's others end (AC26).
-        update_session_auth_hash(request, user)
-        services.password_chosen(user)
-        messages.success(request, _("Your new password is saved."))
-        return HttpResponseRedirect(safe_next(request) or reverse("home"))
+    if request.method == "POST":
+        # The whole POST: checking the old password can re-hash it (U0.7 M4).
+        with audited(user):
+            if form.is_valid():
+                save_own_password(request, user, form)
+                return HttpResponseRedirect(safe_next(request) or reverse("home"))
     context = {"form": form, "is_forced": is_forced, "next": safe_next(request)}
     return render(request, "accounts/password.html", context)
+
+
+def save_own_password(
+    request: HttpRequest, user: User, form: ChangePasswordForm
+) -> None:
+    form.save()
+    # This session stays signed in; the person's others end (AC26).
+    update_session_auth_hash(request, user)
+    services.password_chosen(user)
+    messages.success(request, _("Your new password is saved."))
 
 
 # ------------------------------------------------- Manage users
@@ -112,7 +125,10 @@ def password(request: HttpRequest) -> HttpResponse:
 @allowed_for(Permission.MANAGE_USERS)
 @require_safe
 def staff_list(request: HttpRequest) -> HttpResponse:
-    accounts = User.objects.order_by("first_name", "username")
+    # System is no one's account to manage (U0.7 design §10).
+    accounts = User.objects.exclude(username=SYSTEM_USERNAME).order_by(
+        "first_name", "username"
+    )
     roles = dict(User.groups.through.objects.values_list("user_id", "group__name"))
     # One query for the few that could be locked, not one per account (G4 L5).
     may_be_locked = services.emails_that_may_be_locked()
@@ -157,13 +173,21 @@ def refusal_field(refusal: Refused) -> str:
 @allowed_for(Permission.MANAGE_USERS)
 @require_safe
 def staff_detail(request: HttpRequest, account_id: int) -> HttpResponse:
-    account = get_object_or_404(User, pk=account_id)
+    account = staff_account(account_id)
+    return staff_detail_page(request, account, DeactivateForm())
+
+
+def staff_detail_page(
+    request: HttpRequest, account: User, deactivate_form: DeactivateForm
+) -> HttpResponse:
     row = staff_row(request, account, services.role_of(account))
-    return render(
-        request,
-        "accounts/staff_detail.html",
-        {"row": row, "role_form": RoleForm(initial={"role": row.role or "none"})},
-    )
+    context = {
+        "row": row,
+        "role_form": RoleForm(initial={"role": row.role or "none"}),
+        "deactivate_form": deactivate_form,
+        "deactivate_reasons": services.deactivate_reasons(),
+    }
+    return render(request, "accounts/staff_detail.html", context)
 
 
 def temporary_password_page(
@@ -176,7 +200,14 @@ def temporary_password_page(
 
 def account_for_button(request: HttpRequest, account_id: int) -> tuple[User, User]:
     """(the Admin, the account) for one of the Staff buttons."""
-    return signed_in_user(request), get_object_or_404(User, pk=account_id)
+    return signed_in_user(request), staff_account(account_id)
+
+
+def staff_account(account_id: int) -> User:
+    """A staff account; System has no page, as it has no row in the list."""
+    return get_object_or_404(
+        User.objects.exclude(username=SYSTEM_USERNAME), pk=account_id
+    )
 
 
 def name_of(account: User) -> str:
@@ -199,22 +230,42 @@ def about(account: User, message: str) -> SafeString:
 @allowed_for(Permission.MANAGE_USERS)
 @require_POST
 def staff_deactivate(request: HttpRequest, account_id: int) -> HttpResponse:
+    """Deactivate with a reason (U0.7 AC11); a reason refusal shows under its box."""
     by, account = account_for_button(request, account_id)
+    form = DeactivateForm(request.POST)
+    if not form.is_valid():
+        return staff_detail_page(request, account, form)
     try:
-        services.deactivate(by, account)
+        services.deactivate(by, account, form.reason())
     except Refused as refusal:
+        if refusal.rule in REASON_FIELDS:
+            form.add_error(REASON_FIELDS[refusal.rule], refusal_text(refusal))
+            return staff_detail_page(request, account, form)
         messages.error(request, refusal_text(refusal))
     else:
         messages.success(request, about(account, _("{name}'s account is deactivated.")))
     return redirect("staff_detail", account_id=account.pk)
 
 
+# The Deactivate form's box each reason refusal is shown under (design §10).
+REASON_FIELDS = {
+    "reason_required": "reason_code",
+    "reason_wrong_list": "reason_code",
+}
+
+
 @allowed_for(Permission.MANAGE_USERS)
 @require_POST
 def staff_reactivate(request: HttpRequest, account_id: int) -> HttpResponse:
     by, account = account_for_button(request, account_id)
-    services.reactivate(by, account)
-    messages.success(request, about(account, _("{name}'s account is active again.")))
+    try:
+        services.reactivate(by, account)
+    except Refused as refusal:
+        messages.error(request, about(account, refusal.message))
+    else:
+        messages.success(
+            request, about(account, _("{name}'s account is active again."))
+        )
     return redirect("staff_detail", account_id=account.pk)
 
 

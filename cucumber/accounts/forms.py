@@ -23,6 +23,7 @@ from cucumber.accounts.services import (
     login_turned_away,
     one_try_at_a_time,
 )
+from cucumber.core.audit import Reason
 from cucumber.core.refusals import message_for
 
 # Design §2.2. A wrong password, an unknown email and a deactivated account
@@ -74,6 +75,8 @@ class LoginForm(AuthenticationForm):
         if login_lock(email, address):
             login_turned_away(email, address)
             return ValidationError(LOCKED, code="locked")
+        # A right password may be re-hashed (after a Django upgrade): the
+        # backend writes that as System (U0.7 design §4.3).
         self.user_cache = authenticate(self.request, username=email, password=password)
         if self.user_cache is None:
             login_failed(email, address)
@@ -126,6 +129,22 @@ class RoleForm(forms.Form):
         choices=lambda: [*role_choices(), (NO_ROLE, _("No role"))],
         widget=forms.RadioSelect,
     )
+
+
+class DeactivateForm(forms.Form):
+    """A reason from the `deactivate` list (U0.7 AC11, D2).
+
+    Plain text here: the service checks the reason's list, so the page shows
+    the same messages a script would get. There is no note: free text would
+    be kept for good and `anonymise` couldn't reach it.
+    """
+
+    reason_code = forms.CharField(label=_("Reason"), required=False)
+
+    def reason(self) -> Reason | None:
+        """The picked reason, or None when none was picked."""
+        code = self.cleaned_data.get("reason_code", "").strip()
+        return Reason(code) if code else None
 
 
 class ChangePasswordForm(PasswordChangeForm):

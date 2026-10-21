@@ -22,6 +22,7 @@ from cucumber.accounts.tests.helpers import (
     signed_in,
     text,
 )
+from cucumber.core.tests.trail import as_system
 
 TEMPLATES = Path(settings.BASE_DIR) / "cucumber/accounts/templates"
 DESIGNED_TEMPLATES = [
@@ -133,9 +134,10 @@ def test_the_logout_button_carries_a_csrf_token(owner_client: Client) -> None:
 
 @pytest.mark.django_db
 def test_an_account_without_a_name_is_shown_by_its_email(db: None) -> None:
-    nameless = User.objects.create_user(
-        username="nn@example.com", email="nn@example.com", password=PASSWORD
-    )
+    with as_system():
+        nameless = User.objects.create_user(
+            username="nn@example.com", email="nn@example.com", password=PASSWORD
+        )
 
     html = text(signed_in(nameless).get(HOME))
 

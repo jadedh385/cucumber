@@ -16,6 +16,7 @@ from django.db import IntegrityError, transaction
 from cucumber.accounts.tests.helpers import mark_change_due
 from cucumber.core.tests.rows import fetch_all, fetch_one, refused_by, run
 from cucumber.core.tests.stock import make_staff
+from cucumber.core.tests.trail import as_system
 
 pytestmark = pytest.mark.django_db
 
@@ -212,10 +213,11 @@ def test_the_pre_check_names_accounts_that_would_break_the_rules() -> None:
         f"ALTER TABLE auth_user DROP CONSTRAINT IF EXISTS {NO_SUPERUSER},"
         f" DROP CONSTRAINT IF EXISTS {USERNAME_IS_EMAIL}"
     )
-    User.objects.create_user(username="Supervisor_1")
-    User.objects.create_user(
-        username="root@example.com", email="root@example.com", is_superuser=True
-    )
+    with as_system():
+        User.objects.create_user(username="Supervisor_1")
+        User.objects.create_user(
+            username="root@example.com", email="root@example.com", is_superuser=True
+        )
     make_staff("gene", "tech")
 
     with pytest.raises(RuntimeError) as caught:

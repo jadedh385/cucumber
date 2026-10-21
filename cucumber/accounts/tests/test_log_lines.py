@@ -27,6 +27,7 @@ from cucumber.accounts.tests.helpers import (
     mark_change_due,
     signed_in,
 )
+from cucumber.core.tests.trail import LEFT_THE_COMPANY
 
 pytestmark = pytest.mark.django_db
 
@@ -111,7 +112,7 @@ def test_account_changes_name_the_account_and_who_did_it(
     owner: User, gene: User, lines: Lines
 ) -> None:
     mali = add_account(owner, "Mali", "mali@example.com", Role.TECH).account
-    deactivate(owner, gene)
+    deactivate(owner, gene, LEFT_THE_COMPANY)
     reactivate(owner, gene)
     give_new_password(owner, gene)
     lift_lock(owner, gene)

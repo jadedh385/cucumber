@@ -6,6 +6,7 @@ from django.contrib.sessions.models import Session
 from django.db.models.functions import Now
 
 from cucumber.accounts.models import LoginFailure
+from cucumber.core.audit import SYSTEM_USERNAME
 from scripts import timing_login
 from scripts.timing_login import LoginScale
 
@@ -42,7 +43,9 @@ def test_an_unexpected_answer_stops_the_run() -> None:
 def test_load_makes_the_rows_the_scale_asks_for() -> None:
     timing_login.load(SMALL)
 
-    assert User.objects.count() == SMALL.accounts
+    # Every account but System, which migrations add (U0.7 design §5.2).
+    staff = User.objects.exclude(username=SYSTEM_USERNAME)
+    assert staff.count() == SMALL.accounts
     assert Session.objects.filter(expire_date__gt=Now()).count() == SMALL.live_sessions
     assert Session.objects.filter(expire_date__lt=Now()).count() == SMALL.ended_sessions
     assert LoginFailure.objects.count() == SMALL.recent_failures + SMALL.old_failures

@@ -30,7 +30,8 @@ from cucumber.accounts.permissions import (
 from cucumber.accounts.services import add_account, deactivate, role_of, set_role
 from cucumber.core.refusals import Refused
 from cucumber.core.tests.rows import fetch_all, fetch_one, refused_by, run
-from cucumber.core.tests.stock import make_staff, not_allowed, refused
+from cucumber.core.tests.stock import make_staff, not_allowed, refused, switch_off
+from cucumber.core.tests.trail import LEFT_THE_COMPANY, as_system
 from cucumber.events.tests.test_concurrency import at_the_same_moment
 
 pytestmark = pytest.mark.django_db
@@ -87,8 +88,9 @@ def test_undoing_the_roles_is_refused_while_anyone_holds_one(role: str) -> None:
 
 def test_undoing_the_roles_is_refused_while_a_flag_is_on_for_one() -> None:
     """Deleting the group would silently drop it from the flag (§6.1)."""
-    flag: Any = Flag.objects.create(name="needs_attention")  # waffle is untyped
-    flag.groups.add(Group.objects.get(name="supervisor"))
+    with as_system():
+        flag: Any = Flag.objects.create(name="needs_attention")  # waffle: untyped
+        flag.groups.add(Group.objects.get(name="supervisor"))
 
     with pytest.raises(RuntimeError, match="flag"):
         migration("0005_roles").remove_roles(apps, None)
@@ -138,13 +140,15 @@ def test_the_pre_check_names_accounts_with_two_roles_or_an_unmatched_email() -> 
     """Instead of a raw index error at G5 on staging or production (§6.2, §8)."""
     run(f"DROP INDEX IF EXISTS {ONE_ROLE}")
     two = make_staff("gene", "tech")
-    User.groups.through.objects.create(
-        user=two, group=Group.objects.get_or_create(name="supervisor")[0]
-    )
+    with as_system():
+        User.groups.through.objects.create(
+            user=two, group=Group.objects.get_or_create(name="supervisor")[0]
+        )
     # Passes the auth_user rule (lowercase, trimmed) but isn't its NFKC key.
     # objects.create, not create_user: that one NFKCs the user name itself.
     wide = "ｐｉｍ@example.com"
-    User.objects.create(username=wide, email=wide)
+    with as_system():
+        User.objects.create(username=wide, email=wide)
     make_staff("mali", "tech")
 
     with pytest.raises(RuntimeError) as caught:
@@ -210,7 +214,7 @@ def test_a_group_that_is_not_a_role_reads_as_no_role(owner: User) -> None:
 
 def test_a_deactivated_account_keeps_its_role(owner: User, gene: User) -> None:
     """Q3: switching it back on returns it as it was."""
-    deactivate(owner, gene)
+    deactivate(owner, gene, LEFT_THE_COMPANY)
 
     assert roles_of(gene) == ["tech"]
 
@@ -231,7 +235,7 @@ def test_only_someone_who_manages_users_may_give_a_role(
 
 def test_a_switched_off_admin_may_not_give_a_role(owner: User, gene: User) -> None:
     mali = make_staff("mali", "admin")
-    User.objects.filter(pk=mali.pk).update(is_active=False)
+    switch_off(mali)
 
     with not_allowed("account_not_active"):
         set_role(mali, gene, Role.ADMIN)
@@ -260,7 +264,7 @@ def test_one_admin_may_change_another_while_one_stays(owner: User) -> None:
 def test_a_switched_off_admin_s_role_may_be_removed(owner: User) -> None:
     """A deactivated Admin isn't counted as an Admin (§5.3)."""
     mali = make_staff("mali", "admin")
-    User.objects.filter(pk=mali.pk).update(is_active=False)
+    switch_off(mali)
 
     set_role(owner, mali, None)
 
@@ -302,8 +306,9 @@ def test_standing_of_someone_signed_out() -> None:
 def test_standing_reads_the_database_not_the_copy_it_is_given(gene: User) -> None:
     """A session still open after a change can't act on the old standing (AC5)."""
     stale = User.objects.get(pk=gene.pk)
-    User.objects.filter(pk=gene.pk).update(is_active=False)
-    User.groups.through.objects.filter(user_id=gene.pk).delete()
+    switch_off(gene)
+    with as_system():
+        User.groups.through.objects.filter(user_id=gene.pk).delete()
 
     assert standing(stale) == Standing(gene.pk, False, None)
 
@@ -327,7 +332,7 @@ def test_require_refuses_someone_signed_out() -> None:
 
 
 def test_require_refuses_a_switched_off_account_before_its_role(gene: User) -> None:
-    User.objects.filter(pk=gene.pk).update(is_active=False)
+    switch_off(gene)
 
     with not_allowed("account_not_active"):
         require(gene, Permission.LOG_WORK)
@@ -417,7 +422,7 @@ def test_the_last_active_admin_is_not_deactivated_past_a_stale_check(
         mock.patch("cucumber.accounts.services.require", return_value=stale),
         refused("account_last_admin"),
     ):
-        deactivate(mali, owner)
+        deactivate(mali, owner, LEFT_THE_COMPANY)
 
     assert User.objects.get(pk=owner.pk).is_active
 
@@ -438,7 +443,7 @@ def lose_admin_while_waiting(admin: User) -> Any:
     "change",
     [
         lambda by, account: set_role(by, account, Role.ADMIN),
-        lambda by, account: deactivate(by, account),
+        lambda by, account: deactivate(by, account, LEFT_THE_COMPANY),
     ],
     ids=["set_role", "deactivate"],
 )
@@ -488,7 +493,7 @@ def test_deactivating_and_demoting_each_other_at_once_leave_one_admin() -> None:
 
     results = at_the_same_moment(
         [
-            lambda: deactivate(jade, mali),
+            lambda: deactivate(jade, mali, LEFT_THE_COMPANY),
             lambda: set_role(mali, jade, Role.TECH),
         ]
     )

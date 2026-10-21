@@ -191,3 +191,15 @@ def test_a_failed_login_also_removes_day_old_failures() -> None:
 
     assert failures("old@example.com") == 0
     assert failures("recent@example.com") == 2
+
+
+def test_a_session_from_the_old_login_backend_ends_once(gene_client: Client) -> None:
+    """U0.7 design D5: swapping in AuditedRehashBackend signs everyone out once."""
+    session = gene_client.session
+    session["_auth_user_backend"] = "django.contrib.auth.backends.ModelBackend"
+    session.save()
+
+    assert goes_to_login(gene_client)
+
+    log_in(gene_client, "gene@example.com")
+    assert not goes_to_login(gene_client), "logging in again must stick"

@@ -35,6 +35,7 @@ from cucumber.accounts.tests.helpers import (
 )
 from cucumber.accounts.tests.test_cucumber_admin import Answers, run_command
 from cucumber.core.tests.stock import make_staff
+from cucumber.core.tests.trail import LEFT_THE_COMPANY
 from cucumber.env import env
 
 pytestmark = pytest.mark.django_db(transaction=True)
@@ -78,7 +79,7 @@ def test_the_staff_page_actions(people: tuple[User, User], as_app_user: None) ->
     give_new_password(owner, gene)
     give_new_password(owner, gene)  # a second one while the first is still due
     lift_lock(owner, gene)
-    deactivate(owner, gene)
+    deactivate(owner, gene, LEFT_THE_COMPANY)
     reactivate(owner, gene)
     password_chosen(gene)
 

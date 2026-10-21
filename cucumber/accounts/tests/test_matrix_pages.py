@@ -28,7 +28,7 @@ from cucumber.accounts.tests.helpers import (
 from cucumber.accounts.tests.test_login_required import OPEN_PAGES, every_page
 from cucumber.accounts.tests.urls_without_row import NO_ROW_PAGE
 from cucumber.core.tests.rows import as_int, fetch_one
-from cucumber.core.tests.stock import make_staff
+from cucumber.core.tests.stock import make_staff, switch_off
 
 pytestmark = pytest.mark.django_db
 
@@ -237,7 +237,7 @@ def test_a_deactivated_person_with_an_open_session_goes_to_login() -> None:
     """Django signs them out first; they never reach the role check (§3.1)."""
     gene = person(Role.TECH)
     client = client_for(gene)
-    User.objects.filter(pk=gene.pk).update(is_active=False)
+    switch_off(gene)
 
     response = client.get(HOME)
 

@@ -17,19 +17,21 @@ from django.contrib.auth.models import User
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from django.core.management.base import BaseCommand, CommandError
-from django.db import transaction
 
 from cucumber.accounts.models import LoginFailure, PasswordChangeDue
 from cucumber.accounts.permissions import Role
 from cucumber.accounts.services import (
     LONGEST_NAME,
     checked_email,
+    email_key,
     has_role,
+    is_anonymised,
     lock_for_account_change,
     log_role_change,
     replace_role,
     role_of,
 )
+from cucumber.core.audit import SYSTEM, audited, ssh_via
 from cucumber.core.refusals import Refused, message_for
 
 logger = logging.getLogger(__name__)
@@ -46,8 +48,14 @@ def ask(question: str, hidden: bool = False) -> str:
 
 
 def ask_email() -> str:
+    """The email key; an anonymised account is named before the email rule."""
+    typed = ask("Email: ")
+    existing = User.objects.filter(username=email_key(typed)).first()
+    if existing is not None and is_anonymised(existing):
+        message = message_for("account_anonymised")
+        raise CommandError(message.format(name=existing.first_name))
     try:
-        return checked_email(ask("Email: "))
+        return checked_email(typed)
     except Refused as refusal:
         raise CommandError(refusal.message) from None
 
@@ -90,8 +98,11 @@ class Command(BaseCommand):
         self.stdout.write(f"{email} is an Admin and can log in now.")
 
     def save(self, account: User, password: str) -> None:
-        """Password, active, Admin, unlocked and no change due, all together."""
-        with transaction.atomic():
+        """Password, active, Admin, unlocked and no change due, all together.
+
+        Made by System: nobody is signed in (U0.7 AC6).
+        """
+        with audited(SYSTEM, via=ssh_via("cucumber_admin")):
             account.set_password(password)
             account.is_active = True
             is_new = account.pk is None

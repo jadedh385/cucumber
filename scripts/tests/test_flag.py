@@ -12,6 +12,8 @@ from scripts.flag import main
 from scripts.server import Place
 from scripts.tests.fake_server import (
     PREVIOUS,
+    SSH_CONNECTION,
+    SSH_USER,
     STRAY_SHELL_PASSWORD,
     FakeServer,
     make_home,
@@ -66,6 +68,18 @@ def test_the_command_runs_inside_the_running_app(tmp_path: Path) -> None:
     assert call.env["IMAGE_NAME"] == "cucumber-production"
     assert "DB_PASSWORD" not in call.env
     assert STRAY_SHELL_PASSWORD not in call.env.values()
+
+
+def test_who_and_from_where_go_into_the_app(tmp_path: Path) -> None:
+    """G4 review #3: `cucumber_flag` records them in `via`."""
+    server = FakeServer()
+
+    flag(tmp_path, server, "list")
+
+    command = server.first("flag").command
+    assert f"SSH_USER={SSH_USER}" in command
+    assert f"SSH_CONNECTION={SSH_CONNECTION}" in command
+    assert command.index("-e") < command.index("app")
 
 
 @pytest.mark.parametrize(

@@ -25,6 +25,7 @@ from cucumber.core.tests.stock import (
     new_lab_batch,
     refused,
     subculture_entries,
+    switch_off,
 )
 from cucumber.events.models import Event, Operation
 from cucumber.events.services import (
@@ -397,7 +398,7 @@ def test_work_done_by_a_deactivated_user_is_refused(
     plant: int, supervisor: User, tech: User
 ) -> None:
     batch = intake_into_new_batch(supervisor, plant, 10)
-    User.objects.filter(pk=tech.pk).update(is_active=False)
+    switch_off(tech)
     with refused("staff_not_active"):
         log(supervisor, batch, "out", qty_out=1, staff_id=tech.pk)
     assert live_count(batch) == 10

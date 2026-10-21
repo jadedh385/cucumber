@@ -19,9 +19,27 @@ import pytest
 from django.contrib.auth.models import User
 from django.db import DatabaseError, connection, transaction
 
+from cucumber.core.audit import SYSTEM, Reason, audited
+
 Values = Mapping[str, object]
 Params = list[Any] | None
 AppConnection = psycopg.Connection[tuple[object, ...]]
+
+
+# A test's own `via`, so its set-up rows are easy to tell apart (U0.7).
+VIA_TEST = "test"
+
+
+@contextmanager
+def as_system(reason: Reason | None = None) -> Iterator[None]:
+    """Test set-up that writes audited tables, made by System (U0.7 design §13).
+
+    The builders below use it; it is never on for the whole suite (review
+    H3), so a service that forgets `audited()` still fails its test. Set-up
+    that switches something off passes its reason (AC11).
+    """
+    with audited(SYSTEM, via=VIA_TEST, reason=reason):
+        yield
 
 
 # ------------------------------------------------------------------ plain SQL
@@ -130,7 +148,8 @@ def staff_email(name: str) -> str:
 
 def make_user(name: str = "tech") -> int:
     email = staff_email(name)
-    return as_int(User.objects.create_user(username=email, email=email).pk)
+    with as_system():
+        return as_int(User.objects.create_user(username=email, email=email).pk)
 
 
 def make_operation(recorded_by: int) -> uuid.UUID:
@@ -146,7 +165,8 @@ def make_vendor(zoho_contact_id: str = "ZC-1", name: str = "Green Leaf Co.") -> 
         "active": True,
         "synced_at": db_now(),
     }
-    insert("vendors", values, returning="zoho_contact_id")
+    with as_system():
+        insert("vendors", values, returning="zoho_contact_id")
     return zoho_contact_id
 
 
@@ -168,8 +188,17 @@ def plant_values(created_by: int, **overrides: object) -> dict[str, object]:
     }
 
 
+# A plant that starts out off needs the reason its switch would (U0.7 AC11).
+OFF_PLANT_REASONS = {
+    "retired": Reason("retire_no_longer_grown"),
+    "voided": Reason("void_duplicate_entry"),
+}
+
+
 def make_plant(created_by: int, **overrides: object) -> int:
-    return as_int(insert("plants", plant_values(created_by, **overrides)))
+    reason = OFF_PLANT_REASONS.get(str(overrides.get("status")))
+    with as_system(reason):
+        return as_int(insert("plants", plant_values(created_by, **overrides)))
 
 
 def issue_sku(
@@ -189,7 +218,8 @@ def issue_sku(
 def give_sku(plant_id: int, sku: str, assigned_by: int) -> None:
     """Issue `sku` to the plant and point the plant at it."""
     issue_sku(plant_id, sku, assigned_by)
-    update("plants", plant_id, {"sku": sku})
+    with as_system():
+        update("plants", plant_id, {"sku": sku})
 
 
 def next_plant_seq(plant_id: int) -> int:
@@ -229,7 +259,10 @@ def batch_values(
 
 
 def make_batch(plant_id: int, created_by: int, **overrides: object) -> int:
-    return as_int(insert("batches", batch_values(plant_id, created_by, **overrides)))
+    with as_system():
+        return as_int(
+            insert("batches", batch_values(plant_id, created_by, **overrides))
+        )
 
 
 def reason_code(applies_to: str) -> str:

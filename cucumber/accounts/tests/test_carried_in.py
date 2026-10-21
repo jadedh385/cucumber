@@ -29,6 +29,7 @@ from cucumber.accounts.tests.helpers import (
 from cucumber.core.refusals import INTERNAL_MESSAGE, Refused
 from cucumber.core.tests.rows import fetch_one, run
 from cucumber.core.tests.stock import refused
+from cucumber.core.tests.trail import as_system
 
 pytestmark = pytest.mark.django_db
 
@@ -160,7 +161,8 @@ def test_a_full_width_email_is_stored_and_logs_in_as_plain_letters(
     added = add_account(owner, "Mali", "ｍａｌｉ@example.com", Role.TECH)
     account = User.objects.get(pk=added.account.pk)
     account.set_password(PASSWORD)
-    account.save()
+    with as_system():
+        account.save()
     client = Client()
 
     log_in(client, "mali@example.com")

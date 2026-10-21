@@ -4,8 +4,9 @@
     uv run --no-dev python -m scripts.deploy staging main
     uv run --no-dev python -m scripts.deploy production 2026.10.1
 
-Checks, gets the version, builds it, checks the database fits, saves a copy
-of the database, migrates, restarts the app and checks it answers. Prints
+Checks, gets the version, builds it, checks the database fits and that its
+protections are on, saves a copy of the database, migrates, checks the
+protections again, restarts the app and checks it answers. Prints
 each step in plain words and saves them to the environment's logs folder.
 If the new version doesn't answer, puts the previous one back when that is
 safe (design §6.3).
@@ -59,6 +60,16 @@ DB_NAME = "cucumber"  # as deploy/compose.server.yaml names it
 NOT_A_STRAY = {".venv/"}
 # Python's cache, written by running this command; .dockerignore drops it.
 PYTHON_CACHE = "__pycache__/"
+# U0.7 design §8.3: as the owner, through the migrate service.
+CHECK_GUARDS = (
+    "run",
+    "--rm",
+    "migrate",
+    "python",
+    "manage.py",
+    "cucumber_check_guards",
+)
+RUNBOOK = "See the release runbook."
 
 
 @dataclass(frozen=True)
@@ -327,6 +338,17 @@ def check_database_fits(run: Deploy) -> Pending:
     return pending
 
 
+def check_guards(run: Deploy) -> None:
+    """Step 3b: the database's protections are on, before anything changes."""
+    run.say("Checking the database's protections")
+    try:
+        run.compose(*CHECK_GUARDS)
+    except RuntimeError as error:
+        raise ServerError(
+            f"The database's protections are not all on: {error} {RUNBOOK}"
+        ) from None
+
+
 def save_copy(run: Deploy) -> Path:
     """Step 4: a private copy of the database, checked readable; keep 5."""
     run.say("Saving a copy of the database")
@@ -383,6 +405,26 @@ def migrate(run: Deploy, pending: Pending, backup: Path) -> bool:
         f"These changes were made before it failed: {', '.join(applied)}. "
         "The old version may not work with them."
     )
+    run.say(restore_line(backup))
+    return False
+
+
+def check_guards_again(run: Deploy, backup: Path) -> bool:
+    """Step 5b: still on after migrating, now with this version's list.
+
+    Only a migration that broke a protection fails here; CI catches that
+    first. The app isn't restarted, so the previous version keeps running.
+    """
+    run.say("Checking the database's protections again")
+    try:
+        run.compose(*CHECK_GUARDS)
+        return True
+    except RuntimeError as error:
+        running = f" The app was not restarted, so {run.previous} is still running."
+        run.say(
+            "The database was updated, but its protections are not all on:"
+            f" {error}{running if run.previous else ''} {RUNBOOK}"
+        )
     run.say(restore_line(backup))
     return False
 
@@ -516,6 +558,7 @@ def deploy(run: Deploy) -> int:
             run = dataclasses.replace(run, version=get_version(run))
         build(run)
         pending = check_database_fits(run)
+        check_guards(run)
         backup = save_copy(run)
     except (ServerError, RuntimeError) as error:
         back_to_running_clone(run)
@@ -533,7 +576,7 @@ def change(
     run: Deploy, pending: Pending, backup: Path, secrets: Mapping[str, str]
 ) -> int:
     """Steps 5-7, once a copy of the database is saved."""
-    if not migrate(run, pending, backup):
+    if not migrate(run, pending, backup) or not check_guards_again(run, backup):
         back_to_running_clone(run)
         return 1
     if restart(run, run.version) and answers(run, secrets):

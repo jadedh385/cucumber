@@ -172,6 +172,10 @@ DATABASES = {
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
+# Logging in re-hashes an old password as System (accounts/backends.py). Sessions
+# made through the old backend end once, when this first runs.
+AUTHENTICATION_BACKENDS = ["cucumber.accounts.backends.AuditedRehashBackend"]
+
 # Staff passwords: not too short, too common, all digits, or like the user name.
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": f"django.contrib.auth.password_validation.{name}"}

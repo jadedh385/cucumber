@@ -55,6 +55,24 @@ def flag_arguments(args: argparse.Namespace) -> list[str]:
     return [args.name, *([args.state] if args.state else []), *groups]
 
 
+def ssh_session(shell: Mapping[str, str]) -> list[str]:
+    """`-e` options that tell the app who is at the keyboard and from where.
+
+    The container can't see the SSH session; `cucumber_flag` writes these
+    into the audit row's `via` (G4 review #3).
+    """
+    names = {
+        "SSH_USER": shell.get("USER", ""),
+        "SSH_CONNECTION": shell.get("SSH_CONNECTION", ""),
+    }
+    return [
+        part
+        for name, value in names.items()
+        if value
+        for part in ("-e", f"{name}={value}")
+    ]
+
+
 def log_change(place: Place, tools: Tools, args: argparse.Namespace) -> None:
     """Add one line to `logs/flags.log` (design §7, G6 evidence)."""
     when = f"{tools.now().astimezone(BANGKOK):%Y-%m-%d %H:%M:%S}"
@@ -74,8 +92,8 @@ def run_flag(
             f"Nothing is deployed on {place.environment} yet, so there are no flags."
         )
     command = compose_command(
-        place, "exec", "-T", "app", "python", "manage.py", "cucumber_flag",
-        *flag_arguments(args),
+        place, "exec", "-T", *ssh_session(shell), "app",
+        "python", "manage.py", "cucumber_flag", *flag_arguments(args),
     )  # fmt: skip
     env = compose_environment(shell, CUCUMBER_VERSION=version, IMAGE_NAME=place.image)
     try:
