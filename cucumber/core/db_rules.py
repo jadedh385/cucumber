@@ -121,7 +121,8 @@ def two_column_link(
 # its search_path and names its tables `public.…` (review M1), and runs as
 # the caller (not SECURITY DEFINER).
 
-SEARCH_PATH = "pg_catalog, public"
+# `pg_temp` last, so a TEMP table can never shadow a real one.
+SEARCH_PATH = "pg_catalog, public, pg_temp"
 
 AUDIT_BODY = """
 DECLARE
@@ -279,7 +280,7 @@ class Audited:
     key: str
     ignored: tuple[str, ...] = ()
     masked: tuple[str, ...] = ()
-    deletes: bool = False  # a role or a flag's group removed
+    deletes: bool = False  # a role, a flag or a flag's group removed
 
     @property
     def events(self) -> str:
@@ -359,7 +360,7 @@ AUDITED_TABLES = (
     Audited("vendors", "zoho_contact_id", ignored=("synced_at",)),
     Audited("auth_user", "id", ignored=("last_login",), masked=PERSONAL_COLUMNS),
     Audited("auth_user_groups", "user_id", ignored=("id",), deletes=True),
-    Audited("waffle_flag", "id", ignored=("modified",)),
+    Audited("waffle_flag", "id", ignored=("modified",), deletes=True),
     Audited("waffle_flag_groups", "flag_id", ignored=("id",), deletes=True),
 )
 

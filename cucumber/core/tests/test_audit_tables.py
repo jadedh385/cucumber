@@ -42,7 +42,7 @@ AUDIT_ARGUMENTS = {
     "waffle_flag": ("id", {"modified"}, set()),
     "waffle_flag_groups": ("flag_id", {"id"}, set()),
 }
-DELETES_AUDITED = {"auth_user_groups", "waffle_flag_groups"}
+DELETES_AUDITED = {"auth_user_groups", "waffle_flag", "waffle_flag_groups"}
 
 # Design §4.2: the column, then each "off" value and the reason list for it.
 REASON_ARGUMENTS = {
@@ -194,4 +194,4 @@ def test_the_new_functions_fix_their_search_path_and_run_as_the_caller(
     assert rows, f"{function} is missing"
     [(security_definer, config)] = rows
     assert security_definer is False
-    assert config == ["search_path=pg_catalog, public"]
+    assert config == ["search_path=pg_catalog, public, pg_temp"]

@@ -10,7 +10,7 @@ that one statement) and narrows the list check again.
 """
 
 from django.apps.registry import Apps
-from django.db import connection, migrations, models
+from django.db import IntegrityError, connection, migrations, models, transaction
 from django.db.backends.base.schema import BaseDatabaseSchemaEditor
 from django.db.backends.utils import CursorWrapper
 
@@ -78,6 +78,16 @@ def codes_in_use(cursor: CursorWrapper, codes: list[str]) -> list[str]:
     return sorted(used)
 
 
+def deferred_links_to_reasons(cursor: CursorWrapper) -> list[str]:
+    """Names of the deferrable foreign keys that point at `reasons`."""
+    cursor.execute(
+        "SELECT quote_ident(conname) FROM pg_constraint"
+        " WHERE contype = 'f' AND condeferrable"
+        " AND confrelid = 'public.reasons'::regclass ORDER BY conname"
+    )
+    return [str(row[0]) for row in cursor.fetchall()]
+
+
 def unseed_lists(apps: Apps, schema_editor: BaseDatabaseSchemaEditor | None) -> None:
     """Remove the seeded rows, unless something already uses one (§5.1)."""
     codes = [code for code, *_ in seeded()]
@@ -90,12 +100,26 @@ def unseed_lists(apps: Apps, schema_editor: BaseDatabaseSchemaEditor | None) -> 
                 f" already used: {', '.join(used)}. Restore the copy from before"
                 " the release instead."
             )
-        # ALTER TABLE waits for no deferred check: run them now.
-        cursor.execute("SET CONSTRAINTS ALL IMMEDIATE")
+        links = deferred_links_to_reasons(cursor)
+        # ALTER TABLE waits for no deferred check: run the ones on `reasons`
+        # now, by name, so a pending check elsewhere isn't run (or blamed).
+        if links:
+            cursor.execute(f"SET CONSTRAINTS {', '.join(links)} IMMEDIATE")
         cursor.execute("ALTER TABLE reasons DISABLE TRIGGER reasons_no_delete")
-        cursor.execute("DELETE FROM reasons WHERE code = ANY(%s)", [codes])
-        cursor.execute("ALTER TABLE reasons ENABLE TRIGGER reasons_no_delete")
-        cursor.execute("SET CONSTRAINTS ALL DEFERRED")
+        try:
+            # A savepoint, so the refusal leaves the transaction usable.
+            with transaction.atomic(using=database.alias):
+                cursor.execute("DELETE FROM reasons WHERE code = ANY(%s)", [codes])
+        except IntegrityError as error:
+            raise RuntimeError(
+                "Refusing to undo the U0.7 reason lists: a later table still"
+                f" points at one of them ({error}). Restore the copy from"
+                " before the release instead."
+            ) from error
+        finally:
+            cursor.execute("ALTER TABLE reasons ENABLE TRIGGER reasons_no_delete")
+            if links:
+                cursor.execute(f"SET CONSTRAINTS {', '.join(links)} DEFERRED")
 
 
 class Migration(migrations.Migration):

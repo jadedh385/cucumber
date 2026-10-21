@@ -14,7 +14,7 @@ import pytest
 from django.apps import apps
 from django.contrib.auth.models import User
 
-from cucumber.core.tests.rows import fetch_one, insert
+from cucumber.core.tests.rows import fetch_one, insert, run
 from cucumber.core.tests.trail import LEFT_COMPANY, as_system, system_id
 
 pytestmark = pytest.mark.django_db
@@ -38,6 +38,13 @@ def a_trail_row(**values: object) -> None:
     insert("audit_log", row | values)
 
 
+def grant_temp_to_public() -> None:
+    run(
+        "DO $$ BEGIN EXECUTE format('GRANT TEMP ON DATABASE %I TO PUBLIC',"
+        " current_database()); END $$"
+    )
+
+
 def count(sql: str, params: list[object] | None = None) -> int:
     return int(str(fetch_one(sql, params)[0]))
 
@@ -58,6 +65,32 @@ def test_the_reason_lists_undo_removes_only_its_own_rows() -> None:
     new_lists = "('deactivate', 'retire', 'archive')"
     assert count(f"SELECT count(*) FROM reasons WHERE applies_to IN {new_lists}") == 0  # noqa: S608
     assert count("SELECT count(*) FROM reasons WHERE applies_to = 'void'") > 0
+
+
+def test_the_reason_lists_undo_names_a_later_table_that_still_points_at_one() -> None:
+    """Review item 11: a clear refusal, not a raw foreign-key error."""
+    run(
+        "CREATE TABLE later_use (reason_code text REFERENCES reasons (code)"
+        " DEFERRABLE INITIALLY DEFERRED)"
+    )
+    run("INSERT INTO later_use VALUES (%s)", [LEFT_COMPANY])
+
+    with pytest.raises(RuntimeError, match="later_use"):
+        migration("references", "0004_reason_lists").unseed_lists(apps, None)
+
+
+def test_the_reason_lists_undo_leaves_other_deferred_checks_alone() -> None:
+    """It runs the checks on `reasons` only, not every check in the session."""
+    run(
+        "CREATE TABLE elsewhere (id integer PRIMARY KEY, parent integer"
+        " REFERENCES elsewhere (id) DEFERRABLE INITIALLY DEFERRED)"
+    )
+    run("INSERT INTO elsewhere VALUES (1, 99)")  # fails only at commit
+
+    migration("references", "0004_reason_lists").unseed_lists(apps, None)
+
+    assert count("SELECT count(*) FROM reasons WHERE applies_to = 'retire'") == 0
+    run("DELETE FROM elsewhere")  # so the test's own clean-up check passes
 
 
 # ---------------------------------------------------------- accounts 0007
@@ -132,3 +165,24 @@ def test_the_guard_check_reads_the_trail_through_a_partial_index() -> None:
 
 def test_the_trail_has_a_time_and_id_index_for_reading_newest_first() -> None:
     assert "(at, id)" in index_definition("audit_log_at_id")
+
+
+def test_a_revoke_that_changed_nothing_is_refused() -> None:
+    """Review item 11: `REVOKE TEMP` by a non-owner only warns.
+
+    The tests' login owns the database, so a REVOKE that does nothing is
+    stood in for by a statement that does nothing.
+    """
+    revoke_temp = migration("core", "0006_audit_trail").REVOKE_TEMP
+    assert "'REVOKE TEMP ON DATABASE %I FROM PUBLIC'" in revoke_temp
+    does_nothing = revoke_temp.replace("REVOKE TEMP ON", "COMMENT ON")
+    grant_temp_to_public()
+
+    with pytest.raises(Exception, match="could not revoke TEMP"):
+        run(does_nothing.replace("FROM PUBLIC'", "IS NULL'"))
+
+
+def test_the_real_revoke_leaves_public_without_temp() -> None:
+    grant_temp_to_public()
+
+    run(migration("core", "0006_audit_trail").REVOKE_TEMP)

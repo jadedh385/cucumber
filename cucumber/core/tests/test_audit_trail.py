@@ -379,6 +379,19 @@ def test_a_flags_groups_are_keyed_by_the_flag(staff: int) -> None:
     ]
 
 
+def test_deleting_a_flag_is_audited(staff: int) -> None:
+    """Review item 11: the owner can delete a flag; it must leave a row."""
+    with as_system():
+        flag = as_int(new_flag(staff))
+    mark = audit_mark()
+
+    with named_in_sql(staff):
+        run("DELETE FROM waffle_flag WHERE id = %s", [flag])
+
+    rows = audit_rows_since(mark, "waffle_flag")
+    assert [(row.action, row.row_pk) for row in rows] == [("delete", str(flag))]
+
+
 # ----------------------------------------------------- accounts stay (D-07)
 def test_an_account_is_never_deleted(staff: int) -> None:
     """Design §4.4: `auth_user_no_delete`, even with a person named."""

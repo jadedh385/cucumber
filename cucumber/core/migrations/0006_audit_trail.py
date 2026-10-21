@@ -35,12 +35,26 @@ TRIGGERS = [
     *(db_rules.truncate_noticed(table) for table in db_rules.TRUNCATE_NOTICED_TABLES),
 ]
 
-GRANTS = """
-REVOKE INSERT, UPDATE, DELETE ON auth_user_user_permissions FROM cucumber_app;
+# REVOKE by someone who isn't the database owner only warns, so check after.
+REVOKE_TEMP = """
 DO $$ BEGIN
   EXECUTE format('REVOKE TEMP ON DATABASE %I FROM PUBLIC', current_database());
+  IF EXISTS (
+    SELECT 1 FROM pg_database d,
+      aclexplode(coalesce(d.datacl, acldefault('d', d.datdba))) a
+    WHERE d.datname = current_database() AND a.grantee = 0
+      AND a.privilege_type = 'TEMPORARY'
+  ) THEN
+    RAISE EXCEPTION 'could not revoke TEMP from PUBLIC: run this as the owner';
+  END IF;
 END $$;
 """
+GRANTS = (
+    """
+REVOKE INSERT, UPDATE, DELETE ON auth_user_user_permissions FROM cucumber_app;
+"""
+    + REVOKE_TEMP
+)
 # TEMP stays revoked on undo: production never had it (01-roles.sh).
 UNDO_GRANTS = """
 GRANT INSERT, UPDATE, DELETE ON auth_user_user_permissions TO cucumber_app;
