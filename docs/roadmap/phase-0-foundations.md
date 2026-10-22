@@ -177,7 +177,8 @@ exits · *Gate focus* = unit-specific checks on top of [the standard gates](gate
   an event someone else saved; audit rows can't be edited by any role.
 - **Gate focus:** G2 tests that try to mutate events through the API **and** raw SQL · G4 security review.
 - **Spec:** [U0.7 spec](units/u0.7-spec.md) (G0 passed 2026-10-20) ·
-  **Design:** [u0.7-design.md](units/u0.7-design.md) (G1 passed 2026-10-20)
+  **Design:** [u0.7-design.md](units/u0.7-design.md) (G1 passed 2026-10-20) ·
+  **Verify:** [G5 note](units/u0.7-g5-verify.md) (G5 passed 2026-10-22)
 
 ### U0.8 · ID sequence service
 - **Size:** S · **Deps:** U0.2a
