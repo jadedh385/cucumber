@@ -127,6 +127,21 @@ uv run --no-dev python -m scripts.deploy staging <version>     # and forward aga
 Each must end in `Done: staging now runs …`. This is G6's "rollback rehearsed
 on staging". If a step fails, stop: the draft stays a draft.
 
+**A release with migrations can't be rehearsed this way.** The older version
+doesn't know the new migrations, so the second command stops at "The database
+has N changes this version doesn't know … Restore an older copy instead, or
+type yes to go on". Don't type yes: the old code would run on a database it
+doesn't fit (for U0.7, whose audit triggers refuse its writes). Rehearse the
+restore instead, with the copy the first command took:
+[Restore a copy](#restore-a-copy-production) with `staging` in place of
+`production`, then deploy the release forward again. (U0.7 shipped without
+this rehearsal, as an Owner exception: [U0.7 G6](../roadmap/units/u0.7-g6-release.md).)
+
+**No output for more than a minute** means the command is waiting at a
+question like that one. A session without a keyboard can't answer it, so
+stop it (nothing has changed before the database check) and run it again in
+an `ssh -t` session to read the question.
+
 ## 4. Deploy to production (Claude)
 
 ```bash

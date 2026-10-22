@@ -9,16 +9,18 @@ from collections.abc import Mapping
 
 import psycopg
 from django.contrib.auth.models import User
-from django.db import DatabaseError, connection, transaction
+from django.db import DatabaseError, connection
 from psycopg import sql
 
 from cucumber.accounts.permissions import Role
 from cucumber.accounts.services import replace_role
+from cucumber.core.audit import SYSTEM, WRITE_SETTINGS, audited, system_account
 from cucumber.core.refusals import Refused, message_for, rule_of
 from cucumber.env import env
 from cucumber.events.services import NewEvent, save_operation
 
 APP_ROLE = "cucumber_app"
+UAT_VIA = "uat"  # shows in the audit trail as how these rows were made
 SAVED = "saved"
 NOT_ALLOWED = "not allowed: the app has no permission"
 
@@ -34,7 +36,7 @@ def refused(rule: str) -> str:
 def as_owner(query: str, params: list[int] | None = None) -> str:
     """Run `query` as the table owner, `cucumber_owner` (Django's connection)."""
     try:
-        with transaction.atomic(), connection.cursor() as cursor:
+        with audited(SYSTEM, via=UAT_VIA), connection.cursor() as cursor:
             cursor.execute(query, params)
     except DatabaseError as error:
         return refused(rule_of(error))
@@ -57,6 +59,7 @@ class App:
         current = self.db.execute("SELECT current_user").fetchone()
         if current != (APP_ROLE,):
             raise RuntimeError(f"expected to connect as {APP_ROLE}, got {current}")
+        self.actor = str(system_account().pk)
 
     def one(self, query: str, params: Params = None) -> object:
         """The first column of the one row `query` returns."""
@@ -65,10 +68,20 @@ class App:
             raise RuntimeError(f"no row from: {query}")
         return row[0]
 
-    def attempt(self, statement: sql.Composed | bytes, params: Params = None) -> str:
-        """Run one statement; say whether it was saved or what refused it."""
+    def attempt(
+        self,
+        statement: sql.Composed | bytes,
+        params: Params = None,
+        reason: str = "",
+    ) -> str:
+        """Run one statement; say whether it was saved or what refused it.
+
+        `reason` is the code a switch-off, void or retire must give (U0.7).
+        """
         try:
             with self.db.transaction():
+                # Every audited write names a person (U0.7): System, here.
+                self.db.execute(WRITE_SETTINGS, [self.actor, UAT_VIA, reason, ""])
                 self.db.execute(statement, params)
         except psycopg.errors.InsufficientPrivilege:
             return NOT_ALLOWED
@@ -76,8 +89,8 @@ class App:
             return refused(error.diag.constraint_name or "unnamed")
         return SAVED
 
-    def run(self, query: str, params: Params = None) -> str:
-        return self.attempt(query.encode(), params)
+    def run(self, query: str, params: Params = None, reason: str = "") -> str:
+        return self.attempt(query.encode(), params, reason)
 
     def insert(self, table: str, values: Values) -> str:
         statement = sql.SQL("INSERT INTO {} ({}) VALUES ({})").format(
@@ -87,14 +100,14 @@ class App:
         )
         return self.attempt(statement, list(values.values()))
 
-    def update(self, table: str, key: object, values: Values) -> str:
+    def update(self, table: str, key: object, values: Values, reason: str = "") -> str:
         assignments = sql.SQL(", ").join(
             sql.SQL("{} = %s").format(sql.Identifier(column)) for column in values
         )
         statement = sql.SQL("UPDATE {} SET {} WHERE id = %s").format(
             sql.Identifier(table), assignments
         )
-        return self.attempt(statement, [*values.values(), key])
+        return self.attempt(statement, [*values.values(), key], reason)
 
 
 class Story:
@@ -108,8 +121,9 @@ class Story:
 
     @staticmethod
     def person(email: str, role: Role) -> int:
-        user = User.objects.create_user(username=email, email=email)
-        replace_role(user, role)  # services refuse an account with no role (U0.6)
+        with audited(SYSTEM, via=UAT_VIA):
+            user = User.objects.create_user(username=email, email=email)
+            replace_role(user, role)  # services refuse an account with no role (U0.6)
         return user.pk
 
     # Times, from the database clock

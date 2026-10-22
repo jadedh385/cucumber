@@ -27,6 +27,7 @@ from django.utils import timezone  # noqa: E402
 from cucumber.accounts.permissions import NotAllowed, Role  # noqa: E402
 from cucumber.accounts.services import replace_role  # noqa: E402
 from cucumber.batches.models import Batch  # noqa: E402
+from cucumber.core.audit import SYSTEM, audited  # noqa: E402
 from cucumber.core.refusals import Refused  # noqa: E402
 from cucumber.core.tests.rows import give_sku, make_plant  # noqa: E402
 from cucumber.events.models import Event  # noqa: E402
@@ -44,6 +45,7 @@ from cucumber.events.services import (  # noqa: E402
 )
 from cucumber.plants.services import find_by_sku, reclassify_genus  # noqa: E402
 
+UAT_VIA = "uat"  # shows in the audit trail as how these rows were made
 THREE_DAYS_AGO = timedelta(days=3)
 TWO_DAYS_AGO = timedelta(days=2)
 
@@ -83,8 +85,10 @@ def check_refused(what: str, message: str, attempt: Callable[[], object]) -> Non
 def staff(name: str, role: str) -> User:
     # The user name is the email (U0.5's auth_user rule).
     email = f"{name.lower().replace('_', '-')}@example.com"
-    user, _ = User.objects.get_or_create(username=email, defaults={"email": email})
-    replace_role(user, Role(role))
+    # Every audited write names a person (U0.7): set-up is made by System.
+    with audited(SYSTEM, via=UAT_VIA):
+        user, _ = User.objects.get_or_create(username=email, defaults={"email": email})
+        replace_role(user, Role(role))
     return user
 
 

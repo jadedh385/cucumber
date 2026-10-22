@@ -92,7 +92,7 @@ def names(s: Story) -> None:
         s.add_plant("Birkin"),
     )
     s.add_plant("Micans")
-    s.app.update("plants", s.plant("Micans"), {"status": "voided"})
+    s.app.update("plants", s.plant("Micans"), {"status": "voided"}, reason="void_other")
     check("A new 'Micans' after the old one was Voided", SAVED, s.add_plant("Micans"))
 
 
@@ -445,7 +445,10 @@ def lists(s: Story) -> None:
     check(
         "Switch stage P4 off",
         SAVED,
-        s.app.run("UPDATE stages SET active = false WHERE code = 'P4'"),
+        s.app.run(
+            "UPDATE stages SET active = false WHERE code = 'P4'",
+            reason="archive_no_longer_used",
+        ),
     )
     s.app.run("UPDATE stages SET active = true WHERE code = 'P4'")
 
@@ -456,6 +459,8 @@ def undo_guard() -> None:
         "with real data in the database, a developer can't undo the migrations"
         " and drop the tables by mistake.",
     )
+    # Going back to 0003 undoes core 0006 (the audit trail, U0.7) first, and
+    # that migration refuses before the schema one (0004) is reached.
     try:
         call_command("migrate", "core", "0003", verbosity=0)
     except RuntimeError as error:
@@ -464,7 +469,7 @@ def undo_guard() -> None:
         got = "undone"
     check(
         "Undo the last schema migration",
-        "refused: Refusing to undo the Cucumber schema",
+        "refused: Refusing to undo the audit trail",
         got,
     )
 
