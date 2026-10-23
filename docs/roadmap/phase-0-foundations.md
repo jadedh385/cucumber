@@ -184,21 +184,31 @@ exits · *Gate focus* = unit-specific checks on top of [the standard gates](gate
 - **Size:** S · **Deps:** U0.2a
 - **Source:** SOP §3 IDs
 - **Scope:** `PLT-nnnn`, `BAT-nnnnn`, `EVT-nnnnn`, SKU `<GENUS3><nnn>` per genus.
-  Global, sequential, never reused, safe under concurrent writes.
+  Global, sequential, never reused, safe under concurrent writes. Variant SKUs
+  (`PHL001-5`, `PHL001-V`) aren't issued IDs: they're built from the SKU and
+  the selling unit (SOP §3), so this unit doesn't sequence them.
 - **Acceptance:** 100 parallel creates give 100 unique, never-reused IDs (gaps
   allowed); SKU sequence is per genus code.
 - **Gate focus:** G2 concurrency test.
 
 ### U0.9 · Reference lists
-- **Size:** S · **Deps:** U0.6, U0.7
-- **Source:** SOP §3 (stages, media codes, locations, sources)
+- **Size:** S · **Deps:** U0.6, U0.7 · **Decisions:** D-22 (count units, as proposed)
+- **Source:** SOP §3 (stages, media codes, locations, sources, counting)
 - **Scope:** Owner-editable lists: stages (codes locked, labels editable),
-  media codes, locations (`Lab`, `Nursery` per D-14), genus codes, event actions
-  (fixed). Items deactivate, never delete. Container types and counting units
-  may join these lists, depending on D-22.
-- **Acceptance:** stage codes `P0–P4, A1, T1, C0` can't be renamed (events
-  reference them); each stage has a sort order, with A1 between P2 and P4 (D-06);
-  deactivated item hidden from dropdowns, still shown on history.
+  media codes, locations (`Lab`, `Nursery` per D-14), genus codes, container
+  types. Fixed lists: event actions, count units (`plant`, `vessel`, `mg`).
+  Items deactivate, never delete. If D-22 changes the count units at U1.3 G0,
+  the fixed list changes with it (no batch data exists before U1.3).
+- **G0 to settle:** the stage for a seed lot in the Lab. Every Lab batch needs
+  a stage, but seed counted in `mg` isn't really `P0`: reuse `P0`, or add a new
+  code such as `S0 · Seed`
+  ([Shopify decisions](../research/shopify-decisions.md#1h--open-points-for-the-owner)
+  point 1.6). Stage codes lock once events use them, and the acceptance below
+  lists them.
+- **Acceptance:** stage codes `P0–P4, A1, T1, C0` (plus a seed code if G0 adds
+  one) can't be renamed (events reference them); each stage has a sort order,
+  with A1 between P2 and P4 (D-06); count units can't be added, renamed or
+  deactivated; deactivated item hidden from dropdowns, still shown on history.
 - **Gate focus:** G5 Owner edits a media list on a phone.
 
 ### U0.10 · App shell & UI kit

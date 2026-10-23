@@ -30,8 +30,8 @@ Mark each cell with the sign-off date (e.g. `10-14`) when the gate passes.
 |---|---|:-:|---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
 | U1.1 | Plant registry | M | | · | · | · | · | · | · | · |
 | U1.2 | Status & SKU promotion | S | T-1 | · | · | · | · | · | · | · |
-| U1.3 | Batches | M | D-02, D-15 | · | · | · | · | · | · | · |
-| U1.4 | Events & live counts | L | | · | · | · | · | · | · | · |
+| U1.3 | Batches | M | D-02, D-15, D-20, D-22, D-23, D-28 | · | · | · | · | · | · | · |
+| U1.4 | Events & live counts | L | D-28 | · | · | · | · | · | · | · |
 | U1.5 | Subculture & branching | M | | · | · | · | · | · | · | · |
 | U1.6 | Stage change & transfer | M | | · | · | · | · | · | · | · |
 | U1.7 | Collection counts | S | T-3, D-15, D-17 | · | · | · | · | · | · | · |
@@ -50,7 +50,7 @@ Mark each cell with the sign-off date (e.g. `10-14`) when the gate passes.
 | U2.4 | Photos & attachments | M | | · | · | · | · | · | · | · |
 | U2.5 | Acclimatization | M | D-06 | · | · | · | · | · | · | · |
 | U2.7 | Needs attention list | M | D-27 | · | · | · | · | · | · | · |
-| U2.8 | Discord attention alerts | M | D-27 | · | · | · | · | · | · | · |
+| U2.8 | Discord attention alerts | M | D-27, D-30 | · | · | · | · | · | · | · |
 | U2.6 | ~~Vessel tracking~~ **Won't Do** (D-02) | L | | — | — | — | — | — | — | — |
 | **R2** | **Lab depth** | | | | | | | | | · |
 
@@ -59,7 +59,7 @@ Mark each cell with the sign-off date (e.g. `10-14`) when the gate passes.
 | Unit | Name | Size | Blocked by | G0 | G1 | G2 | G3 | G4 | G5 | G6 |
 |---|---|:-:|---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
 | U3.1 | Storage location hierarchy | M | | · | · | · | · | · | · | · |
-| U3.2 | Zoho vendor copy (read-only) | S | | · | · | · | · | · | · | · |
+| U3.2 | Zoho vendor copy (read-only) | S | D-30, D-31 | · | · | · | · | · | · | · |
 | U3.3 | Materials & chemical lots | L | | · | · | · | · | · | · | · |
 | U3.4 | Media formulation templates | M | | · | · | · | · | · | · | · |
 | U3.5 | Media batch preparation | L | D-12 | · | · | · | · | · | · | · |
@@ -84,11 +84,12 @@ Mark each cell with the sign-off date (e.g. `10-14`) when the gate passes.
 | Unit | Name | Size | Blocked by | G0 | G1 | G2 | G3 | G4 | G5 | G6 |
 |---|---|:-:|---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
 | U5.1 | Metrics engine | L | | · | · | · | · | · | · | · |
-| U5.2 | Availability calculation | S | T-2, D-06 | · | · | · | · | · | · | · |
+| U5.2 | Availability calculation | S | T-2, D-06, D-23 | · | · | · | · | · | · | · |
 | U5.3 | Dashboard & charts | M | | · | · | · | · | · | · | · |
 | U5.4 | Report builder & export | L | | · | · | · | · | · | · | · |
 | U5.5 | GPS mapping | S | | · | · | · | · | · | · | · |
-| U5.6 | Environmental telemetry | M | D-09 | · | · | · | · | · | · | · |
+| U5.6 | Environmental telemetry | M | D-09, D-30, D-31 | · | · | · | · | · | · | · |
+| U5.7 | Reservations | M | D-20, D-29 | · | · | · | · | · | · | · |
 | **R5** | **Analytics** | | | | | | | | | · |
 
 ## Phase 6 — Infrastructure & security

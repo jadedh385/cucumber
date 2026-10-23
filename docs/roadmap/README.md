@@ -17,7 +17,7 @@ No implementation starts until **U0.1** (decisions & stack) passes G0.
 | Concept | Meaning |
 |---|---|
 | **Phase** | A group of units that ships together behind a release gate (R0–R6). |
-| **Unit** (`Ux.y`) | Smallest piece of work that is specified, tested, reviewed and released on its own. 52 units total. |
+| **Unit** (`Ux.y`) | Smallest piece of work that is specified, tested, reviewed and released on its own. 53 units total. |
 | **Gate** (G0–G6) | Checkpoint every unit must pass in order: Spec → Design → Tests First → Build → Review → Verify → Release. Defined in [gates.md](gates.md). |
 | **Release gate** (R0–R6) | Extra phase-level criteria checked once all units in the phase are at G6. |
 | **Decision** (`D-nn`, `T-n`) | Open question that blocks specific units. Listed in [decisions.md](decisions.md). |
@@ -46,7 +46,7 @@ Every unit's G1 design is checked against these:
 | [2](phase-2-lab-depth.md) | Lab depth | U2.1–U2.6 | 01 | R2 |
 | [3](phase-3-media-materials.md) | Media, materials & locations | U3.1–U3.5 | 02 | R3 |
 | [4](phase-4-workflow.md) | Workflow & documentation | U4.1–U4.8 | 03 | R4 |
-| [5](phase-5-analytics.md) | Analytics & monitoring | U5.1–U5.6 | 04 + SOP §8 | R5 |
+| [5](phase-5-analytics.md) | Analytics & monitoring | U5.1–U5.7 | 04 + SOP §8 | R5 |
 | [6](phase-6-hardening.md) | Infrastructure & security | U6.1–U6.6 | 05 | R6 |
 
 ## Sequencing
@@ -124,5 +124,5 @@ A phase passes its release gate when **all its units are at G6** *and*:
 | SOP-7 Review | U1.8 |
 | SOP-8 Zoho link | U1.9 |
 | SOP-11 Record a loss | U1.4 |
-| §8 Availability & metrics | U5.1, U5.2 |
+| §8 Availability & metrics | U5.1, U5.2, U5.7 |
 | Migration from V.2 | U1.10 |
