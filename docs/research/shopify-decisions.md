@@ -225,6 +225,7 @@ this convention:
 | 1.3 | Cuttings: are they always logged as a batch before sale, or cut to order? |
 | 1.4 | Seed: sold by weight, by count, or as a packet of a fixed size? |
 | 1.5 | Should a minimum number of plants be held back for each selling unit, or only one shared `min_saleable_qty`? |
+| 1.6 | Which stage does a seed lot in the Lab have? Every Lab batch needs one (SOP rule 6), but seed counted in `mg` isn't really `P0`. Either reuse `P0`, which muddies P0's meaning and metrics, or add a new code such as `S0 · Seed`. Stage codes are locked once events use them and U0.9's acceptance test lists them, so decide **before U0.9 G0**. |
 
 ### 2. A sale as its own event
 
