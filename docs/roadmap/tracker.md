@@ -18,7 +18,7 @@ Mark each cell with the sign-off date (e.g. `10-14`) when the gate passes.
 | U0.5 | Authentication | M | U0.3, U0.4a | 10-19 | 10-19 | 10-19 | 10-19 | 10-19 | 10-19 | 10-19 |
 | U0.6 | Roles & permissions | M | U0.5 | 10-19 | 10-19 | 10-19 | 10-20 | 10-20 | 10-20 | 10-20 |
 | U0.7 | Audit trail & append-only store | M | U0.6 | 10-20 | 10-20 | 10-20 | 10-20 | 10-21 | 10-22 | 10-22 |
-| U0.8 | ID sequence service | S | | · | · | · | · | · | · | · |
+| U0.8 | ID sequence service | S | U0.2a | ▶ | · | · | · | · | · | · |
 | U0.9 | Reference lists | S | | · | · | · | · | · | · | · |
 | U0.10 | App shell & UI kit | M | | · | · | · | · | · | · | · |
 | U0.11 | Backup & restore baseline | S | | · | · | · | · | · | · | · |
