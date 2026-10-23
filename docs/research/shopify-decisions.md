@@ -35,25 +35,196 @@ with no deadline. Shopify gives it one.
 
 ### 1. What a count means, and what is sold (D-22 + D-23 together)
 
-- **Decision:** what a batch's `live_count` counts (plants, containers or an
-  estimate), and how that becomes a number Shopify can sell (single plant,
-  bag of 5, jar).
+- **Decision:** what a batch's `live_count` counts (plants, vessels or an
+  amount of material), and how that becomes a number Shopify can sell. The
+  Owner sells, or expects to sell, four kinds of unit: **single plants**,
+  **bags of 3 and 5**, **whole vessels** (a flask or jar, including ones
+  whose contents can't be counted) and **cuttings, pieces or seed by weight**.
 - **Why now:** D-22 is due at U1.3 G0 and D-23 at U5.2 G0. But the sellable
-  number pushed to Shopify can only be worked out if every batch at stage ≥ P4
-  counts in a unit that converts to packs. U1.10 loads all the V.2 data in
-  whatever unit gets chosen. Changing it afterwards means reinterpreting
+  number pushed to Shopify can only be worked out if every sellable batch
+  counts in a unit that converts to what is sold. U1.10 loads all the V.2 data
+  in whatever unit gets chosen. Changing it afterwards means reinterpreting
   migrated history.
 
 | Option | Trade-off |
 |---|---|
-| **Batches say what they count; sellable stages (≥ P4) always count plants. Packs are a pack size per Shopify variant** (packs available = plants ÷ pack size) | Simple and flexible. A plant can be sold as a single or as a 5-pack from the same stock. Stock shared between pack sizes needs a rule (see 4). |
-| Packs become their own batches once bagged | Counts match the shelf exactly. Staff do an extra transfer for every bagging. Unbagged plants can't be sold as packs. |
+| **Each batch says what it counts (plant, vessel or weight). Each selling unit names the count unit it draws on and how many it takes. Bags are made up at packing, not kept as batches** (bags available = plants ÷ bag size) | Fits all four selling units, including flasks of uncountable callus. A plant can be sold as a single, a bag of 3 or a bag of 5 from the same stock. Stock shared between selling units needs a rule (see 4). Adds three columns to `batches` (1a) and one small table of selling units (1d). |
+| Bags become their own batches once bagged | Counts match the shelf exactly. Staff do an extra transfer for every bagging. Unbagged plants can't be sold as bags. Doesn't help with flasks or seed. |
+| Sellable stages (≥ P4) always count plants; everything earlier counts vessels | Close to today. Can't sell a flask or seed, because those are never at P4. |
 | One count unit for everything | Easiest to build. Doesn't fit seed, jars or bags of 5 (the D-22 problem). |
 
-**Also decide here:** only the Nursery ships (assumption A3 in the research),
-but U5.2's rule doesn't filter by location. Purchased potted plants enter at
-**Lab P4** and would be pushed as sellable. Either add "location = Nursery"
-to the rule, or map each location to its own Shopify location.
+The rest of this section spells out the recommended option as a **counting
+convention**. It is a starting point for D-22 and D-23, not a settled design.
+Cucumber's designs can still change. The parts that are costly to change once
+U1.10 has loaded data are the three count units (1a) and the rule that a unit
+only changes when stock moves into a new batch (1c).
+
+#### 1a · What a count refers to
+
+Four things get counted, or hold a count. Only the first three are **count
+units**, meaning the thing `live_count` is a number of:
+
+| Term | What it is | Is it a count unit? |
+|---|---|---|
+| **Plant** | One individual you can pick up and separate: a rooted plantlet, a deflasked seedling, a potted plant, a cutting once taken. | Yes: `plant` |
+| **Vessel** | One container counted as a whole: flask, jar, tube, magenta box, cup, culture bag. Its contents may be countable (about 20 plantlets) or not (callus, protocorms, a clump, sown seed). | Yes: `vessel` |
+| **Weight** | An amount of material too small or numerous to count, mainly seed. Recorded in whole milligrams so `live_count` stays a whole number (rule 7). | Yes: `mg` |
+| **Batch** | The group tracked together (D-02). It **holds** a count. It is never what gets counted. | No |
+
+Each batch has three fields (D-22's "column or two", carried by U1.3):
+
+- `count_unit`: `plant`, `vessel` or `mg`. Required, and fixed for the
+  batch's whole life.
+- `container_type`: picked from a reference list (U0.9), for example "250 ml
+  flask", "magenta box", "4-inch pot" or "grow bag".
+- `est_plants_per_vessel`: optional, for vessel batches only. It's an
+  **estimate**, used for labels and listing text ("about 20 seedlings"). It is
+  never added up as stock, never decremented and never pushed to Shopify.
+
+#### 1b · Units by stage
+
+This is how labs in the industry usually count. Cultures are counted by the
+vessel while they multiply, because a clump or callus can't be split into
+plants. They switch to counting plants at deflasking, where each plantlet is
+handled one by one.
+
+| Stage | What is on the shelf | Usual count unit |
+|---|---|---|
+| `P0` Sterilization / introduction | Explants in tubes or jars | `vessel` |
+| `P1` Multiplication | Clumps, callus or protocorms in jars, flasks or magenta boxes | `vessel` (uncountable contents) |
+| `P2` Growth | Separate shoots and rooting plantlets, still in vessels | `vessel`, with an estimated number of plants per vessel |
+| `A1` Acclimatization | Deflasked plantlets in trays or cups | `plant` |
+| `P4` Potted | Pots, bags | `plant` |
+| Nursery, no stage | Collection plants in pots | `plant` |
+| Seed (any stage) | Seed packets, or seed sown in a box | `mg` until sown, then `vessel` |
+| Mother stock for cuttings | Potted mother plants | `plant` (the mothers themselves) |
+
+This table is a guide. The batch's own `count_unit` is what counts. A P2 batch
+of large single plantlets in cups can count `plant`.
+
+#### 1c · Where the unit changes
+
+A batch keeps one count unit. The unit changes only when stock moves into a
+**new child batch**, through events that already exist (subculture, transfer,
+split). Both sides of the move are recorded in their own units in one
+operation, as U0.2b already does for subculture (units used on the parent,
+units made on each child).
+
+| Point | Parent side (out) | Child side (in) | Example |
+|---|---|---|---|
+| Subculture | vessels | vessels | 5 jars → 55 jars (the V.2 `PHL001` baseline) |
+| Deflasking / prick-out | vessels | plants | 3 magenta boxes → 135 plantlets |
+| Sowing | mg | vessels | 200 mg *Drosera* seed → 4 boxes |
+| Taking cuttings | none (the mother plant stays) | plants | 1 mother → 12 cuttings |
+| **Bagging into 3s or 5s** | **No unit change.** Bags aren't batches (1e). | | |
+
+The ratio between the two sides is a fact recorded on the event, not a fixed
+conversion. That is how contamination, losses and the multiplication factor
+(D-24) can be read across units without guessing.
+
+#### 1d · Selling units and their conversion
+
+A **selling unit** is one way of selling a plant. Each one becomes a Shopify
+variant. It has three parts: the plant (its SKU), the count unit it draws
+on, and the **quantity per selling unit**.
+
+```
+base units (plant, count unit) = sum of live_count over the plant's open,
+                                 non-quarantined batches with that count_unit,
+                                 at the selling unit's eligible stages
+                                 (and location, see the location note below)
+available (selling unit)       = floor((base units − reserved base units)
+                                       ÷ quantity per selling unit)
+```
+
+- **Plant units** (single, bag of 3, bag of 5) share one pool of plants.
+  Selling a bag of 5 lowers what the single and the bag of 3 can show.
+  Shopify keeps a separate stock number for each variant, so Cucumber
+  recalculates and pushes **every** variant of a plant after any change.
+- **Vessel units** draw on vessels. Selling a flask removes 1 vessel. The
+  estimated plants inside are never counted, so selling a flask of callus
+  works the same way as a flask of 20 seedlings.
+- **Weight units** draw on milligrams. A 1 g packet removes 1,000 mg.
+- **Eligible stages belong to each selling unit**, not to the plant. Plant
+  units default to stage ≥ P4 (as in SOP §8). Vessel units need their own
+  list, for example P2 only, because a flask is never at P4.
+- **`min_saleable_qty` (T-2)** is checked in base units, before dividing.
+  So a threshold of 10 on plant stock means no singles, 3s or 5s go on sale
+  until 10 sellable plants exist.
+- **Variant SKUs** follow decision 3's example: the Cucumber SKU plus a
+  suffix. A plain number means plants: `PHL001-1`, `PHL001-3`, `PHL001-5`.
+  A letter means another unit: `PHL001-V` (one vessel) and `DRS001-W1000`
+  (1,000 mg). The suffix is only a label. The link itself stays keyed on
+  plant ID and selling unit (decision 3), so a reclassification that
+  changes the SKU doesn't break it.
+
+#### 1e · When stock goes down
+
+**Reserve at order, deduct at packing.** This matches decision 4.
+
+1. **Order or reservation.** A reservation of *quantity × quantity per
+   selling unit* base units goes into the reservation ledger (decision 4).
+   A bag of 5 reserves 5 plants. A flask reserves 1 vessel. No batch is
+   chosen yet, and `live_count` doesn't change. The Shopify number for
+   every variant of that plant drops straight away.
+2. **Packing.** Staff pick the batch or batches and make up the unit. The
+   sale event (decision 2) takes the stock out of each batch, in that
+   batch's count unit, with the order reference. A bag of 5 drawn from two
+   batches writes two events with the same reference. The reservation is
+   then marked fulfilled.
+3. **Record what physically leaves.** If staff add a bonus plant to a bag
+   of 5 (a common habit, to cover a death in transit), the events record 6
+   plants out. The extra plant isn't hidden in the pack size.
+
+Bags made up ahead of time, for example for a live-selling session, still
+belong to their batch until sold. At a monthly count, a bagged plant counts
+as a plant in its batch.
+
+#### 1f · How the current SKU designs map
+
+There's no product list yet (research Q3 is still open). The rows below are
+the SKU format and the selling-unit examples already in this document, the
+SOP and the decisions log.
+
+| Design | Count unit | Quantity per unit | Maps cleanly? |
+|---|---|---|---|
+| Cucumber SKU `PHL001` (one per cultivar, SOP §5 rule 1) | n/a. It names the plant, not a unit. | n/a | ✅ One SKU, many selling units |
+| Single plant, `PHL001-1` | `plant` | 1 | ✅ |
+| Bag of 3, `PHL001-3` | `plant` | 3 | ✅ Shares the plant pool |
+| Bag of 5, `PHL001-5` (decision 3's example) | `plant` | 5 | ✅ Shares the plant pool |
+| Jar or flask, countable plantlets, `PHL001-V` | `vessel` | 1 | ⚠️ Never reaches P4, so it needs its own eligible stages, and is it sold from the Lab? |
+| Flask of callus, protocorms or sown seed | `vessel` | 1 | ⚠️ Same as above. Listing text can't promise a plant count. |
+| Seed by weight, `DRS001-W1000` | `mg` | for example 1,000 | ⚠️ Needs a scale and whole-milligram entry. Seed sold by count instead would be `plant`. |
+| Cuttings or pieces | `plant`, in a cuttings batch | 1 or *n* | ⚠️ Taking cuttings doesn't reduce the mother, so stock exists only once cuttings are logged as a new batch (1c). Cuttings taken to order need a decision. |
+| Purchased potted plant at **Lab P4** | `plant` | 1 | ⚠️ The location gap below |
+| V.2 counts, for example `PHL001` 5 → 55 | Unknown | n/a | ⚠️ V.2 doesn't say if 55 means jars or plantlets. U1.10 must give every migrated batch a `count_unit`. |
+
+**Location (also decide here):** only the Nursery ships (assumption A3 in the
+research), but U5.2's rule doesn't filter by location. Purchased potted plants
+enter at **Lab P4** and would be pushed as sellable. Either add "location =
+Nursery" to the rule, or map each location to its own Shopify location. Flask
+sales make this harder, because flasks live in the Lab.
+
+#### 1g · Knock-on effects on other decisions
+
+These don't change sections 2–11. They are what those sections mean under
+this convention:
+
+- Decision 3's "pack size" means a **selling unit** (count unit plus quantity).
+- Decision 4's "in plants" means **in the selling unit's count unit**: plants,
+  vessels or milligrams.
+- D-24's multiplication factor has to be measured in one count unit every
+  time. Section 1c gives the vessel-to-vessel ratio it needs.
+
+#### 1h · Open points for the Owner
+
+| # | Question |
+|---|---|
+| 1.1 | For each V.2 batch, what did the number count? Jars or plantlets? (Needed at U1.10.) |
+| 1.2 | Which stages and locations may sell flasks? Is there a promised minimum of plantlets per flask? |
+| 1.3 | Cuttings: are they always logged as a batch before sale, or cut to order? |
+| 1.4 | Seed: sold by weight, by count, or as a packet of a fixed size? |
+| 1.5 | Should a minimum number of plants be held back for each selling unit, or only one shared `min_saleable_qty`? |
 
 ### 2. A sale as its own event
 
