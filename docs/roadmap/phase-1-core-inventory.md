@@ -17,6 +17,11 @@ subculture) — depth features follow in Phase 2.
 - **Acceptance:** search shows likely duplicates before save, Retired plants
   included; `PLT-` ID assigned; unidentified plants are valid but need a
   human-readable name, no `???` (U0.2 Q6). Naming rules come from D-19.
+- **Production rule (U0.8 design Q2, Owner 2026-10-23):** no plant is added
+  on production until the V.2 import (U1.10) is done, so the import can keep
+  the `PLT-` numbers already in use. U1.1 can ship, with adding plants
+  switched off on production by a flag until then. If the Owner decides
+  there will be no import, the rule falls away.
 - **Gate focus:** G2 fuzzy duplicate tests · G5 Owner registers 5 real plants.
 
 ### U1.2 · Plant status & SKU promotion
