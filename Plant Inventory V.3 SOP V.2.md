@@ -58,6 +58,13 @@ to a LINE photo to manual retyping, which introduced errors.
 | SKU | `<GENUS3><nnn>` | `HYA001`, `PHL003`, `ALC015` |
 | Batch | `BAT-nnnnn` (shown as `<SKU or PLT> · Bnnn`) | `BAT-00117` → `PHL001 · B003` |
 | Event | `EVT-nnnnn` | `EVT-01502` |
+| Variant SKU | `<SKU>-<suffix>`: a plain number is plants per selling unit, `V` is one vessel, `W<mg>` is a weight | `PHL001-1`, `PHL001-5`, `PHL001-V`, `DRS001-W1000` |
+
+A variant SKU is **not an issued ID**. It is built from the plant's SKU and
+the selling unit (see Counting below), so it has no sequence of its own. It is
+only a label: anything linked to a selling unit (a Zoho item, a listing) is
+keyed on plant ID + selling unit, so a new SKU after a genus reclassification
+doesn't break the link.
 
 **Plant status**
 
@@ -111,9 +118,28 @@ are not compared alphabetically.
 app. A media code names a medium recipe. Later, each code gets a versioned
 recipe (U3.4), and staff can log prepared media lots made from it (U3.5).
 
-**Reference lists** (stages, media codes, locations, genus codes) are edited by
-the Admin. Items are **deactivated, never deleted**: hidden from dropdowns, still
-shown on history.
+**Counting** (D-22, D-23; the convention proposed in the
+[Shopify decisions](docs/research/shopify-decisions.md#1-what-a-count-means-and-what-is-sold-d-22--d-23-together),
+confirmed at U1.3 G0)
+
+| Term | Meaning |
+|---|---|
+| **Plant** | Count unit `plant`. One individual you can pick up and separate: a rooted plantlet, a deflasked seedling, a potted plant, a cutting once taken. |
+| **Vessel** | Count unit `vessel`. One container counted as a whole (flask, jar, tube, magenta box, cup, culture bag), whether its contents can be counted or not (callus, protocorms, sown seed). |
+| **mg** | Count unit `mg`. An amount of material too small or numerous to count, mainly seed, in whole milligrams so counts stay whole numbers. |
+| **Batch** | **Holds** a count; it is never what gets counted. Each batch has one count unit, fixed for its whole life. The unit changes only when stock moves into a new child batch (subculture, transfer, split), with each side recorded in its own unit. |
+| **Selling unit** | One way of selling a plant: the count unit it draws on and how many it takes, e.g. single = 1 plant, bag of 5 = 5 plants, flask = 1 vessel, 1 g packet = 1,000 mg. Bags are made up at packing, not kept as batches. Each selling unit has its own eligible stages. |
+
+- **Count units** are a **fixed list**: `plant`, `vessel`, `mg`. Like event
+  actions, they can't be added, renamed or deactivated, because stock sums
+  depend on them.
+- **Container types** are an **editable reference list**, for example
+  "250 ml flask", "magenta box", "4-inch pot", "grow bag". A batch picks one;
+  it describes the batch and never changes what is counted.
+
+**Reference lists** (stages, media codes, locations, genus codes, container
+types) are edited by the Admin. Items are **deactivated, never deleted**: hidden
+from dropdowns, still shown on history.
 
 ## 4. Data Model
 
@@ -375,6 +401,7 @@ its stage's default interval (D-11).
 |---|---|---|
 | V.1 | — | First consolidated SOP |
 | V.2 | 2026-10-10 | Standalone **Cucumber** app (D-01); four roles (D-03); Void / Correction / Undo, no hard deletes (D-07); locations Lab / Nursery (D-14); new stage `A1`, potted = `P4`, stage sort order (D-06, D-15); Protocol plan shelved (D-08); quarantine-by-split (D-02); Zoho vendor copy (D-04); `Candidate` status (T-1); global + per-SKU `min_saleable_qty` (T-2); monthly counts (T-3); Zoho reference text (T-4); clean start (T-5); per-stage subculture intervals (D-11); optional media lot (D-12); online only (D-17); translation-ready (D-16). All §9 TBDs closed. |
+| V.2 (amended) | 2026-10-23 | Counting vocabulary: count units `plant` / `vessel` / `mg` (fixed list), a batch holds a count in one unit for life, selling units; container types as an editable reference list; variant SKU `<SKU>-<suffix>`, a label built from SKU + selling unit, not an issued ID (D-22, D-23 as proposed in the Shopify decisions, confirmed at U1.3 G0). §3. |
 | V.2 (amended) | 2026-10-11 | One action is voided as a whole; refused while a batch it created has later events; Split / Transfer quantity corrections change both batches (U0.2 Q8). SOP-10. |
 | V.2 (amended) | 2026-10-10 | Closing a batch is a `Close` event; a wrong close is voided to reopen; one-standing-batch rule removed (any number of batches per plant per location); new `Split` action; transfers go to a new batch by default; availability sums a plant's batches; pre-orders parked as D-20 (U0.2 Q7). §4, SOP-5, SOP-10, SOP-12, SOP-13, §8. |
 | V.2 (amended) | 2026-10-10 | Duplicate plant names blocked by any non-voided plant, Retired included; case, spaces and quotes ignored; no `???` names; naming standard parked as D-19 (U0.2 Q6). §5 rules 12–13, SOP-1. |

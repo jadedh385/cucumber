@@ -20,13 +20,17 @@ data entry (SOP §8).
   G4 query performance review.
 
 ### U5.2 · Availability calculation
-- **Size:** S · **Deps:** U1.2, U1.4 · **Decisions:** T-2, D-06, **D-23 (decided here, at G0)**
+- **Size:** S · **Deps:** U1.2, U1.4 · **Decisions:** T-2, D-06, D-23 (decided at U1.3 G0)
 - **Source:** SOP §8 Availability, principle 6
 - **Scope:** per plant, `available_to_sell = Portfolio AND units ≥ min_saleable_qty`,
   where units = sum of `live_count` over its open, non-quarantined batches at
   stage ≥ P4 (summed because a plant can have several batches, U0.2 Q7).
-  Reservations come later (D-20).
+  Reservations come later (D-20, U5.7).
   Never typed.
+- **G0 to settle:** which locations count as sellable. Purchased potted plants
+  enter at Lab P4 (D-15), so either filter to `Nursery` or count each location
+  separately. Units are counted as decided by D-22 / D-23 at U1.3: per selling
+  unit, in its count unit, at its own eligible stages.
 - **Acceptance:** no input field for availability anywhere; changes as soon as the
   underlying events change.
 - **Gate focus:** G2 truth-table test of the three conditions.
@@ -64,3 +68,19 @@ data entry (SOP §8).
 - **Acceptance:** API failures logged and shown as "data stale", never silently
   ignored; API key stored as a secret.
 - **Gate focus:** G4 security review (external API, secret) · G5 one week of live readings.
+
+### U5.7 · Reservations
+- **Size:** M · **Deps:** U5.2, U1.4 · **Decisions:** D-20, D-23, D-28, **D-29 (decided here, at G0)**
+- **Source:** D-20; [Shopify roadmap plan](../research/shopify-roadmap-plan.md) I4
+- **Scope:** append-only reservation ledger: a quantity per plant in the
+  selling unit's count unit (plants, vessels or mg), with a channel and an
+  external reference (Zoho sales order today). Available = sellable − reserved.
+  Packing picks the batch, writes the `sale` event and releases the
+  reservation; cancelling releases it without a sale. A count or correction
+  that drops sellable below reserved is handled as D-20 decides.
+- **Acceptance:** reservations are never edited, only added or released;
+  availability changes as soon as a reservation is added or released; the same
+  external reference can't reserve twice; no customer data stored (D-04).
+- **Gate focus:** G2 property-based test: available = sellable − open
+  reservations for random sequences · G5 Owner reserves and ships a real
+  pre-order.

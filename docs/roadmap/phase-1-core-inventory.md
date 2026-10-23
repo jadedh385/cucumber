@@ -29,7 +29,7 @@ subculture) — depth features follow in Phase 2.
 - **Gate focus:** G2 rule-1 and rule-2 tests per role.
 
 ### U1.3 · Batches
-- **Size:** M · **Deps:** U1.1 · **Decisions:** D-02, D-14, D-15, **D-22 (decided here, at G0)**
+- **Size:** M · **Deps:** U1.1 · **Decisions:** D-02, D-14, D-15, **D-22 and D-23 (decided here, at G0)**; D-20 and D-28 settled before G0
 - **Source:** SOP §4 `batches`, SOP-3
 - **Scope:** batches in `Lab` (stage required) or `Nursery` (stage optional);
   any number of open batches per plant per location (U0.2 Q7). Optional
@@ -43,9 +43,9 @@ subculture) — depth features follow in Phase 2.
 - **Gate focus:** G1 display-ID rule documented · G2 split, close and reopen tests.
 
 ### U1.4 · Event logging & live counts
-- **Size:** L · **Deps:** U1.3, U0.7
+- **Size:** L · **Deps:** U1.3, U0.7 · **Decisions:** D-28
 - **Source:** SOP §4 `events`, §5 rules 5–7, principle 5
-- **Scope:** log `Intake`, `Count`, `Contamination`, `Out`, `Loss` (SOP-11), `Correction`.
+- **Scope:** log `Intake`, `Count`, `Contamination`, `Out`, `Sale` (D-28), `Loss` (SOP-11), `Correction`.
   `live_count` and `week` always calculated. Unreviewed events flagged.
 - **Acceptance:** event that would make `live_count < 0` is rejected with a clear
   message; events can't be edited; `Correction` adjusts totals; week derived
