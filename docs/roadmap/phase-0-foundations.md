@@ -190,6 +190,7 @@ exits · *Gate focus* = unit-specific checks on top of [the standard gates](gate
 - **Acceptance:** 100 parallel creates give 100 unique, never-reused IDs (gaps
   allowed); SKU sequence is per genus code.
 - **Gate focus:** G2 concurrency test.
+- **Spec:** [U0.8 spec](units/u0.8-spec.md) (G0 passed 2026-10-23)
 
 ### U0.9 · Reference lists
 - **Size:** S · **Deps:** U0.6, U0.7 · **Decisions:** D-22 (count units, as proposed)
