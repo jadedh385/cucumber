@@ -6,6 +6,7 @@ from django.db.models import Q, QuerySet
 from cucumber.accounts.permissions import Permission, require
 from cucumber.core.audit import audited
 from cucumber.core.refusals import database_refusals, refuse
+from cucumber.ids.issuing import issue_next_sku
 from cucumber.plants.models import (
     Plant,
     PlantSource,
@@ -13,10 +14,8 @@ from cucumber.plants.models import (
     PlantStatusChange,
     Sku,
 )
-from cucumber.references.models import Genus
 
 GENUS_RECLASSIFIED = "genus reclassified"
-SKU_DIGITS = 3  # PHL005: the genus code, then 3 digits
 
 
 def zoho_link_missing() -> QuerySet[Plant]:
@@ -63,30 +62,6 @@ def reclassify_genus(admin: User, plant_id: int, genus_code: str) -> Plant:
             reason=GENUS_RECLASSIFIED,
         )
     return Plant.objects.get(pk=plant_id)
-
-
-def issue_next_sku(plant_id: int, genus_code: str, assigned_by: User) -> str:
-    """Add the genus's next SKU to the register, issued to the plant.
-
-    The next number counts from every SKU ever issued for the genus (Q1).
-    The genus row is locked, so two reclassifications into the same genus
-    take turns instead of picking the same number. Full sequence rules: U0.8.
-    """
-    require(assigned_by, Permission.PLANT_LIFECYCLE)
-    list(Genus.objects.select_for_update(no_key=True).filter(pk=genus_code))
-    issued = Sku.objects.filter(genus_id=genus_code).values_list("sku", flat=True)
-    highest = max((int(sku[len(genus_code) :]) for sku in issued), default=0)
-    sku = f"{genus_code}{highest + 1:0{SKU_DIGITS}d}"
-    Sku.objects.create(
-        sku=sku, plant_id=plant_id, genus_id=genus_code, assigned_by=assigned_by
-    )
-    return sku
-
-
-def find_by_sku(sku: str) -> Plant | None:
-    """The plant an SKU was issued to, current or former SKU alike."""
-    issued = Sku.objects.select_related("plant").filter(pk=sku).first()
-    return issued.plant if issued else None
 
 
 def former_skus(plant_id: int) -> list[str]:

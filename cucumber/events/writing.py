@@ -1,9 +1,10 @@
 """How every event save writes: locks, rows and the projection (design §3.3, §3.4).
 
 The event services in `services.py` call these inside one transaction.
-Lock order, always: plants first (when a `plant_seq` is allocated), then
-batches by ascending `id`. Locks are `FOR NO KEY UPDATE`, so they don't
-block the foreign-key checks of event inserts on the same batch.
+Lock order, always: plants first (when a `plant_seq` is allocated, by
+`ids.issuing.lock_plants`), then batches by ascending `id`. Locks are
+`FOR NO KEY UPDATE`, so they don't block the foreign-key checks of event
+inserts on the same batch.
 """
 
 import uuid
@@ -12,7 +13,6 @@ from datetime import datetime
 from typing import Any
 
 from django.contrib.auth.models import User
-from django.db.models import Max
 
 from cucumber.batches.models import Batch, BatchStatus
 from cucumber.core.refusals import refuse
@@ -23,28 +23,12 @@ from cucumber.events.projection import (
     is_quarantined,
     project,
 )
-from cucumber.plants.models import Plant
 from cucumber.references.models import Reason
 
 
 def start_operation(operation_id: uuid.UUID, recorded_by: User) -> None:
     """The save's first write. The same id again stops here (`operations_pkey`)."""
     Operation.objects.create(id=operation_id, recorded_by=recorded_by)
-
-
-def lock_plants(plant_ids: Collection[int]) -> dict[int, int]:
-    """Lock the plants and return each one's next free `plant_seq` (design §2.3)."""
-    if not plant_ids:
-        return {}
-    locked = Plant.objects.select_for_update(no_key=True).filter(pk__in=plant_ids)
-    list(locked.order_by("id").values_list("id", flat=True))
-    highest = dict(
-        Batch.objects.filter(plant_id__in=plant_ids)
-        .values("plant_id")
-        .annotate(top=Max("plant_seq"))
-        .values_list("plant_id", "top")
-    )
-    return {plant_id: highest.get(plant_id, 0) + 1 for plant_id in plant_ids}
 
 
 def lock_batches(batch_ids: Collection[int]) -> dict[int, Batch]:

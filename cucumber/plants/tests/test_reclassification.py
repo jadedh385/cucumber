@@ -11,8 +11,9 @@ from django.contrib.auth.models import User
 from cucumber.core.tests.rows import give_sku, insert, issue_sku, make_plant, refused_by
 from cucumber.core.tests.stock import not_allowed, refused
 from cucumber.core.tests.trail import as_system
+from cucumber.ids.lookup import find_by_sku
 from cucumber.plants.models import Plant, PlantStatusChange, Sku
-from cucumber.plants.services import find_by_sku, former_skus, reclassify_genus
+from cucumber.plants.services import former_skus, reclassify_genus
 
 pytestmark = pytest.mark.django_db
 
