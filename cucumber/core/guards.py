@@ -35,6 +35,7 @@ class Kind(StrEnum):
     GRANT = "grant"
     APP_ROLE = "app role"
     TRUNCATE = "truncate"
+    SEQUENCE = "sequence"  # U0.8 §6: a table's number generator; none until G3
 
 
 @dataclass(frozen=True)

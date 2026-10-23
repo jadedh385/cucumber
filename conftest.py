@@ -54,3 +54,30 @@ def app_db(transactional_db: None) -> Iterator[psycopg.Connection[tuple[object, 
         yield app_connection
     finally:
         app_connection.close()
+
+
+@pytest.fixture
+def as_app_user() -> Iterator[None]:
+    """Django's own connection, as `cucumber_app`, until the test ends.
+
+    The other tests run as the tables' owner, so a service that works as the
+    owner could still fail on the servers (U0.5 design §9). Ask for it after
+    the fixtures that set up rows as the owner; it logs back in as the owner
+    afterwards, so pytest-django can empty the database. Committing tests
+    only (`django_db(transaction=True)`).
+    """
+    password = env("DB_APP_PASSWORD")
+    if not password:
+        pytest.fail("DB_APP_PASSWORD is not set: copy .env.example to .env")
+    settings = connection.settings_dict
+    owner = (settings["USER"], settings["PASSWORD"])
+    connection.close()
+    settings["USER"], settings["PASSWORD"] = APP_ROLE, password
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT current_user")
+            assert cursor.fetchone() == (APP_ROLE,)
+        yield
+    finally:
+        connection.close()
+        settings["USER"], settings["PASSWORD"] = owner

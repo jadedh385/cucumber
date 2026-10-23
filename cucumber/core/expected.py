@@ -19,6 +19,7 @@ CORE_0002 = "core.0002_protection_functions"
 CORE_0003 = "core.0003_app_grants"
 CORE_0005 = "core.0005_flag_grants"
 U07 = "core.0006_audit_trail"
+U08 = "core.0007_id_sequences"
 EVENTS_0002 = "events.0002_rules"
 PLANTS_0002 = "plants.0002_rules"
 BATCHES_0002 = "batches.0002_rules"
@@ -175,6 +176,15 @@ FUNCTIONS: dict[str, tuple[Function, str]] = {
         Function("5510fc28a2d34167763007fdd8d561a1", FIXED_SEARCH_PATH),
         U07,
     ),
+}
+
+# ----------------------------------------------------------------- sequences
+#
+# U0.8 §5.1: the generator that hands out each table's `id` (no default on
+# the column; the `<table>_id_from_sequence` trigger calls `nextval`).
+
+SEQUENCES = {
+    table: f"public.{table}_id_seq" for table in ("plants", "batches", "events")
 }
 
 # -------------------------------------------------------------------- grants

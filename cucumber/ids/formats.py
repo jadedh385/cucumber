@@ -5,11 +5,13 @@ not model objects, so none of them runs a query. A number below 1 is a
 `ValueError`: the database never issues 0.
 """
 
+from django.db.models.expressions import Combinable
+
 # G2: still today's rule (exactly 3 digits) and today's text order. G3
 # changes both to the design's values (§2, Q2): 3 or more digits with no
 # needless zero, and ("genus_id", Length("sku"), "sku").
 SKU_PATTERN = r"^[A-Z]{3}[0-9]{3}$"
-SKU_ORDER: tuple[object, ...] = ("genus_id", "sku")
+SKU_ORDER: tuple[str | Combinable, ...] = ("genus_id", "sku")
 
 
 def plant_id(number: int) -> str:
