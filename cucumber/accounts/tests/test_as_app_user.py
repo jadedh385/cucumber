@@ -3,15 +3,13 @@
 The other tests run as the tables' owner. `cucumber_app` may add and remove
 lock and change-due rows but never edit them, so an "update or create" that
 passes as the owner would fail on the servers. Here Django's own connection
-logs in as `cucumber_app` for the test, then back as the owner, so
-pytest-django can empty the database afterwards.
+logs in as `cucumber_app` for the test (`as_app_user`, in the root
+conftest.py), then back as the owner, so pytest-django can empty the
+database afterwards.
 """
-
-from collections.abc import Iterator
 
 import pytest
 from django.contrib.auth.models import Group, User
-from django.db import connection
 from django.test import Client
 
 from cucumber.accounts.permissions import Role
@@ -36,29 +34,8 @@ from cucumber.accounts.tests.helpers import (
 from cucumber.accounts.tests.test_cucumber_admin import Answers, run_command
 from cucumber.core.tests.stock import make_staff
 from cucumber.core.tests.trail import LEFT_THE_COMPANY
-from cucumber.env import env
 
 pytestmark = pytest.mark.django_db(transaction=True)
-
-
-@pytest.fixture
-def as_app_user() -> Iterator[None]:
-    """Django's connection, as `cucumber_app`, until the test ends."""
-    password = env("DB_APP_PASSWORD")
-    if not password:
-        pytest.fail("DB_APP_PASSWORD is not set: copy .env.example to .env")
-    settings = connection.settings_dict
-    owner = (settings["USER"], settings["PASSWORD"])
-    connection.close()
-    settings["USER"], settings["PASSWORD"] = "cucumber_app", password
-    try:
-        with connection.cursor() as cursor:
-            cursor.execute("SELECT current_user")
-            assert cursor.fetchone() == ("cucumber_app",)
-        yield
-    finally:
-        connection.close()
-        settings["USER"], settings["PASSWORD"] = owner
 
 
 @pytest.fixture

@@ -18,9 +18,8 @@ from django.db.models.functions import Coalesce, Left, Lower, Trim
 from django.db.models.lookups import Exact, Regex
 
 from cucumber.core.expressions import TransactionNow
+from cucumber.ids.formats import SKU_PATTERN
 from cucumber.references.models import Genus, Vendor
-
-SKU_PATTERN = r"^[A-Z]{3}[0-9]{3}$"
 
 
 def regexp_replace(text: Func | F, pattern: str, replacement: str) -> Func:
@@ -170,6 +169,9 @@ class Sku(models.Model):
             CheckConstraint(
                 condition=Q(Exact(Left(F("sku"), 3), F("genus"))),
                 name="skus_prefix_matches_genus",
+            ),
+            CheckConstraint(
+                condition=Q(Regex(F("sku"), SKU_PATTERN)), name="skus_sku_format"
             ),
             # Target of the plants (sku, id) link: an SKU belongs to one plant.
             UniqueConstraint(fields=["sku", "plant"], name="skus_sku_plant_unique"),

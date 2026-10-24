@@ -37,7 +37,8 @@ from cucumber.core.tests.trail import LEFT_THE_COMPANY, as_system
 from cucumber.events.models import Event
 from cucumber.events.reviews import review
 from cucumber.events.services import close, correct, split, void
-from cucumber.plants.services import issue_next_sku, reclassify_genus
+from cucumber.ids.issuing import issue_next_sku
+from cucumber.plants.services import reclassify_genus
 
 pytestmark = pytest.mark.django_db
 

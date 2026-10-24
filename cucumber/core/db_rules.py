@@ -400,6 +400,86 @@ SYSTEM_USERNAME_FIXED = Sql(
     reverse="DROP TRIGGER auth_user_system_username_fixed ON auth_user;",
 )
 
+# ------------------------------------------------- ids from a sequence (U0.8 §5.1)
+#
+# `plants.id`, `batches.id` and `events.id` have no default: a BEFORE INSERT
+# trigger takes the number from the table's sequence, and only the owner may
+# choose one (the V.2 import, Q1). Any later migration that alters one of
+# these `id` columns must keep the trigger and the sequence, or the guard
+# check reports it (U0.8 design §6).
+
+ID_TABLES = ("plants", "batches", "events")  # the app's lock order
+ID_FIXED_TABLES = ("plants", "batches")  # events is append-only already
+
+ID_FROM_SEQUENCE_BODY = """
+DECLARE
+  highest_given bigint;
+BEGIN
+  IF NEW.id IS NULL THEN
+    NEW.id := nextval(TG_ARGV[0]);
+  ELSIF session_user = 'cucumber_owner' THEN
+    -- The V.2 import keeps plant numbers already in use (Q1): move the
+    -- generator past them, so the next new row never collides. The lock
+    -- keeps app saves from taking numbers between the read and the setval
+    -- (review M1). It is taken inside the INSERT, so two imports at once
+    -- can deadlock: imports run one at a time (G4).
+    EXECUTE format('LOCK TABLE public.%I IN SHARE ROW EXCLUSIVE MODE', TG_TABLE_NAME);
+    -- Not pg_sequence_last_value: it is NULL until the first nextval, and
+    -- core 0007 leaves every generator so (G4 M1).
+    EXECUTE format(
+      'SELECT CASE WHEN is_called THEN last_value ELSE last_value - 1 END FROM %s',
+      TG_ARGV[0]::regclass) INTO highest_given;
+    IF NEW.id > highest_given THEN
+      PERFORM setval(TG_ARGV[0], NEW.id);
+    END IF;
+  ELSE
+    RAISE EXCEPTION '% ids are given by the database, not chosen', TG_TABLE_NAME
+      USING ERRCODE = 'restrict_violation',
+            CONSTRAINT = TG_TABLE_NAME || '_id_from_sequence';
+  END IF;
+  RETURN NEW;
+END
+"""
+
+ID_FIXED_BODY = """
+BEGIN
+  IF NEW.id IS DISTINCT FROM OLD.id THEN
+    RAISE EXCEPTION '% id % can''t be changed', TG_TABLE_NAME, OLD.id
+      USING ERRCODE = 'restrict_violation', CONSTRAINT = TG_TABLE_NAME || '_id_fixed';
+  END IF;
+  RETURN NEW;
+END
+"""
+
+ID_FUNCTIONS = {
+    "cucumber_id_from_sequence": ID_FROM_SEQUENCE_BODY,
+    "cucumber_id_fixed": ID_FIXED_BODY,
+}
+
+
+def sequence_of(table: str) -> str:
+    """The sequence that hands out `table.id`, schema-qualified."""
+    return f"public.{table}_id_seq"
+
+
+def id_from_sequence(table: str) -> Sql:
+    """New ids come from the sequence; only the owner may choose one (AC13)."""
+    name = f"{table}_id_from_sequence"
+    return Sql(
+        forward=(
+            f"CREATE TRIGGER {name} BEFORE INSERT ON {table} FOR EACH ROW"
+            " EXECUTE FUNCTION"
+            f" cucumber_id_from_sequence({quoted((sequence_of(table),))});"
+        ),
+        reverse=f"DROP TRIGGER {name} ON {table};",
+    )
+
+
+def id_fixed(table: str) -> Sql:
+    """An id never changes, for any role (review H1)."""
+    return _trigger(table, "id_fixed", "BEFORE UPDATE", "cucumber_id_fixed")
+
+
 # Design §3.1 (review M4): what `audited(SYSTEM, via="migration")` sets, as
 # SQL, for a data migration that changes an audited table.
 AS_SYSTEM_SQL = """

@@ -156,6 +156,12 @@ audited tables are refused, and the 5-second `lock_timeout` can abort core 0006.
 The business is not yet relying on the app, so a short outage is fine. Do it
 on staging first.
 
+**U0.8 too: stop the app before the deploy** (`dc stop app`). U0.8's
+`plants 0003` and `core 0007` give up after 5 seconds if a request holds their
+table. With the app stopped nothing can, and if the deploy does stop and says
+to restore, nothing saved after the copy is lost (U0.8 design §16, D1, Owner
+2026-10-24). Do it on staging first.
+
 **U0.7 only: everyone is signed out once.** The new login backend
 (`AuditedRehashBackend`) replaces the old one, and Django ends any session made
 through a backend that is no longer listed. Each person logs in again after the
@@ -219,7 +225,14 @@ staff note by hand.
 - **Wrong wording after publishing:** edit the release on GitHub; Discord
   keeps the first post, so post a short correction there.
 - **Deploy stopped at "The database's protections are not all on"**: see
-  [the protections check](#the-protections-check-u07) below.
+  [the protections check](#the-protections-check-u07) below; for a number
+  generator, [Number generator behind](#number-generator-behind).
+- **Deploy stopped at "canceling statement due to lock timeout"** (U0.8's
+  `plants 0003` or `core 0007`): something held a table for over 5 seconds
+  (the app should be stopped for U0.8, see §4; check `dc ps`), and that
+  migration gave up without changing anything. The U0.8 migrations before it
+  may already be made, and then the deploy says to restore: keep the app
+  stopped, restore, find what held the table, then deploy again.
 
 ## The protections check (U0.7)
 
@@ -258,6 +271,39 @@ dc run --rm migrate python manage.py cucumber_check_guards
 - **To read the trail:** `dc exec -T app python manage.py cucumber_audit`
   (`--person`, `--table`, `--row`, `--since`, `--until`, `--limit`). People are
   shown by id; look the id up on the Staff page.
+
+### Number generator behind
+
+From U0.8 the check also reads each number generator (`plants`, `batches`,
+`events`). A line like `plants: the next new one would get id 43, but id 50
+is already used` means the next new plant would be refused, because its
+number is taken. **Find out why first:** a restore from an older copy, or
+someone resetting the generator by hand. Look at it with Claude; don't just
+move it on.
+
+Once the cause is known, the Owner moves the generator past the highest id,
+as the owner, through the migrate service (put the table's name in both
+places):
+
+```bash
+dc run --rm migrate python manage.py shell -c "
+from django.db import connection
+connection.cursor().execute(\"SELECT setval('public.plants_id_seq', (SELECT max(id) FROM plants))\")
+"
+dc run --rm migrate python manage.py cucumber_check_guards     # no line for plants now
+```
+
+A generator ahead of its rows (a gap) is fine and needs nothing (U0.8 AC9).
+
+### Only `cucumber_owner` may supply an id
+
+From U0.8 a new plant, batch or event takes its id from the database. Any
+SQL that gives one itself (`INSERT INTO plants (id, …)`) is refused with
+`plants_id_from_sequence`, except when it runs as `cucumber_owner`, as the
+V.2 import does (it keeps plant numbers already in use). That includes the
+`postgres` superuser the UAT scripts use: on purpose (U0.8 design §5.1,
+review L4). Leave `id` out and let the database give it. Nobody, the owner
+included, can change an existing id (`plants_id_fixed`, `batches_id_fixed`).
 
 ## Admin account: the first one, or a rescue
 

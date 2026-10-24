@@ -39,10 +39,10 @@ from cucumber.events.writing import (
     check_reason,
     insert_event,
     lock_batches,
-    lock_plants,
     refresh_all,
     start_operation,
 )
+from cucumber.ids.issuing import lock_plants, plant_seqs
 
 # The rule a resent form meets: its `operation_id` is already saved (§3.3).
 ALREADY_SAVED = "operations_pkey"
@@ -203,17 +203,18 @@ def make_batches(
 ) -> dict[int, Batch]:
     """Insert each new batch, keyed by its entry's position, in entry order.
 
-    The plants are locked already, so the `plant_seq` numbers are free.
+    The plants are locked already; `plant_seqs` numbers the batches.
     """
-    made: dict[int, Batch] = {}
-    for position, entry in enumerate(entries):
-        new = entry.new_batch
-        if new is None:
-            continue
-        earlier = sum(1 for batch in made.values() if batch.plant_id == new.plant_id)
-        seq = next_seq[new.plant_id] + earlier
-        made[position] = make_batch(operation_id, recorded_by, new, seq, entry.stage_to)
-    return made
+    new_at = [
+        (position, entry.new_batch, entry.stage_to)
+        for position, entry in enumerate(entries)
+        if entry.new_batch is not None
+    ]
+    seqs = plant_seqs(next_seq, [new.plant_id for _, new, _ in new_at])
+    return {
+        position: make_batch(operation_id, recorded_by, new, seq, stage_to)
+        for (position, new, stage_to), seq in zip(new_at, seqs, strict=True)
+    }
 
 
 def batch_ids(entries: Sequence[NewEvent], made: dict[int, Batch]) -> list[int]:

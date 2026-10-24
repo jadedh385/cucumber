@@ -43,7 +43,8 @@ from cucumber.events.services import (  # noqa: E402
     split,
     void,
 )
-from cucumber.plants.services import find_by_sku, reclassify_genus  # noqa: E402
+from cucumber.ids.lookup import find_by_sku  # noqa: E402
+from cucumber.plants.services import reclassify_genus  # noqa: E402
 
 UAT_VIA = "uat"  # shows in the audit trail as how these rows were made
 THREE_DAYS_AGO = timedelta(days=3)

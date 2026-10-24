@@ -127,3 +127,9 @@ subculture) — depth features follow in Phase 2.
   rejected with a reason; counts per SKU match V.2 totals.
 - **Gate focus:** G2 dry-run on a copy, idempotent re-run · G5 Owner signs the
   reconciliation report · G6 V.2 sheets set read-only.
+- **From U0.8 G4:** an owner insert that keeps its own id locks the table
+  (`SHARE ROW EXCLUSIVE`) from inside the INSERT, so two imports at once can
+  deadlock and app writes to that table wait until the import commits. Run one
+  import at a time; take `LOCK TABLE plants, batches, events IN SHARE ROW
+  EXCLUSIVE MODE` at the start of the import's transaction (the app's lock
+  order) so it waits instead of deadlocking ([U0.8 design §16](units/u0.8-design.md#16-g4-review-2026-10-24)).

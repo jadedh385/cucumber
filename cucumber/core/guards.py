@@ -1,9 +1,10 @@
 """Are the database's protections on? (U0.7 design §8, AC15).
 
 `GUARDS` lists every protection: the append-only, no-delete, reason and
-audit triggers, their functions, `cucumber_app`'s grants and the app role
-itself. Each entry names the migration that adds it, and is skipped until
-that migration has run. `check()` compares the database with the list;
+audit triggers, their functions, `cucumber_app`'s grants, the app role
+itself and the number generators of plants, batches and events (U0.8 §6).
+Each entry names the migration that adds it, and is skipped until that
+migration has run. `check()` compares the database with the list;
 `cucumber_check_guards` prints what it finds, and the deploy stops on any
 failure (steps 3b and 5b).
 
@@ -35,6 +36,7 @@ class Kind(StrEnum):
     GRANT = "grant"
     APP_ROLE = "app role"
     TRUNCATE = "truncate"
+    SEQUENCE = "sequence"  # U0.8 §6: a table's number generator
 
 
 @dataclass(frozen=True)
@@ -72,6 +74,7 @@ GUARDS: tuple[Guard, ...] = (
         for name, check in expected.APP_ROLE_CHECKS.items()
     ),
     Guard(Kind.TRUNCATE, "audit_log", expected.U07),
+    *(Guard(Kind.SEQUENCE, table, expected.U08) for table in expected.SEQUENCES),
 )
 
 
@@ -115,6 +118,7 @@ def check() -> Report:
         *grant_failures(names[Kind.GRANT]),
         *app_role_failures(names[Kind.APP_ROLE]),
         *(truncate_failures() if names[Kind.TRUNCATE] else []),
+        *sequence_failures(names[Kind.SEQUENCE]),
     ]
     return Report(checked=len(due), failures=tuple(failures))
 
@@ -344,6 +348,71 @@ def truncate_failures() -> list[str]:
         f"table {table} was truncated ({when}); if that was you, run"
         ' cucumber_check_guards --accept "why"'
         for _, table, when in noticed_truncates()
+    ]
+
+
+# ----------------------------------------------------------------- sequences
+
+# One row: does `id` have a default or identity, is the sequence there and
+# owned by `id`, and may the app take numbers from it (U0.8 §6).
+GENERATOR_NOW = """
+SELECT a.atthasdef OR a.attidentity <> '',
+       EXISTS (SELECT 1 FROM pg_depend d
+                WHERE d.classid = 'pg_class'::regclass AND d.objid = s.oid
+                  AND d.refobjid = a.attrelid AND d.refobjsubid = a.attnum
+                  AND d.deptype IN ('a', 'i')),
+       s.oid IS NOT NULL AND has_sequence_privilege(%(app)s, s.oid, 'USAGE')
+  FROM pg_attribute a
+  LEFT JOIN pg_class s ON s.oid = to_regclass(%(sequence)s) AND s.relkind = 'S'
+ WHERE a.attrelid = to_regclass(%(table)s) AND a.attname = 'id'
+"""
+ONE = {"plants": "plant", "batches": "batch", "events": "event"}
+BEHIND_HELP = 'see the release runbook, "Number generator behind"'
+
+
+def sequence_failures(tables: set[str]) -> list[str]:
+    failures = []
+    for table in sorted(tables, key=list(expected.SEQUENCES).index):
+        failures += generator_failures(table, expected.SEQUENCES[table])
+    return failures
+
+
+def generator_failures(table: str, sequence: str) -> list[str]:
+    rows = fetch(
+        GENERATOR_NOW,
+        {"app": expected.APP_ROLE, "sequence": sequence, "table": f"public.{table}"},
+    )
+    if not rows:  # no table, or no id column: nothing to take numbers for
+        return [f"{table}: its number generator {sequence} is missing"]
+    [(has_default, owned, usable)] = rows
+    failures = []
+    if has_default:
+        failures.append(
+            f"{table}: id has a default again, so callers can choose it;"
+            " see U0.8 design §5.1"
+        )
+    if not owned:
+        return [*failures, f"{table}: its number generator {sequence} is missing"]
+    if not usable:
+        failures.append(
+            f"{table}: {expected.APP_ROLE} can't take numbers from {sequence},"
+            f" so every new {ONE[table]} fails"
+        )
+    return failures + generator_behind(table, sequence)
+
+
+def generator_behind(table: str, sequence: str) -> list[str]:
+    """The next value and `max(id)` in one statement (review M2)."""
+    next_value = "CASE WHEN is_called THEN last_value + 1 ELSE last_value END"
+    [(upcoming, highest)] = fetch(
+        f"SELECT {next_value}, (SELECT coalesce(max(id), 0) FROM public.{table})"  # noqa: S608 (fixed names)
+        f" FROM {sequence}"
+    )
+    if upcoming > highest:
+        return []
+    return [
+        f"{table}: the next new one would get id {upcoming}, but id {highest} is"
+        f" already used; {BEHIND_HELP}"
     ]
 
 
