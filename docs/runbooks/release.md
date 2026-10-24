@@ -156,6 +156,12 @@ audited tables are refused, and the 5-second `lock_timeout` can abort core 0006.
 The business is not yet relying on the app, so a short outage is fine. Do it
 on staging first.
 
+**U0.8 too: stop the app before the deploy** (`dc stop app`). U0.8's
+`plants 0003` and `core 0007` give up after 5 seconds if a request holds their
+table. With the app stopped nothing can, and if the deploy does stop and says
+to restore, nothing saved after the copy is lost (U0.8 design §16, D1, Owner
+2026-10-24). Do it on staging first.
+
 **U0.7 only: everyone is signed out once.** The new login backend
 (`AuditedRehashBackend`) replaces the old one, and Django ends any session made
 through a backend that is no longer listed. Each person logs in again after the
@@ -222,10 +228,11 @@ staff note by hand.
   [the protections check](#the-protections-check-u07) below; for a number
   generator, [Number generator behind](#number-generator-behind).
 - **Deploy stopped at "canceling statement due to lock timeout"** (U0.8's
-  `plants 0003` or `core 0007`): a slow request held a table for over 5
-  seconds, and that migration gave up without changing anything. The U0.8
-  migrations before it may already be made, and then the deploy says to
-  restore: do that, then deploy again at a quieter time.
+  `plants 0003` or `core 0007`): something held a table for over 5 seconds
+  (the app should be stopped for U0.8, see §4; check `dc ps`), and that
+  migration gave up without changing anything. The U0.8 migrations before it
+  may already be made, and then the deploy says to restore: keep the app
+  stopped, restore, find what held the table, then deploy again.
 
 ## The protections check (U0.7)
 
