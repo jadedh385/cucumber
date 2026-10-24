@@ -170,6 +170,9 @@ class Sku(models.Model):
                 condition=Q(Exact(Left(F("sku"), 3), F("genus"))),
                 name="skus_prefix_matches_genus",
             ),
+            CheckConstraint(
+                condition=Q(Regex(F("sku"), SKU_PATTERN)), name="skus_sku_format"
+            ),
             # Target of the plants (sku, id) link: an SKU belongs to one plant.
             UniqueConstraint(fields=["sku", "plant"], name="skus_sku_plant_unique"),
         ]

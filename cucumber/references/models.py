@@ -23,6 +23,11 @@ class Genus(models.Model):
             CheckConstraint(
                 condition=Q(code__regex=r"^[A-Z]{3}$"), name="genera_code_format"
             ),
+            # A typed ID never reads as an SKU (U0.8 AC5a).
+            CheckConstraint(
+                condition=~Q(code__in=["PLT", "BAT", "EVT"]),
+                name="genera_code_not_id_prefix",
+            ),
             UniqueConstraint(fields=["name"], name="genera_name_unique"),
         ]
 

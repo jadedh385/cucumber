@@ -317,10 +317,12 @@ def test_a_missing_migration_with_later_ones_applied_is_a_failure() -> None:
 
 
 def test_a_migration_not_yet_run_is_not_a_failure() -> None:
-    """Step 3b checks the old database with the new code: that is expected."""
-    run(
-        "DELETE FROM django_migrations WHERE app = 'core' AND name = '0006_audit_trail'"
-    )
+    """Step 3b checks the old database with the new code: that is expected.
+
+    The newest guard migration is the one not yet run; nothing comes after it.
+    """
+    app, name = expected.U08.split(".", 1)
+    run("DELETE FROM django_migrations WHERE app = %s AND name = %s", [app, name])
 
     assert "protections on." in check()
 
