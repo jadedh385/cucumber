@@ -234,6 +234,26 @@ def test_ac13_an_unused_owner_id_below_the_generator_moves_nothing(
     assert next_id(table) == due
 
 
+@pytest.mark.parametrize("table", TABLES)
+def test_g4_an_owner_id_below_a_generator_not_yet_called_moves_nothing(
+    table: str, rows: Rows, generators_put_back: None
+) -> None:
+    """G4 M1: core 0007 leaves every generator not yet called (`is_called` false).
+
+    `pg_sequence_last_value` is NULL then, so an owner id below the next one
+    must not be taken for "past the generator" and move it backwards.
+    """
+    gap = use_up_a_number(table)
+    use_up_a_number(table)  # so moving back to the gap would show
+    due = next_id(table)
+    fetch_one("SELECT setval(%s, %s, false)", [expected.SEQUENCES[table], due])
+
+    kept = owner_insert(table, {"id": gap, **new_values(table, rows)})
+
+    assert kept == gap < due
+    assert next_id(table) == due
+
+
 def test_review_m1_an_app_save_waits_for_an_owner_import_then_numbers_past_it(
     rows: Rows, app_db: AppConnection, generators_put_back: None
 ) -> None:

@@ -194,7 +194,7 @@ FUNCTIONS: dict[str, tuple[Function, str]] = {
         U07,
     ),
     "cucumber_id_from_sequence": (
-        Function("0e75e258fcedfff641998633560e107d", FIXED_SEARCH_PATH),
+        Function("ae9507ce29a8e96229b3224cd1f81363", FIXED_SEARCH_PATH),
         U08,
     ),
     "cucumber_id_fixed": (

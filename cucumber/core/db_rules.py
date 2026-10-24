@@ -412,16 +412,24 @@ ID_TABLES = ("plants", "batches", "events")  # the app's lock order
 ID_FIXED_TABLES = ("plants", "batches")  # events is append-only already
 
 ID_FROM_SEQUENCE_BODY = """
+DECLARE
+  highest_given bigint;
 BEGIN
   IF NEW.id IS NULL THEN
     NEW.id := nextval(TG_ARGV[0]);
   ELSIF session_user = 'cucumber_owner' THEN
     -- The V.2 import keeps plant numbers already in use (Q1): move the
     -- generator past them, so the next new row never collides. The lock
-    -- keeps app saves (and a second import) from taking numbers between
-    -- the read and the setval (review M1).
+    -- keeps app saves from taking numbers between the read and the setval
+    -- (review M1). It is taken inside the INSERT, so two imports at once
+    -- can deadlock: imports run one at a time (G4).
     EXECUTE format('LOCK TABLE public.%I IN SHARE ROW EXCLUSIVE MODE', TG_TABLE_NAME);
-    IF NEW.id > coalesce(pg_sequence_last_value(TG_ARGV[0]::regclass), 0) THEN
+    -- Not pg_sequence_last_value: it is NULL until the first nextval, and
+    -- core 0007 leaves every generator so (G4 M1).
+    EXECUTE format(
+      'SELECT CASE WHEN is_called THEN last_value ELSE last_value - 1 END FROM %s',
+      TG_ARGV[0]::regclass) INTO highest_given;
+    IF NEW.id > highest_given THEN
       PERFORM setval(TG_ARGV[0], NEW.id);
     END IF;
   ELSE
