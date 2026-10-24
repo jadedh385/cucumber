@@ -9,7 +9,8 @@ The pattern is written out here, as Django writes it; changing
 `ids.formats.SKU_PATTERN` needs a new migration. The old pattern allowed
 `XXX000`, so the migration first names every SKU the new one refuses
 (review L3). Undo puts the 3-digit check back, which is refused while a
-4-digit SKU exists: the older code couldn't read it (§5.5).
+4-digit SKU exists: the older code couldn't read it (§5.5). Both ways wait
+at most 5 s for the lock on `plants`, as core 0007 does.
 """
 
 import django.db.models.lookups
@@ -18,6 +19,9 @@ from django.db import migrations, models
 from django.db.backends.base.schema import BaseDatabaseSchemaEditor
 
 SKU_PATTERN = "^[A-Z]{3}(?!000)(?:[0-9]{3}|[1-9][0-9]{3,})$"
+# A check locks `plants` and scans it: give up rather than stall the pages
+# behind a slow request (U0.8 review M4), forward and undo.
+LOCK_TIMEOUT = "SET LOCAL lock_timeout = '5s';"
 
 
 def refuse_skus_that_dont_fit(
@@ -43,6 +47,7 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
+        migrations.RunSQL(LOCK_TIMEOUT, migrations.RunSQL.noop),
         migrations.RunPython(refuse_skus_that_dont_fit, migrations.RunPython.noop),
         migrations.RemoveConstraint(
             model_name="plant",
@@ -68,4 +73,6 @@ class Migration(migrations.Migration):
                 name="skus_sku_format",
             ),
         ),
+        # Last, so the undo sets it before it changes anything.
+        migrations.RunSQL(migrations.RunSQL.noop, LOCK_TIMEOUT),
     ]

@@ -222,10 +222,10 @@ staff note by hand.
   [the protections check](#the-protections-check-u07) below; for a number
   generator, [Number generator behind](#number-generator-behind).
 - **Deploy stopped at "canceling statement due to lock timeout"** (U0.8's
-  `core 0007`): a slow request held a table for over 5 seconds, and `core
-  0007` gave up without changing anything. The two U0.8 migrations before it
-  (`references 0005`, `plants 0003`) may already be made, and then the
-  deploy says to restore: do that, then deploy again at a quieter time.
+  `plants 0003` or `core 0007`): a slow request held a table for over 5
+  seconds, and that migration gave up without changing anything. The U0.8
+  migrations before it may already be made, and then the deploy says to
+  restore: do that, then deploy again at a quieter time.
 
 ## The protections check (U0.7)
 
