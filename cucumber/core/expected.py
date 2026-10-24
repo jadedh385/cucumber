@@ -141,6 +141,23 @@ TRIGGERS: dict[str, tuple[Trigger, str]] = {
         Trigger("auth_user", "cucumber_system_username_fixed", BEFORE_UPDATE),
         U07,
     ),
+    # U0.8 §5.1: ids from the sequence, and never changed.
+    **{
+        f"{table}_id_from_sequence": (
+            Trigger(
+                table,
+                "cucumber_id_from_sequence",
+                BEFORE_INSERT,
+                (db_rules.sequence_of(table),),
+            ),
+            U08,
+        )
+        for table in db_rules.ID_TABLES
+    },
+    **{
+        f"{table}_id_fixed": (Trigger(table, "cucumber_id_fixed", BEFORE_UPDATE), U08)
+        for table in db_rules.ID_FIXED_TABLES
+    },
 }
 
 # ----------------------------------------------------------------- functions
@@ -176,6 +193,14 @@ FUNCTIONS: dict[str, tuple[Function, str]] = {
         Function("5510fc28a2d34167763007fdd8d561a1", FIXED_SEARCH_PATH),
         U07,
     ),
+    "cucumber_id_from_sequence": (
+        Function("0e75e258fcedfff641998633560e107d", FIXED_SEARCH_PATH),
+        U08,
+    ),
+    "cucumber_id_fixed": (
+        Function("269f3b59cc606dcd1e136feb7b821d88", FIXED_SEARCH_PATH),
+        U08,
+    ),
 }
 
 # ----------------------------------------------------------------- sequences
@@ -183,9 +208,7 @@ FUNCTIONS: dict[str, tuple[Function, str]] = {
 # U0.8 §5.1: the generator that hands out each table's `id` (no default on
 # the column; the `<table>_id_from_sequence` trigger calls `nextval`).
 
-SEQUENCES = {
-    table: f"public.{table}_id_seq" for table in ("plants", "batches", "events")
-}
+SEQUENCES = {table: db_rules.sequence_of(table) for table in db_rules.ID_TABLES}
 
 # -------------------------------------------------------------------- grants
 #
@@ -286,5 +309,14 @@ APP_ROLE_CHECKS = {
         "SELECT has_schema_privilege(%(app)s, 'public', 'CREATE')",
         f"{APP_ROLE} may CREATE tables in schema public",
         CORE_0003,
+    ),
+    # U0.8 §6: `nextval` needs only USAGE; UPDATE would allow `setval`.
+    "sequence update": AppRoleCheck(
+        "SELECT EXISTS (SELECT 1"  # noqa: S608 (the SEQUENCES names, fixed)
+        f" FROM unnest(ARRAY[{db_rules.quoted(tuple(SEQUENCES.values()))}]) AS s(name)"
+        " JOIN pg_class c ON c.oid = to_regclass(s.name)"
+        " WHERE has_sequence_privilege(%(app)s, c.oid, 'UPDATE'))",
+        f"{APP_ROLE} may UPDATE a number generator, so it could move one (setval)",
+        U08,
     ),
 }

@@ -23,7 +23,9 @@ UNNAMED_RULE = "unnamed"
 MESSAGES: dict[str, str] = {
     # Plants
     "plant_portfolio_needs_sku": "A Portfolio plant needs an SKU.",
-    "plant_sku_format": "An SKU is 3 capital letters and 3 digits, e.g. PHL005.",
+    "plant_sku_format": (
+        "An SKU is 3 capital letters and 3 or more digits, e.g. PHL005."
+    ),
     "plant_sku_matches_genus": (
         "The SKU's first 3 letters must match the plant's genus."
     ),
@@ -113,6 +115,12 @@ MESSAGES: dict[str, str] = {
         " switched back on."
     ),
     "account_is_system": "The System account can't be changed.",
+    # IDs (U0.8 design §7)
+    "genera_code_not_id_prefix": (
+        "PLT, BAT and EVT start other IDs. Choose another genus code."
+    ),
+    # Not a refusal: `look_up` returns None and the page shows this (§3.3).
+    "id_not_found": "No plant, batch or event has that ID.",
 }
 
 # A programming error, not a person's: logged in full as well (design §6).
