@@ -135,7 +135,17 @@ doesn't fit (for U0.7, whose audit triggers refuse its writes). Rehearse the
 restore instead, with the copy the first command took:
 [Restore a copy](#restore-a-copy-production) with `staging` in place of
 `production`, then deploy the release forward again. (U0.7 shipped without
-this rehearsal, as an Owner exception: [U0.7 G6](../roadmap/units/u0.7-g6-release.md).)
+this rehearsal, as an Owner exception: [U0.7 G6](../roadmap/units/u0.7-g6-release.md);
+U0.8 did it: [U0.8 G6](../roadmap/units/u0.8-g6-release.md).)
+
+**If G5 already put the migrations on staging** (a `--source` deploy of the
+branch), the tag's deploy says "Updating the database (no changes)" and its copy
+already holds them, so restoring that copy doesn't show the way back from
+production's state. Also restore the copy G5's deploy took (the one before the
+`source-…` build), check `pending_migrations` lists the release's migrations and
+`unknown` is empty, leave the app stopped, then deploy the tag forward: that
+run applies the migrations for real, as production will. Check the app on
+`APP_PORT` from `secrets.env`, not 8000.
 
 **No output for more than a minute** means the command is waiting at a
 question like that one. A session without a keyboard can't answer it, so
