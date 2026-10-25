@@ -239,6 +239,9 @@ exits · *Gate focus* = unit-specific checks on top of [the standard gates](gate
   transaction; top-bar buttons 44 px tall; a comment on `help_text|safe` in
   `accounts/_field.html` (safe only while help text comes from Django's
   validators); the Staff list reads every lock in one query, not one per person.
+  **From U0.9 Q4:** the Admin's pages for the reference lists (add, label,
+  switch off with a reason, switch on), built on the services U0.9 delivers.
+  G5 gate focus moved here from U0.9: the Owner edits a media list on a phone.
 - **Acceptance:** all components usable one-handed at 375 px width; date and week
   never typed; no UI text hard-coded outside the translation function (checked by
   a lint rule or test).

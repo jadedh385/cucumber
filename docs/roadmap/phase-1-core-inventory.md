@@ -65,6 +65,10 @@ subculture) — depth features follow in Phase 2.
   code, stage, contaminated thrown away, contaminated kept. Creates children with
   `parent_batch_id` and `Intake` on each, in **one transaction**; contamination
   and quarantine are written as separate operations (U0.2 Q4).
+- **G0 to settle** (from U0.9 Q8): the stage germinated seedlings enter when
+  they leave an `S0 · Seed` batch (`P0`, `P1`, `P2`, or no default so the Tech
+  picks), and whether seedlings count towards the multiplication factor (D-24)
+  before they are multiplied.
 - **Acceptance:** all-or-nothing (a failure creates no partial children);
   contaminated units leave the parent; parent can't go negative.
 - **Gate focus:** G2 transaction-rollback test · G5 Staff runs a real

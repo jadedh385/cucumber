@@ -99,6 +99,7 @@ are not compared alphabetically.
 
 | Order | Code | Stage | In use |
 |:-:|---|---|---|
+| 0 | `S0` | Seed (a seed lot, counted in `mg`) | ✅ new (U0.9 Q1) |
 | 1 | `P0` | Sterilization / new species introduction | ✅ |
 | 2 | `P1` | Multiplication | ✅ |
 | 3 | `P2` | Growth | ✅ |
@@ -108,6 +109,9 @@ are not compared alphabetically.
 | — | `T1` | Digital content | reserved |
 | — | `C0` | Clean | reserved |
 
+- A seed lot in the Lab is a batch at `S0`, counted in `mg`, and stays `S0` for
+  life. Germinated seedlings move into a new child batch, counted in plants or
+  vessels; the stage they start in is decided at U1.5 G0.
 - Lab batches **always** have a stage. Cultures grow through P0 → P1 → P2 → A1 →
   P4; purchased potted plants enter directly at P4 (D-15).
 - Collection batches at the Nursery may leave stage blank.
@@ -401,6 +405,7 @@ its stage's default interval (D-11).
 |---|---|---|
 | V.1 | — | First consolidated SOP |
 | V.2 | 2026-10-10 | Standalone **Cucumber** app (D-01); four roles (D-03); Void / Correction / Undo, no hard deletes (D-07); locations Lab / Nursery (D-14); new stage `A1`, potted = `P4`, stage sort order (D-06, D-15); Protocol plan shelved (D-08); quarantine-by-split (D-02); Zoho vendor copy (D-04); `Candidate` status (T-1); global + per-SKU `min_saleable_qty` (T-2); monthly counts (T-3); Zoho reference text (T-4); clean start (T-5); per-stage subculture intervals (D-11); optional media lot (D-12); online only (D-17); translation-ready (D-16). All §9 TBDs closed. |
+| V.2 (amended) | 2026-10-25 | New stage `S0 · Seed` (sort order before `P0`) for a seed lot in the Lab, counted in `mg`; reference lists are changed by the Admin only, a switch-off needs a reason (U0.9 Q1–Q3, Q5). §3. |
 | V.2 (amended) | 2026-10-23 | IDs: an SKU grows to 4 digits from the 1 000th in a genus (`PHL1000`), earlier SKUs unchanged; `PLT-` numbers already in use are kept at the V.2 import (U0.8 Q1, Q2). §3. |
 | V.2 (amended) | 2026-10-23 | Counting vocabulary: count units `plant` / `vessel` / `mg` (fixed list), a batch holds a count in one unit for life, selling units; container types as an editable reference list; variant SKU `<SKU>-<suffix>`, a label built from SKU + selling unit, not an issued ID (D-22, D-23 as proposed in the Shopify decisions, confirmed at U1.3 G0). §3. |
 | V.2 (amended) | 2026-10-11 | One action is voided as a whole; refused while a batch it created has later events; Split / Transfer quantity corrections change both batches (U0.2 Q8). SOP-10. |
