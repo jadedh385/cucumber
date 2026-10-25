@@ -106,3 +106,4 @@ From the [Shopify roadmap plan](../research/shopify-roadmap-plan.md). Each holds
 | 2026-10-12 | D-25 | Subdomains of `southeastcanopy.com`; DNS moved from GoDaddy to Cloudflare (free plan). | Jade |
 | 2026-10-12 | D-26 | Staging as a second copy on the MacBook for now; options and costs recorded in the U0.4 spec; revisit at U0.10 G0 or on a trigger. | Jade |
 | 2026-10-13 | D-27 | Owner wants a Needs attention list (with new rules) and Discord alerts the Owner can control. Logged as U2.7 and U2.8; details open. | Jade |
+| 2026-10-25 | D-22 | Stays Open for U1.3 G0. U0.9 passes G0 on the proposed count units (`plant`, `vessel`, `mg`) as an assumption: three values in code, nothing uses them before U1.3. | Jade |
