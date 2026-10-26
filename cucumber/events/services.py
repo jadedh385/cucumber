@@ -249,6 +249,19 @@ def check_entry(entry: NewEvent, locked: dict[int, Batch]) -> None:
     check_reason(entry.action, entry.reason_code)
 
 
+def check_picked(entries: Sequence[NewEvent]) -> None:
+    """Every medium, stage and new-batch location a person picked is on its list
+    and active (U0.9 design §3.4, AC13). Not called for a split's carried values."""
+    raise NotImplementedError("U0.9 G3")
+
+
+def check_changed(current: Effective, changes: Restated) -> None:
+    """A Correction's medium or stage that differs from the event's current
+    effective value is on its list and active; restated values aren't checked
+    (U0.9 design §3.4, AC13)."""
+    raise NotImplementedError("U0.9 G3")
+
+
 def check_staff(entries: Sequence[NewEvent]) -> None:
     """Who did the work must be active and hold a role that may log work.
 

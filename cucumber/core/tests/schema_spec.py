@@ -5,6 +5,7 @@ TABLE_COLUMNS = {
     "stages": {"code", "label", "sort_order", "default_subculture_days", "active"},
     "media_codes": {"code", "label", "active"},
     "locations": {"code", "label", "active"},
+    "container_types": {"code", "label", "active"},  # U0.9
     "reasons": {"code", "label", "applies_to", "active"},
     "vendors": {"zoho_contact_id", "name", "active", "synced_at"},
     "plants": {
@@ -42,6 +43,7 @@ PRIMARY_KEYS = {
     "stages": ["code"],
     "media_codes": ["code"],
     "locations": ["code"],
+    "container_types": ["code"],  # U0.9
     "reasons": ["code"],
     "vendors": ["zoho_contact_id"],
     "skus": ["sku"],
@@ -78,6 +80,7 @@ CONSTRAINT_NAMES = [
     "genera_code_format", "genera_name_unique", "stages_sort_order_unique",
     "stages_active_needs_sort_order", "stages_subculture_days_positive",
     "reasons_applies_to_valid",
+    "container_types_code_format", "container_types_label_valid",  # U0.9
 ] + [
     f"event_{action}_shape"
     for action in [
@@ -91,7 +94,9 @@ INSERT_ONLY_TABLES = [
     "events", "operations", "event_reviews", "plant_status_changes", "skus",
     "audit_log",
 ]  # fmt: skip
-REFERENCE_TABLES = ["genera", "stages", "media_codes", "locations", "reasons"]
+REFERENCE_TABLES = [
+    "genera", "stages", "media_codes", "locations", "reasons", "container_types",
+]  # fmt: skip
 NO_DELETE_TABLES = ["plants", "batches", "vendors", *REFERENCE_TABLES]
 
 TRIGGER_NAMES = (

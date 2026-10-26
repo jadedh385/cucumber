@@ -227,6 +227,8 @@ def insert_reference_rows() -> None:
         INSERT INTO reasons (code, label, applies_to, active)
             VALUES ('void_wrong_batch', 'Wrong batch', 'void', true)
             ON CONFLICT DO NOTHING;
+        INSERT INTO container_types (code, label, active)
+            VALUES ('magenta_box', 'Magenta box', true) ON CONFLICT DO NOTHING;
     """)
 
 
