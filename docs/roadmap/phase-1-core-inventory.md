@@ -46,6 +46,15 @@ subculture) — depth features follow in Phase 2.
   conserves units; a batch closes only at 0; voiding the Close reopens it;
   "empty but open" list for the Supervisor.
 - **Gate focus:** G1 display-ID rule documented · G2 split, close and reopen tests.
+- **From U0.9 G1 (2026-10-26):** the `S0 · Seed` rule (U0.9 AC1, Q4 a) is built
+  here, with count units: an `S0` batch never changes stage, and no batch
+  changes into `S0`; seedlings move into new child batches. Decide with D-22
+  whether an `S0` batch must count in `mg`, and the Owner's point that a
+  countable seed lot may record a number of seeds (a fourth count unit such as
+  `seed`, or an estimate beside the mg). `count_unit` uses
+  `references.fixed.CountUnit`; `container_type` is a foreign key to
+  `container_types`; both are checked with `check_active`
+  ([U0.9 design §12b](units/u0.9-design.md#12b-carry-forwards)).
 
 ### U1.4 · Event logging & live counts
 - **Size:** L · **Deps:** U1.3, U0.7 · **Decisions:** D-28
