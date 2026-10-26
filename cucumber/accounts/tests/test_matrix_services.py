@@ -30,15 +30,18 @@ from cucumber.accounts.services import (
     reactivate,
     set_role,
 )
+from cucumber.core.audit import Reason
 from cucumber.core.refusals import Refused
 from cucumber.core.tests.rows import as_int, fetch_one, insert, make_event
 from cucumber.core.tests.stock import intake_into_new_batch, log, make_staff
-from cucumber.core.tests.trail import LEFT_THE_COMPANY, as_system
+from cucumber.core.tests.trail import LEFT_THE_COMPANY, NO_LONGER_USED, as_system
 from cucumber.events.models import Event
 from cucumber.events.reviews import review
 from cucumber.events.services import close, correct, split, void
 from cucumber.ids.issuing import issue_next_sku
 from cucumber.plants.services import reclassify_genus
+from cucumber.references.lists import ListName
+from cucumber.references.services import add_item, edit_label, switch_off, switch_on
 
 pytestmark = pytest.mark.django_db
 
@@ -156,6 +159,10 @@ PROBES: dict[Permission, Probe] = {
     Permission.MANAGE_USERS: Probe(
         lambda who, s, _: add_account(who, "Mali", "mali@example.com", Role.TECH)
     ),
+    # A label edit adds a row to no table but the trail (U0.9 design §5).
+    Permission.EDIT_REFERENCE_LISTS: Probe(
+        lambda who, s, _: edit_label(who, ListName.MEDIA_CODES, "M001", "Half MS")
+    ),
 }
 
 WRITTEN_TABLES = [
@@ -168,6 +175,7 @@ WRITTEN_TABLES = [
     "plant_status_changes",
     "auth_user",
     "auth_user_groups",
+    "audit_log",  # U0.9: a reference list edit writes only its audit row
 ]
 
 
@@ -261,6 +269,22 @@ OTHER_WAYS_IN: dict[str, tuple[Permission, Probe]] = {
     "set_role": (
         Permission.MANAGE_USERS,
         Probe(lambda who, s, _: set_role(who, other_tech(), Role.SUPERVISOR)),
+    ),
+    "add_item": (
+        Permission.EDIT_REFERENCE_LISTS,
+        Probe(lambda who, s, _: add_item(who, ListName.GENERA, "XYZ", "Xyzia")),
+    ),
+    "switch_off": (
+        Permission.EDIT_REFERENCE_LISTS,
+        Probe(
+            lambda who, s, _: switch_off(
+                who, ListName.MEDIA_CODES, "M004", Reason(NO_LONGER_USED)
+            )
+        ),
+    ),
+    "switch_on": (
+        Permission.EDIT_REFERENCE_LISTS,
+        Probe(lambda who, s, _: switch_on(who, ListName.MEDIA_CODES, "M004")),
     ),
 }
 
