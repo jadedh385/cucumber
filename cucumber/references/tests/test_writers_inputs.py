@@ -11,6 +11,7 @@ from django.contrib.auth.models import User
 from cucumber.core.refusals import MESSAGES, Refused
 from cucumber.core.tests.rows import fetch_one
 from cucumber.references.lists import EDITABLE_TABLES, LABEL_MAX_LENGTH, ListName
+from cucumber.references.reading import item
 from cucumber.references.services import add_item, edit_label, switch_off, switch_on
 from cucumber.references.tests.support import (
     ADDABLE,
@@ -37,7 +38,6 @@ BAD_CODES = [
     (M, "1M00", "media_codes_code_format"),
     (M, "M-01", "media_codes_code_format"),
     (M, "M 01", "media_codes_code_format"),
-    (M, "M001\n", "media_codes_code_format"),
     # genera: three capitals; PLT, BAT, EVT start other IDs (U0.8)
     (G, "", "genera_code_format"),
     (G, "phl", "genera_code_format"),
@@ -45,7 +45,6 @@ BAD_CODES = [
     (G, "PH", "genera_code_format"),
     (G, "PHLX", "genera_code_format"),
     (G, "PH1", "genera_code_format"),
-    (G, "PHL\n", "genera_code_format"),
     (G, "PLT", "genera_code_not_id_prefix"),
     (G, "BAT", "genera_code_not_id_prefix"),
     (G, "EVT", "genera_code_not_id_prefix"),
@@ -58,7 +57,6 @@ BAD_CODES = [
     (C, "magenta box", "container_types_code_format"),
     (C, "magenta-box", "container_types_code_format"),
     (C, "a" + "b" * 32, "container_types_code_format"),  # 33 characters
-    (C, "jar\n", "container_types_code_format"),
 ]
 
 GOOD_CODES = [
@@ -99,6 +97,45 @@ def test_a_code_at_the_edge_of_its_format_is_accepted(
     admin: User, name: ListName, code: str
 ) -> None:
     assert add_item(admin, name, code, "A label").code == code
+
+
+@pytest.mark.parametrize(
+    ("name", "typed", "saved"),
+    [
+        (M, "M777\n", "M777"),
+        (M, "  M777 ", "M777"),
+        (G, "XYZ\n", "XYZ"),
+        (G, "\tXYZ", "XYZ"),
+        (C, "jiffy_pot\n", "jiffy_pot"),
+        (C, " jiffy_pot ", "jiffy_pot"),
+    ],
+    ids=lambda value: repr(value),
+)
+def test_a_code_is_trimmed_like_a_label_so_a_trailing_newline_is_accepted(
+    admin: User, name: ListName, typed: str, saved: str
+) -> None:
+    """Owner decision (session 2, decision 3): codes are trimmed, then checked
+    against the format, so what is saved never carries the whitespace."""
+    added = add_item(admin, name, typed, "A label")
+
+    assert added.code == saved
+    assert item(name, saved) == added
+
+
+def test_a_code_that_is_only_whitespace_is_refused_as_blank(admin: User) -> None:
+    with nothing_written(M):
+        refused = refusal_of(lambda: add_item(admin, M, " \n", "A label"))
+
+    assert refused.rule == "media_codes_code_format"
+
+
+def test_a_trimmed_code_that_is_already_taken_is_refused_by_the_primary_key(
+    admin: User,
+) -> None:
+    with nothing_written(M):
+        refused = refusal_of(lambda: add_item(admin, M, "M001\n", "Again"))
+
+    assert refused.rule == "media_codes_pkey"
 
 
 @pytest.mark.parametrize(("name", "code"), ADDABLE.items())
