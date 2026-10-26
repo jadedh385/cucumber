@@ -6,7 +6,29 @@ that is no longer used is deactivated. The database enforces both
 """
 
 from django.db import models
-from django.db.models import CheckConstraint, Q, UniqueConstraint
+from django.db.models import CheckConstraint, F, Q, UniqueConstraint
+from django.db.models.functions import Length, Trim
+from django.db.models.lookups import Exact, LessThanOrEqual
+
+from cucumber.references.lists import (
+    CONTAINER_TYPE_PATTERN,
+    GENUS_CODE_PATTERN,
+    LABEL_MAX_LENGTH,
+    MEDIA_CODE_PATTERN,
+)
+
+
+def label_valid(column: str, name: str) -> CheckConstraint:
+    """No space at either end, not blank, at most 100 characters (U0.9 §2.1).
+
+    `label = btrim(label) AND label <> '' AND char_length(label) <= 100`.
+    """
+    return CheckConstraint(
+        condition=Q(Exact(F(column), Trim(column)))
+        & ~Q(**{column: ""})
+        & Q(LessThanOrEqual(Length(column), LABEL_MAX_LENGTH)),
+        name=name,
+    )
 
 
 class Genus(models.Model):
@@ -21,7 +43,7 @@ class Genus(models.Model):
         verbose_name_plural = "genera"
         constraints = [
             CheckConstraint(
-                condition=Q(code__regex=r"^[A-Z]{3}$"), name="genera_code_format"
+                condition=Q(code__regex=GENUS_CODE_PATTERN), name="genera_code_format"
             ),
             # A typed ID never reads as an SKU (U0.8 AC5a).
             CheckConstraint(
@@ -29,6 +51,7 @@ class Genus(models.Model):
                 name="genera_code_not_id_prefix",
             ),
             UniqueConstraint(fields=["name"], name="genera_name_unique"),
+            label_valid("name", "genera_name_valid"),
         ]
 
     def __str__(self) -> str:
@@ -57,6 +80,7 @@ class Stage(models.Model):
                 | Q(default_subculture_days__gt=0),
                 name="stages_subculture_days_positive",
             ),
+            label_valid("label", "stages_label_valid"),
         ]
 
     def __str__(self) -> str:
@@ -70,6 +94,13 @@ class MediaCode(models.Model):
 
     class Meta:
         db_table = "media_codes"
+        constraints = [
+            CheckConstraint(
+                condition=Q(code__regex=MEDIA_CODE_PATTERN),
+                name="media_codes_code_format",
+            ),
+            label_valid("label", "media_codes_label_valid"),
+        ]
 
     def __str__(self) -> str:
         return self.code
@@ -87,6 +118,29 @@ class Location(models.Model):
 
     class Meta:
         db_table = "locations"
+        constraints = [label_valid("label", "locations_label_valid")]
+
+    def __str__(self) -> str:
+        return self.label
+
+
+class ContainerType(models.Model):
+    """What a batch grows in (U0.9 design §2.1). Listed by label: the code is
+    only a key, in small letters (`magenta_box`, Q2)."""
+
+    code = models.TextField(primary_key=True)
+    label = models.TextField()
+    active = models.BooleanField(db_default=True)
+
+    class Meta:
+        db_table = "container_types"
+        constraints = [
+            CheckConstraint(
+                condition=Q(code__regex=CONTAINER_TYPE_PATTERN),
+                name="container_types_code_format",
+            ),
+            label_valid("label", "container_types_label_valid"),
+        ]
 
     def __str__(self) -> str:
         return self.label

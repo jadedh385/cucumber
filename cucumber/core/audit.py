@@ -212,6 +212,7 @@ AUDITED = frozenset(
         "media_codes",
         "locations",
         "reasons",
+        "container_types",  # U0.9
         "vendors",
         "auth_user",
         "auth_user_groups",

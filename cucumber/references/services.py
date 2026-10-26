@@ -7,7 +7,9 @@ from django.contrib.auth.models import User
 
 from cucumber.core.audit import Reason
 from cucumber.references.lists import ListName
-from cucumber.references.reading import NOT_BUILT, Item
+from cucumber.references.reading import Item
+
+NOT_BUILT = "U0.9 G3"
 
 
 def add_item(

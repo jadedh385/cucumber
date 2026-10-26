@@ -488,3 +488,70 @@ SELECT set_config('cucumber.actor_id',
   true);
 SELECT set_config('cucumber.via', 'migration', true);
 """
+
+# ------------------------------------------------- the lists (U0.9 design §2.3)
+#
+# `references 0007` makes these. They are kept apart from REFERENCE_LISTS,
+# AUDITED_TABLES, SWITCH_OFFS, TRUNCATE_NOTICED_TABLES, AUDIT_FUNCTIONS and
+# ID_FUNCTIONS: core 0006 and 0007 loop over those, so adding here would
+# change what they make on a fresh database (review L3).
+
+U09_REFERENCE_LISTS = ("container_types",)
+U09_AUDITED = tuple(Audited(table, "code") for table in U09_REFERENCE_LISTS)
+U09_SWITCH_OFFS = tuple(
+    SwitchOff(table, "active", (("false", "archive"),)) for table in U09_REFERENCE_LISTS
+)
+U09_TRUNCATE_NOTICED = U09_REFERENCE_LISTS
+
+# BEFORE INSERT OR UPDATE; TG_ARGV[0] is the rule, the rest are the columns.
+OWNER_ONLY_BODY = """
+BEGIN
+  IF session_user = 'cucumber_owner' THEN
+    RETURN NEW;  -- a migration, with its own G0 (spec AC5, AC9)
+  END IF;
+  IF TG_OP = 'INSERT' THEN
+    RAISE EXCEPTION '% rows are added by a migration only', TG_TABLE_NAME
+      USING ERRCODE = 'restrict_violation', CONSTRAINT = TG_ARGV[0];
+  END IF;
+  FOR i IN 1 .. TG_NARGS - 1 LOOP
+    IF (to_jsonb(NEW) -> TG_ARGV[i]) IS DISTINCT FROM (to_jsonb(OLD) -> TG_ARGV[i]) THEN
+      RAISE EXCEPTION '%.% is changed by a migration only', TG_TABLE_NAME, TG_ARGV[i]
+        USING ERRCODE = 'restrict_violation', CONSTRAINT = TG_ARGV[0];
+    END IF;
+  END LOOP;
+  RETURN NEW;
+END
+"""
+
+U09_FUNCTIONS = {"cucumber_owner_only": OWNER_ONLY_BODY}
+
+
+@dataclass(frozen=True)
+class OwnerOnly:
+    """Rows added, or these columns changed, by a migration only (AC5, AC9)."""
+
+    table: str
+    rule: str  # the trigger's name, and the rule it refuses with
+    columns: tuple[str, ...]
+
+    @property
+    def arguments(self) -> tuple[str, ...]:
+        return (self.rule, *self.columns)
+
+
+OWNER_ONLY = (
+    OwnerOnly("stages", "stages_order_fixed", ("sort_order",)),
+    OwnerOnly("locations", "locations_fixed", ("active",)),
+)
+
+
+def owner_only(spec: OwnerOnly) -> Sql:
+    """Only `cucumber_owner` adds a row or changes `spec.columns`."""
+    return Sql(
+        forward=(
+            f"CREATE TRIGGER {spec.rule} BEFORE INSERT OR UPDATE ON {spec.table}"
+            " FOR EACH ROW"
+            f" EXECUTE FUNCTION cucumber_owner_only({quoted(spec.arguments)});"
+        ),
+        reverse=f"DROP TRIGGER {spec.rule} ON {spec.table};",
+    )
