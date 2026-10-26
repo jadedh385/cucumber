@@ -107,6 +107,20 @@ def test_ac13_one_refused_entry_writes_none_of_the_operation(
     assert counts() == before
 
 
+def test_ac13_a_picked_code_not_on_the_list_is_refused_by_name(
+    plant: int, tech: User
+) -> None:
+    """The service names it, rather than the foreign key at COMMIT with the
+    Internal message (G3 session 3, Owner)."""
+    batch = new_lab_batch(tech, plant, 10)
+    before = counts()
+
+    with refused("list_item_unknown"):
+        log(tech, batch, "intake", qty_in=1, media_code="M999")
+
+    assert counts() == before
+
+
 def test_ac13_the_permission_check_comes_before_the_inactive_check(
     plant: int, read_only: User
 ) -> None:

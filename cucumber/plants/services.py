@@ -14,6 +14,8 @@ from cucumber.plants.models import (
     PlantStatusChange,
     Sku,
 )
+from cucumber.references.lists import ListName
+from cucumber.references.reading import check_active
 
 GENUS_RECLASSIFIED = "genus reclassified"
 
@@ -41,6 +43,7 @@ def reclassify_genus(admin: User, plant_id: int, genus_code: str) -> Plant:
     """
     with database_refusals(), audited(admin):
         require(admin, Permission.RECLASSIFY_GENUS)
+        check_active(ListName.GENERA, genus_code)  # the genus is picked (U0.9 AC13)
         plant = Plant.objects.select_for_update(no_key=True).filter(pk=plant_id).first()
         if plant is None:
             raise refuse("plant_not_found")

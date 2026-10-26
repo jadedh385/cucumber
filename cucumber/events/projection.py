@@ -13,9 +13,8 @@ from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 
-COUNT = "count"
-CLOSE = "close"
-RELEASE = "release"
+from cucumber.references.fixed import Action
+
 QUARANTINE_ORIGIN = "quarantine"
 
 
@@ -66,7 +65,7 @@ def running_totals(events: Sequence[Effective]) -> Iterator[Step]:
     total = 0
     for event in in_order(events):
         before = total
-        if event.action == COUNT and event.counted_qty is not None:
+        if event.action == Action.COUNT and event.counted_qty is not None:
             total = event.counted_qty
         else:
             total += event.qty_in - event.qty_out
@@ -82,7 +81,7 @@ def project(events: Sequence[Effective]) -> Projection:
         live_count = step.after
         if step.event.stage_to is not None:
             stage_code = step.event.stage_to
-        if step.event.action == CLOSE:
+        if step.event.action == Action.CLOSE:
             closed_at = step.event.occurred_at
     return Projection(
         live_count=live_count,
@@ -101,7 +100,7 @@ def count_differences(events: Sequence[Effective]) -> dict[int, int]:
     return {
         step.event.id: step.after - step.before
         for step in running_totals(events)
-        if step.event.action == COUNT
+        if step.event.action == Action.COUNT
     }
 
 
@@ -117,5 +116,5 @@ def goes_below_zero(events: Sequence[Effective]) -> bool:
 def is_quarantined(origin: str, events: Sequence[Effective]) -> bool:
     """A quarantine batch stays quarantined until a `release` (D-02)."""
     return origin == QUARANTINE_ORIGIN and not any(
-        event.action == RELEASE for event in events
+        event.action == Action.RELEASE for event in events
     )

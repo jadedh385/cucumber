@@ -148,8 +148,10 @@ def test_a_foreign_key_refused_at_commit_is_reported_and_nothing_is_saved() -> N
 
     unknown_media = NewEvent("intake", batch, qty_in=1, media_code="M999")
 
+    # U0.9's inactive check would refuse M999 first (`list_item_unknown`), so
+    # it is skipped here to reach the foreign key at COMMIT (Owner, G3 s3).
     with pytest.raises(Refused) as caught:
-        save_operation(operation_id, tech, [unknown_media])
+        save_operation(operation_id, tech, [unknown_media], picked=False)
 
     assert caught.value.message == INTERNAL
     assert not Operation.objects.filter(pk=operation_id).exists()
