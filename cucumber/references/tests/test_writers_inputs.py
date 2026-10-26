@@ -32,7 +32,7 @@ BAD_CODES = [
     # media: a capital, then 2 to 9 capitals or digits
     (M, "", "media_codes_code_format"),
     (M, "m001", "media_codes_code_format"),
-    (M, "M01", "media_codes_code_format"),
+    (M, "M0", "media_codes_code_format"),  # one too few (M01 fits)
     (M, "M", "media_codes_code_format"),
     (M, "M0123456789", "media_codes_code_format"),
     (M, "1M00", "media_codes_code_format"),
@@ -335,6 +335,11 @@ def test_every_rule_of_the_lists_has_its_message(rule: str, message: str) -> Non
 
 
 def test_every_editable_list_has_a_label_message() -> None:
-    """So a new list can't miss its message (design §7)."""
-    for table in EDITABLE_TABLES:
-        assert LABEL_RULE[ListName(table)] in MESSAGES
+    """So a new list can't miss its message (design §7). Built from
+    `EDITABLE_TABLES`, not from this file's own table of rules."""
+    rules = [
+        "genera_name_valid" if table == "genera" else f"{table}_label_valid"
+        for table in EDITABLE_TABLES
+    ]
+
+    assert [rule for rule in rules if rule not in MESSAGES] == []

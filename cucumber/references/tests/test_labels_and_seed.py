@@ -8,6 +8,7 @@ it makes has its own audit row; the media codes keep their codes as labels
 
 import pytest
 
+from cucumber.core.expected import OWNER_ROLE
 from cucumber.core.tests.rows import fetch_all
 from cucumber.core.tests.trail import AuditRow, audit_rows_since, system_id
 
@@ -115,7 +116,7 @@ def test_each_0008_row_is_by_system_via_migration_as_the_owner() -> None:
 
     assert rows, "no audit row has via = 'migration'"
     assert {(row.actor_id, row.db_user, row.reason_code) for row in rows} == {
-        (system_id(), "cucumber_owner", None)
+        (system_id(), OWNER_ROLE, None)
     }
 
 

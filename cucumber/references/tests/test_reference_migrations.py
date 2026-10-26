@@ -226,6 +226,24 @@ def test_0008_undo_works_again_after_forward_undo_forward() -> None:
     assert fetch_one("SELECT count(*) FROM container_types") == (0,)
 
 
+@committing
+@pytest.mark.usefixtures("forward_again")
+def test_0006_undo_refuses_while_container_types_has_a_row() -> None:
+    """Design §2.2: it runs only after 0008's undo, and never drops a row the
+    Admin added. It names the code and says to restore the copy."""
+    migrate(REFERENCES_0008)
+    migrate(REFERENCES_0007)  # 0008 undone: no seeded container types left
+    with as_system():
+        insert("container_types", {"code": "jiffy_pot", "label": "Jiffy pot"}, "code")
+
+    with pytest.raises(RuntimeError) as caught:
+        migrate(BEFORE_U09)
+
+    assert "jiffy_pot" in str(caught.value)
+    assert "restore" in str(caught.value).lower()
+    assert exists("table", "public.container_types")
+
+
 # --------------------------------------------------- 0006's pre-check (L3)
 @pytest.mark.django_db
 def test_0006_names_every_row_the_new_checks_would_refuse() -> None:

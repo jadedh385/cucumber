@@ -119,6 +119,13 @@ APP_STATEMENTS: dict[str, tuple[str | None, str]] = {
         "saved",
     ),
     "UPDATE stages SET active = false WHERE code = 'P2'": (REASON, "saved"),
+    # An ORM save writes every column: a guarded one set to itself is no change.
+    "UPDATE stages SET sort_order = sort_order, label = 'Growth II'"
+    " WHERE code = 'P2'": (None, "saved"),
+    "UPDATE locations SET active = active, label = 'Lab' WHERE code = 'lab'": (
+        None,
+        "saved",
+    ),
 }
 
 
@@ -316,6 +323,21 @@ def test_a_label_of_100_characters_is_accepted(name: ListName) -> None:
         f"SELECT {column} FROM {name.value} WHERE code = %s",  # noqa: S608 (test names)
         [SEEDED[name]],
     ) == (label,)
+
+
+@pytest.mark.parametrize(
+    ("table", "taken"),
+    [("media_codes", "M001"), ("genera", "HYA"), ("container_types", "magenta_box")],
+)
+def test_a_code_taken_is_refused_by_the_primary_key_s_name(
+    table: str, taken: str
+) -> None:
+    """The name `database_refusals` turns into the service's own refusal when
+    two Admins add the same code at once (design §3.3)."""
+    column = "name" if table == "genera" else "label"
+
+    with refused_by(f"{table}_pkey"), as_system():
+        insert(table, {"code": taken, column: "Again", "active": True}, "code")
 
 
 def test_a_new_container_type_with_a_blank_label_is_refused_by_name() -> None:

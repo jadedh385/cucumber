@@ -6,8 +6,10 @@ from collections.abc import Callable
 import pytest
 from django.contrib.auth.models import User
 
+from cucumber.batches.models import Batch
 from cucumber.core.audit import Reason
 from cucumber.core.refusals import MESSAGES, Refused
+from cucumber.core.tests.stock import new_lab_batch
 from cucumber.core.tests.trail import (
     DUPLICATE_ENTRY,
     LEFT_COMPANY,
@@ -15,6 +17,7 @@ from cucumber.core.tests.trail import (
     audit_mark,
     audit_rows_since,
 )
+from cucumber.events.models import Event
 from cucumber.references.lists import ListName
 from cucumber.references.reading import Item, item
 from cucumber.references.services import edit_label, switch_off, switch_on
@@ -97,6 +100,23 @@ def test_a_bad_reason_is_refused_before_a_code_that_is_not_there(admin: User) ->
         switch_off(admin, M, "M999", None)
 
     assert refused.value.rule == "reason_required"
+
+
+def test_an_item_in_use_can_be_switched_off_and_its_records_are_untouched(
+    admin: User, tech: User, plant: int
+) -> None:
+    """AC13: old records still read; the batch and its intake are as they were."""
+    batch = new_lab_batch(tech, plant, 10)  # Lab, P2, medium M001
+    intake = Event.objects.get(batch_id=batch)
+
+    switch_off(admin, ListName.STAGES, "P2", ARCHIVE_REASON)
+    switch_off(admin, M, "M001", ARCHIVE_REASON)
+
+    stored = Batch.objects.get(pk=batch)
+    assert (stored.stage_id, stored.live_count) == ("P2", 10)
+    assert Event.objects.get(pk=intake.pk).media_code_id == "M001"
+    assert item(ListName.STAGES, "P2") == Item("P2", "Growth", False, 3)
+    assert item(M, "M001") == Item("M001", "M001", False)
 
 
 # ------------------------------------------------------------------ switch on

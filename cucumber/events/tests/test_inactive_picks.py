@@ -249,6 +249,38 @@ def test_ac13_a_pick_is_still_refused_when_the_quantity_changes_too(
     assert live_count(batch) == 10
 
 
+def test_m4_restated_means_the_same_as_the_effective_value_not_the_first_row(
+    lab_intake_event: tuple[int, int], supervisor: User
+) -> None:
+    """The intake's medium is M002 now (corrected once). Restating M002 after
+    it is switched off keeps it, so a quantity fix still works (design §3.4,
+    `current_values`)."""
+    batch, intake = lab_intake_event
+    correct(supervisor, intake, REASON, media_code="M002")
+    switched_off(ListName.MEDIA_CODES, "M002")
+
+    saved = correct(supervisor, intake, REASON, qty_in=8, media_code="M002")
+
+    assert Event.objects.get(pk=saved.event_ids[0]).media_code_id == "M002"
+    assert live_count(batch) == 8
+
+
+def test_ac13_going_back_to_the_first_row_s_switched_off_medium_is_a_pick(
+    lab_intake_event: tuple[int, int], supervisor: User
+) -> None:
+    """M001 is the intake row's medium, but the effective one is M002: sending
+    M001 changes it, so a switched-off M001 is refused."""
+    _, intake = lab_intake_event
+    correct(supervisor, intake, REASON, media_code="M002")
+    switched_off(ListName.MEDIA_CODES, "M001")
+    before = counts()
+
+    with refused(INACTIVE):
+        correct(supervisor, intake, REASON, media_code="M001")
+
+    assert counts() == before
+
+
 def test_h1_a_resent_correction_still_gets_already_saved(
     lab_intake_event: tuple[int, int], supervisor: User
 ) -> None:

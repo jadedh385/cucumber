@@ -333,6 +333,27 @@ def test_the_count_units_are_exactly_plant_vessel_and_mg() -> None:
     assert CountUnit.MG.label == "mg"
 
 
+def test_the_event_action_labels_stay_django_s_own() -> None:
+    """Review M2: new labels would change `choices`, and `makemigrations
+    --check` would ask for a migration. Screen wording is U0.10's."""
+    assert [action.label for action in Action] == [
+        "Intake", "Subculture", "Stage Change", "Count", "Contamination",
+        "Split", "Quarantine", "Release", "Transfer", "Out", "Loss", "Close",
+        "Correction", "Void",
+    ]  # fmt: skip
+
+
+def test_the_count_unit_labels_are_plant_vessel_and_mg() -> None:
+    assert [unit.label for unit in CountUnit] == ["Plant", "Vessel", "mg"]
+
+
+def test_action_is_still_imported_from_events_models() -> None:
+    """Moved to `references.fixed`, so callers don't change (design §4)."""
+    from cucumber.events import models as event_models
+
+    assert event_models.Action is Action
+
+
 def test_the_fixed_lists_read_the_same_as_the_code_lists() -> None:
     assert codes(ListName.ACTIONS) == Action.values
     assert codes(ListName.COUNT_UNITS) == CountUnit.values

@@ -292,7 +292,7 @@ def no_person_named(*_: Any, **__: Any) -> Iterator[None]:
 def test_a_writer_that_skipped_audited_would_save_nothing(
     admin: User, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(services, "audited", no_person_named, raising=False)
+    monkeypatch.setattr(services, "audited", no_person_named)
 
     with nothing_written(M), pytest.raises(Refused) as refused:
         edit_label(admin, M, "M001", "Half MS")
@@ -321,8 +321,9 @@ def order(monkeypatch: pytest.MonkeyPatch) -> list[str]:
             seen.append(f"saved with reason {kwargs.get('reason') is not None}")
         seen.append("audited left")
 
-    monkeypatch.setattr(services, "require", spy_require, raising=False)
-    monkeypatch.setattr(services, "audited", spy_audited, raising=False)
+    # The writers import both by name (design §3.3), so a missing one fails here.
+    monkeypatch.setattr(services, "require", spy_require)
+    monkeypatch.setattr(services, "audited", spy_audited)
     return seen
 
 

@@ -19,6 +19,7 @@ seeded tables, so a new code can't slip past the scan.
 
 import ast
 import re
+from collections import Counter
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -48,23 +49,30 @@ KIND = {
 
 ORIGIN = "the batch origin, its own list (U0.2a); it matches the action that made it"
 FIELD = "the `plant` field of a model, not a count unit"
-# (path relative to cucumber/, literal) → why that file may use it (design §8).
-ALLOWED: dict[tuple[str, str], str] = {
-    **{
-        ("batches/models.py", origin): ORIGIN
-        for origin in ("intake", "subculture", "split", "quarantine", "transfer")
-    },
+# (path relative to cucumber/, literal) → (how many times, why that file may
+# use it) (design §8). The count stops a new use hiding behind an old one,
+# e.g. a `count_unit="plant"` in batches/models.py at U1.3.
+ALLOWED: dict[tuple[str, str], tuple[int, str]] = {
+    ("batches/models.py", "intake"): (2, ORIGIN),
+    ("batches/models.py", "subculture"): (1, ORIGIN),
+    ("batches/models.py", "split"): (1, ORIGIN),
+    ("batches/models.py", "quarantine"): (2, ORIGIN),
+    ("batches/models.py", "transfer"): (1, ORIGIN),
     ("events/projection.py", "quarantine"): (
+        1,
         "QUARANTINE_ORIGIN, a batch origin; importing BatchOrigin would bring app"
-        " models into a module of plain values (review L2)"
+        " models into a module of plain values (review L2)",
     ),
-    ("batches/models.py", "plant"): FIELD,
-    ("plants/models.py", "plant"): FIELD,
-    ("ids/lookup.py", "plant"): FIELD + " (select_related)",
-    ("ids/reading.py", "plant"): "the ID kind (U0.8 reading.Kind), not a count unit",
-    ("core/guards.py", "plant"): "a word in a guard message (every new plant)",
-    ("core/db_rules.py", "void"): "the `void` reason list, not the action",
-    ("events/services.py", "out"): "an event's direction, not the action",
+    ("batches/models.py", "plant"): (2, FIELD),
+    ("plants/models.py", "plant"): (1, FIELD),
+    ("ids/lookup.py", "plant"): (2, FIELD + " (select_related)"),
+    ("ids/reading.py", "plant"): (
+        1,
+        "the ID kind (U0.8 reading.Kind), not a count unit",
+    ),
+    ("core/guards.py", "plant"): (1, "a word in a guard message (every new plant)"),
+    ("core/db_rules.py", "void"): (1, "the `void` reason list, not the action"),
+    ("events/services.py", "out"): (1, "an event's direction, not the action"),
 }
 
 TEMPLATE_TAG = re.compile(r"\{%.*?%\}|\{\{.*?\}\}", re.DOTALL)
@@ -144,25 +152,37 @@ def report(found: list[tuple[str, int, str]]) -> list[str]:
 
 
 # ------------------------------------------------------------------ AC22
-def test_ac22_no_module_outside_references_names_a_list_code() -> None:
-    not_allowed = [
-        (where, line, code)
-        for where, line, code in everything_found()
-        if (where, code) not in ALLOWED
-    ]
+def found_per_place() -> Counter[tuple[str, str]]:
+    return Counter((where, code) for where, _, code in everything_found())
 
-    assert report(not_allowed) == []
+
+def test_ac22_no_module_outside_references_names_a_list_code() -> None:
+    found = everything_found()
+    too_many = {
+        place
+        for place, times in found_per_place().items()
+        if times > ALLOWED.get(place, (0, ""))[0]
+    }
+
+    assert report([hit for hit in found if (hit[0], hit[2]) in too_many]) == []
 
 
 def test_ac22_every_allowed_place_says_why() -> None:
-    assert [place for place, reason in ALLOWED.items() if not reason.strip()] == []
+    assert [place for place, (_, why) in ALLOWED.items() if not why.strip()] == []
 
 
 def test_ac22_every_allowed_place_is_still_there() -> None:
-    """An entry that no longer matches anything is taken off the list."""
-    found = {(where, code) for where, _, code in everything_found()}
+    """An entry used fewer times than it allows is lowered or taken off."""
+    found = found_per_place()
 
-    assert sorted(set(ALLOWED) - found) == []
+    assert (
+        sorted(
+            (place, times, found[place])
+            for place, (times, _) in ALLOWED.items()
+            if found[place] < times
+        )
+        == []
+    )
 
 
 def test_ac22_the_scan_reads_the_app_code_and_leaves_out_references_and_tests() -> None:
