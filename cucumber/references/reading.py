@@ -41,5 +41,6 @@ def stage_at_or_after(code: str, than: str) -> bool:
     """Is stage `code` at or after `than` in the sort order (AC2)?
 
     False for a stage with no place in the order (reserved).
+    `list_item_unknown` for a code that is not a stage (G2 Q-C).
     """
     raise NotImplementedError(NOT_BUILT)

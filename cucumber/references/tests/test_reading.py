@@ -317,6 +317,24 @@ def test_a_reserved_stage_is_at_or_after_nothing(reserved: str) -> None:
     assert stage_at_or_after(reserved, "P4") is False
 
 
+@pytest.mark.parametrize(
+    ("code", "than"), [("P5", "P4"), ("P4", "P5")], ids=["code", "than"]
+)
+def test_a_code_that_is_not_a_stage_is_refused_as_unknown(code: str, than: str) -> None:
+    """Owner, G2 Q-C a): a typo in a constant fails loudly, not as False."""
+    with pytest.raises(Refused) as caught:
+        stage_at_or_after(code, than)
+
+    assert caught.value.rule == "list_item_unknown"
+
+
+def test_a_stage_in_another_letter_case_is_refused_as_unknown() -> None:
+    with pytest.raises(Refused) as caught:
+        stage_at_or_after("p4", "A1")
+
+    assert caught.value.rule == "list_item_unknown"
+
+
 # --------------------------------------------------------------- fixed lists
 
 
