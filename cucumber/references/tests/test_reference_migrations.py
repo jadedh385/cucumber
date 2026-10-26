@@ -280,7 +280,8 @@ def test_0008_without_the_system_account_stops_naming_it() -> None:
     run("ALTER TABLE auth_user DISABLE TRIGGER USER")
     try:
         run(
-            "UPDATE auth_user SET username = 'gone@example.com' WHERE username = %s",
+            "UPDATE auth_user SET username = 'gone@example.com',"
+            " email = 'gone@example.com' WHERE username = %s",
             [SYSTEM_USERNAME],
         )
     finally:

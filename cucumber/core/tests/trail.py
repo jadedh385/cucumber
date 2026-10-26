@@ -237,6 +237,22 @@ def system_after_a_flush(request: pytest.FixtureRequest) -> None:
         restore_audit_rows()
 
 
+def empty_trail() -> None:
+    """An empty `audit_log`, for tests that need one (U0.9 G3, Owner).
+
+    A migrated test database is no longer empty: `references 0008` writes its
+    changes as System. The append-only triggers are off for this one delete;
+    the test's own transaction puts the rows back afterwards.
+    """
+    run("SET CONSTRAINTS ALL IMMEDIATE")
+    run("ALTER TABLE audit_log DISABLE TRIGGER USER")
+    try:
+        run("DELETE FROM audit_log")
+    finally:
+        run("ALTER TABLE audit_log ENABLE TRIGGER USER")
+        run("SET CONSTRAINTS ALL DEFERRED")
+
+
 def accept_noticed_truncates() -> None:
     """Accept any flush's `truncate` rows, as `--accept` would (design §8.2).
 

@@ -15,7 +15,7 @@ from django.apps import apps
 from django.contrib.auth.models import User
 
 from cucumber.core.tests.rows import fetch_one, insert, run
-from cucumber.core.tests.trail import LEFT_COMPANY, as_system, system_id
+from cucumber.core.tests.trail import LEFT_COMPANY, as_system, empty_trail, system_id
 
 pytestmark = pytest.mark.django_db
 
@@ -142,6 +142,7 @@ def test_the_trail_cant_be_undone_once_it_has_a_row() -> None:
 
 
 def test_the_trail_undo_is_allowed_while_it_is_empty() -> None:
+    empty_trail()  # references 0008 writes its changes to the trail
     assert count("SELECT count(*) FROM audit_log") == 0
 
     migration("core", "0006_audit_trail").refuse_if_audited(apps, None)

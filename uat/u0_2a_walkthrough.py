@@ -420,13 +420,13 @@ def closing(s: Story) -> None:
 def lists(s: Story) -> None:
     step(
         "Reference lists (AC20, AC21)",
-        "stages run P0, P1, P2, A1, P4; a stage in use can't be renamed or"
-        " deleted, only switched off.",
+        "stages run S0, P0, P1, P2, A1, P4 (S0 from U0.9); a stage in use"
+        " can't be renamed or deleted, only switched off.",
     )
     order = s.app.one(
         "SELECT string_agg(code, ' ' ORDER BY sort_order) FROM stages WHERE active"
     )
-    check("Stage order", "P0 P1 P2 A1 P4", order)
+    check("Stage order", "S0 P0 P1 P2 A1 P4", order)
     check(
         "Rename stage P0 (in use)",
         refused("stages_code_rename"),
