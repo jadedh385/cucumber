@@ -12,7 +12,7 @@ from django.db import models
 
 from cucumber.core.refusals import refuse
 from cucumber.references.fixed import Action, CountUnit
-from cucumber.references.lists import LIST_RULES, ListName
+from cucumber.references.lists import LIST_RULES, ListName, storable
 from cucumber.references.models import (
     ContainerType,
     Genus,
@@ -84,6 +84,8 @@ def item(name: ListName, code: str) -> Item | None:
     """
     if name in FIXED:
         return next((found for found in fixed_items(name) if found.code == code), None)
+    if not storable(code):
+        return None  # no list holds it (G4 M1)
     row = rows(name).filter(code=code).first()
     return None if row is None else Item(*row)
 
@@ -97,7 +99,7 @@ def check_active(name: ListName, *codes: str) -> None:
     if name in FIXED:
         active = {value: True for value in FIXED[name].values}
     else:
-        found = manager(name).filter(code__in=set(codes))
+        found = manager(name).filter(code__in={c for c in codes if storable(c)})
         active = dict(found.values_list("code", "active"))
     if any(code not in active for code in codes):
         raise refuse("list_item_unknown")
@@ -112,7 +114,7 @@ def stage_at_or_after(code: str, than: str) -> bool:
     the order (reserved). `list_item_unknown` for a code that is not a stage
     (G2 Q-C), so a typo in a constant fails loudly. One query.
     """
-    stages = Stage.objects.filter(code__in={code, than})
+    stages = Stage.objects.filter(code__in={c for c in (code, than) if storable(c)})
     places = dict(stages.values_list("code", "sort_order"))
     if code not in places or than not in places:
         raise refuse("list_item_unknown")

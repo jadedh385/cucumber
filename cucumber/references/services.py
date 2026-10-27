@@ -33,6 +33,7 @@ from cucumber.references.lists import (
     Change,
     ListName,
     ListRules,
+    storable,
 )
 from cucumber.references.models import Genus, ReasonList
 from cucumber.references.reading import Item, label_column, manager, rows
@@ -152,7 +153,7 @@ def checked_code(rules: ListRules, code: str) -> str:
 def checked_label(name: ListName, label: str) -> str:
     """Step 3: the label, trimmed, is not blank and at most 100 characters."""
     trimmed = label.strip()
-    if not trimmed or len(trimmed) > LABEL_MAX_LENGTH:
+    if not trimmed or len(trimmed) > LABEL_MAX_LENGTH or not storable(trimmed):
         raise refuse(label_rule(name))
     return trimmed
 
@@ -166,6 +167,8 @@ def label_rule(name: ListName) -> str:
 
 def locked(name: ListName, code: str) -> Item:
     """Step 5: the item, its row locked; `list_item_unknown` if there is none."""
+    if not storable(code):
+        raise refuse("list_item_unknown")
     row = rows(name).select_for_update(no_key=True).filter(code=code).first()
     if row is None:
         raise refuse("list_item_unknown")

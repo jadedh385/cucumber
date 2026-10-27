@@ -2,6 +2,9 @@
 
 The patterns are the database checks' regexes (`^…$`); Python checks them
 with `re.fullmatch`, so a trailing newline can't pass (U0.8 G4 LOW).
+
+`core.refusals` builds its messages from this module, so it imports nothing
+from the apps: an import of `core` or a model here would be a cycle.
 """
 
 from dataclasses import dataclass
@@ -11,6 +14,12 @@ MEDIA_CODE_PATTERN = r"^[A-Z][A-Z0-9]{2,9}$"  # M001, G002, R001
 GENUS_CODE_PATTERN = r"^[A-Z]{3}$"  # PHL
 CONTAINER_TYPE_PATTERN = r"^[a-z][a-z0-9_]{1,31}$"  # magenta_box
 LABEL_MAX_LENGTH = 100
+SURROGATES = range(0xD800, 0xE000)
+
+
+def storable(text: str) -> bool:
+    """PostgreSQL text holds no NUL, and a lone surrogate has no UTF-8 (G4 M1)."""
+    return "\x00" not in text and not any(ord(char) in SURROGATES for char in text)
 
 
 class ListName(StrEnum):
