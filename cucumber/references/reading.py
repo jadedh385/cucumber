@@ -49,17 +49,24 @@ def fixed_items(name: ListName) -> tuple[Item, ...]:
     return tuple(Item(value, label, True) for value, label in FIXED[name].choices)
 
 
+def label_column(name: ListName) -> str:
+    return LABEL_COLUMN.get(name, "label")
+
+
+def manager(name: ListName) -> models.Manager[models.Model]:
+    return TABLES[name]._default_manager
+
+
 def rows(name: ListName) -> models.QuerySet[models.Model, tuple[Any, ...]]:
     """The list's rows as `Item` arguments: code, label, active (and order)."""
-    label = LABEL_COLUMN.get(name, "label")
     order = ("sort_order",) if name is ListName.STAGES else ()
-    return TABLES[name]._default_manager.values_list("code", label, "active", *order)
+    return manager(name).values_list("code", label_column(name), "active", *order)
 
 
 def order_column(name: ListName) -> str:
     """`sort_order`, `code` or the label column (design §3.1)."""
     order = LIST_RULES[name].order
-    return LABEL_COLUMN.get(name, "label") if order == "label" else order
+    return label_column(name) if order == "label" else order
 
 
 def active_items(name: ListName) -> tuple[Item, ...]:
@@ -90,8 +97,8 @@ def check_active(name: ListName, *codes: str) -> None:
     if name in FIXED:
         active = {value: True for value in FIXED[name].values}
     else:
-        table = TABLES[name]._default_manager
-        active = dict(table.filter(code__in=set(codes)).values_list("code", "active"))
+        found = manager(name).filter(code__in=set(codes))
+        active = dict(found.values_list("code", "active"))
     if any(code not in active for code in codes):
         raise refuse("list_item_unknown")
     if not all(active[code] for code in codes):

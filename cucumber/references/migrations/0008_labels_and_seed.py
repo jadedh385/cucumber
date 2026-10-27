@@ -141,7 +141,8 @@ def changed_since(cursor: CursorWrapper) -> list[str]:
     found: list[str] = []
     for table, codes in CHANGED.items():
         cursor.execute(
-            "SELECT DISTINCT row_pk FROM audit_log WHERE id >= %s AND via <> %s"
+            "SELECT DISTINCT row_pk FROM audit_log WHERE id >= %s"
+            " AND via IS DISTINCT FROM %s"
             " AND table_name = %s AND row_pk = ANY(%s) ORDER BY row_pk",
             [first, VIA, table, codes],
         )
@@ -168,10 +169,11 @@ def refuse_if_anything_newer(cursor: CursorWrapper) -> None:
 
 
 def deferred_links_to(cursor: CursorWrapper, table: str) -> list[str]:
-    """Names of the deferrable foreign keys that point at `table`."""
+    """Names of the deferred foreign keys that point at `table`: the ones
+    set `IMMEDIATE` for a delete and put back to `DEFERRED` after it."""
     cursor.execute(
         "SELECT quote_ident(conname) FROM pg_constraint"
-        " WHERE contype = 'f' AND condeferrable"
+        " WHERE contype = 'f' AND condeferrable AND condeferred"
         " AND confrelid = %s::regclass ORDER BY conname",
         [f"public.{table}"],
     )

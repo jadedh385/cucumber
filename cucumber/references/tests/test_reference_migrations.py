@@ -28,6 +28,7 @@ import pytest
 from django.apps import apps
 from django.contrib.auth.models import User
 from django.core.management import call_command
+from django.db import connection
 
 from cucumber.core.audit import SYSTEM_USERNAME, audited
 from cucumber.core.tests.rows import (
@@ -347,6 +348,23 @@ def test_0008_undo_refuses_after_the_admin_changed_one_of_its_labels(
         update(table, code, values, "code")
 
     refused_undo(step, code)
+
+
+@pytest.mark.django_db
+def test_0008_undo_refuses_after_a_change_made_by_hand_in_sql(
+    step: ModuleType, admin: User
+) -> None:
+    """With no `via` set, the trigger writes `sql as <role>`; that change
+    counts too (G3 review)."""
+    with audited(admin), connection.cursor() as cursor:
+        cursor.execute("SELECT set_config('cucumber.via', '', true)")
+        update("stages", "P1", {"label": "Multiplication (by hand)"}, "code")
+
+    assert fetch_one(
+        "SELECT via FROM audit_log WHERE table_name = 'stages' AND row_pk = 'P1'"
+        " ORDER BY id DESC LIMIT 1"
+    ) == ("sql as cucumber_owner",)
+    refused_undo(step, "P1")
 
 
 @pytest.mark.django_db

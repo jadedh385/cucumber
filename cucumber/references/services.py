@@ -22,7 +22,6 @@ from dataclasses import replace
 from typing import Any
 
 from django.contrib.auth.models import User
-from django.db import models
 
 from cucumber.accounts.permissions import Permission, require
 from cucumber.core.audit import Reason, audited, require_reason
@@ -36,7 +35,7 @@ from cucumber.references.lists import (
     ListRules,
 )
 from cucumber.references.models import Genus, ReasonList
-from cucumber.references.reading import LABEL_COLUMN, TABLES, Item, rows
+from cucumber.references.reading import Item, label_column, manager, rows
 
 # A code's rules after its format (design §3.1); only genera has one.
 FURTHER_CODE_RULES: dict[str, Callable[[str], bool]] = {
@@ -53,11 +52,11 @@ def add_item(
     new_code = checked_code(rules, code)
     new_label = checked_label(name, label)
     with database_refusals(), audited(by, via=via):
-        if table(name).filter(code=new_code).exists():
+        if manager(name).filter(code=new_code).exists():
             raise refuse(f"{name.value}_pkey")
         if name is ListName.GENERA:
             check_name_free(new_code, new_label)
-        table(name).create(code=new_code, **{label_column(name): new_label})
+        manager(name).create(code=new_code, **{label_column(name): new_label})
     return Item(new_code, new_label, True)
 
 
@@ -66,9 +65,10 @@ def edit_label(
 ) -> Item:
     """Change an item's label; a genus's name (AC4, AC7)."""
     allowed(by, name, Change.LABEL)
+    trimmed = code.strip()
     new_label = checked_label(name, label)
     with database_refusals(), audited(by, via=via):
-        current = locked(name, code.strip())
+        current = locked(name, trimmed)
         if current.label == new_label:
             return current
         if name is ListName.GENERA:
@@ -164,14 +164,6 @@ def label_rule(name: ListName) -> str:
     return f"{name.value}_label_valid"
 
 
-def label_column(name: ListName) -> str:
-    return LABEL_COLUMN.get(name, "label")
-
-
-def table(name: ListName) -> models.Manager[models.Model]:
-    return TABLES[name]._default_manager
-
-
 def locked(name: ListName, code: str) -> Item:
     """Step 5: the item, its row locked; `list_item_unknown` if there is none."""
     row = rows(name).select_for_update(no_key=True).filter(code=code).first()
@@ -189,4 +181,4 @@ def check_name_free(code: str, new_name: str) -> None:
 def save(name: ListName, code: str, changes: dict[str, Any]) -> None:
     """One UPDATE of the changed column only, so the owner-only triggers and
     the audit row see just that change."""
-    table(name).filter(code=code).update(**changes)
+    manager(name).filter(code=code).update(**changes)

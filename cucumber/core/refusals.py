@@ -11,7 +11,7 @@ from contextlib import contextmanager
 import psycopg
 from django.db import DatabaseError, IntegrityError
 
-from cucumber.references.lists import EDITABLE_TABLES, LIST_RULES, Change
+from cucumber.references.lists import EDITABLE_TABLES, LIST_RULES, Change, ListName
 
 logger = logging.getLogger(__name__)
 
@@ -155,7 +155,7 @@ MESSAGES: dict[str, str] = {
     **{
         f"{table}_label_valid": "Enter a label of up to 100 characters."
         for table in EDITABLE_TABLES
-        if table != "genera"
+        if table != ListName.GENERA.value
     },
     "genera_name_valid": "Enter a genus name of up to 100 characters.",
 }
