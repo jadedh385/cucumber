@@ -108,6 +108,10 @@ gh run watch "$(gh run list --workflow "Draft release" --limit 1 --json database
 gh release list --limit 3                     # the new draft and its version, e.g. 2026.10.1
 ```
 
+Run the workflow **once**. A second run makes a second draft with the next number
+at the same commit (U0.9 G6, finding 1). Check `gh release list` before running
+it again, and delete a stray draft with `gh release delete <version> --cleanup-tag`.
+
 ## 2. Wording (Owner)
 
 On GitHub → Releases → the draft → Edit. Fix the **For staff** wording
@@ -145,7 +149,8 @@ production's state. Also restore the copy G5's deploy took (the one before the
 `source-…` build), check `pending_migrations` lists the release's migrations and
 `unknown` is empty, leave the app stopped, then deploy the tag forward: that
 run applies the migrations for real, as production will. Check the app on
-`APP_PORT` from `secrets.env`, not 8000.
+`APP_PORT` from `secrets.env`, not 8000. (Worked through for U0.8 and again for
+U0.9: [U0.9 G6](../roadmap/units/u0.9-g6-release.md).)
 
 **No output for more than a minute** means the command is waiting at a
 question like that one. A session without a keyboard can't answer it, so
@@ -171,6 +176,11 @@ on staging first.
 table. With the app stopped nothing can, and if the deploy does stop and says
 to restore, nothing saved after the copy is lost (U0.8 design §16, D1, Owner
 2026-10-24). Do it on staging first.
+
+**U0.9 too: stop the app before the deploy** (`dc stop app`), staging first. The
+undo of `references 0008` refuses once anything uses or changes the lists, so the
+copy the deploy takes is the way back, and nothing saved after it should be lost
+([U0.9 G6](../roadmap/units/u0.9-g6-release.md)).
 
 **U0.7 only: everyone is signed out once.** The new login backend
 (`AuditedRehashBackend`) replaces the old one, and Django ends any session made
