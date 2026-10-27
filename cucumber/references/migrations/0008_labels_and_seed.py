@@ -13,7 +13,7 @@ its own audit row.
 Undo refuses, saying to restore the copy, while a batch or an event is at
 `S0`, while an audit row newer than this migration's last run names one of
 its codes (an Admin change), or while a list holds a code nobody seeded
-(review M5). Otherwise it puts the labels back and removes `S0` and the
+(review M5, G4 D1). Otherwise it puts the labels back and removes `S0` and the
 container types, writing a `delete` audit row for each by hand: the list
 tables' audit trigger doesn't fire on DELETE.
 """
@@ -151,7 +151,13 @@ def changed_since(cursor: CursorWrapper) -> list[str]:
 
 
 def added_since(cursor: CursorWrapper) -> list[str]:
-    """Codes nobody seeded: `0006`'s undo would refuse after this one ran."""
+    """Codes nobody seeded.
+
+    An added container type would make `0006`'s undo refuse after this one
+    ran, half undone (M5). An added media code or genus wouldn't, but an undo
+    after the Admin has used the lists isn't rehearsed: restore instead
+    (G4 D1, Owner).
+    """
     found: list[str] = []
     for table, codes in SEEDED.items():
         cursor.execute(

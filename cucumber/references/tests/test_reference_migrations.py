@@ -389,7 +389,9 @@ def test_0008_undo_refuses_after_the_admin_switched_a_container_type_off(
 def test_0008_undo_refuses_while_the_admin_added_an_item(
     step: ModuleType, table: str, values: dict[str, object], admin: User
 ) -> None:
-    """Otherwise 0008 would undo and 0006 refuse: half undone (review M5)."""
+    """A container type: otherwise 0008 would undo and 0006 refuse, half
+    undone (review M5). A media code or genus: an undo after the Admin has
+    used the lists isn't rehearsed, so restore instead (G4 D1)."""
     with audited(admin):
         insert(table, {**values, "active": True}, "code")
 
