@@ -108,6 +108,10 @@ gh run watch "$(gh run list --workflow "Draft release" --limit 1 --json database
 gh release list --limit 3                     # the new draft and its version, e.g. 2026.10.1
 ```
 
+Run the workflow **once**. A second run makes a second draft with the next number
+at the same commit (U0.9 G6, finding 1). Check `gh release list` before running
+it again, and delete a stray draft with `gh release delete <version> --cleanup-tag`.
+
 ## 2. Wording (Owner)
 
 On GitHub → Releases → the draft → Edit. Fix the **For staff** wording
