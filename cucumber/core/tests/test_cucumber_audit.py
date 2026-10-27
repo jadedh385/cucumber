@@ -16,7 +16,7 @@ from waffle.models import Flag
 
 from cucumber.core.tests.rows import insert, run
 from cucumber.core.tests.stock import make_staff
-from cucumber.core.tests.trail import LEFT_COMPANY, audit_mark, system_id
+from cucumber.core.tests.trail import LEFT_COMPANY, audit_mark, empty_trail, system_id
 
 pytestmark = pytest.mark.django_db
 
@@ -68,6 +68,7 @@ def people() -> tuple[User, User]:
 def trail(people: tuple[User, User]) -> dict[str, int]:
     """Four rows: Jade changes Mali twice and gives a role; System switches a flag."""
     jade, mali = people
+    empty_trail()  # references 0008 writes its changes to the trail
     with left_out_of_the_trail():
         flag = Flag.objects.create(name="lab_screens")
     tech = Group.objects.get(name="tech")

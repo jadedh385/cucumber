@@ -30,7 +30,14 @@ AUDIT_ARGUMENTS = {
     ),
     **{
         table: ("code", set(), set())
-        for table in ["genera", "stages", "media_codes", "locations", "reasons"]
+        for table in [
+            "genera",
+            "stages",
+            "media_codes",
+            "locations",
+            "reasons",
+            "container_types",
+        ]
     },
     "vendors": ("zoho_contact_id", {"synced_at"}, set()),
     "auth_user": (
@@ -54,6 +61,7 @@ REASON_ARGUMENTS = {
             "media_codes",
             "locations",
             "reasons",
+            "container_types",
             "vendors",
         ]
     },  # fmt: skip
@@ -66,6 +74,7 @@ NEW_FUNCTIONS = [
     "cucumber_reason_required",
     "cucumber_truncate_noticed",
     "audit_log_stamp",
+    "cucumber_owner_only",  # U0.9
 ]
 
 

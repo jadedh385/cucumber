@@ -29,10 +29,10 @@ def codes(sql: str) -> list[str]:
 # ------------------------------------------------------------------- seeds
 
 
-def test_active_stages_run_p0_p1_p2_a1_p4() -> None:
-    """AC21 and D-06: A1 sits between P2 and P4."""
+def test_active_stages_run_s0_p0_p1_p2_a1_p4() -> None:
+    """AC21 and D-06: A1 sits between P2 and P4. U0.9 AC1: S0 Seed comes first."""
     active = codes("SELECT code FROM stages WHERE active ORDER BY sort_order")
-    assert active == ["P0", "P1", "P2", "A1", "P4"]
+    assert active == ["S0", "P0", "P1", "P2", "A1", "P4"]
 
 
 def test_reserved_stages_are_inactive_with_no_sort_order() -> None:

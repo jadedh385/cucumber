@@ -30,6 +30,7 @@ from django.db.models.lookups import GreaterThanOrEqual
 from cucumber.batches.models import Batch
 from cucumber.core.expressions import TransactionNow
 from cucumber.events.projection import Effective, in_order
+from cucumber.references.fixed import Action as Action  # still imported from here
 from cucumber.references.models import MediaCode, Reason, Stage
 
 BANGKOK = "Asia/Bangkok"
@@ -54,23 +55,6 @@ class Operation(models.Model):
 
     def __str__(self) -> str:
         return str(self.id)
-
-
-class Action(models.TextChoices):
-    INTAKE = "intake"
-    SUBCULTURE = "subculture"
-    STAGE_CHANGE = "stage_change"
-    COUNT = "count"
-    CONTAMINATION = "contamination"
-    SPLIT = "split"
-    QUARANTINE = "quarantine"
-    RELEASE = "release"
-    TRANSFER = "transfer"
-    OUT = "out"
-    LOSS = "loss"
-    CLOSE = "close"
-    CORRECTION = "correction"
-    VOID = "void"
 
 
 class EnteredVia(models.TextChoices):

@@ -10,6 +10,8 @@ from io import StringIO
 
 import pytest
 from django.core.management import CommandError, call_command
+from django.db import connection
+from django.db.migrations.loader import MigrationLoader
 
 from cucumber.core import expected, guards
 from cucumber.core.guards import GUARDS, Kind
@@ -316,13 +318,23 @@ def test_a_missing_migration_with_later_ones_applied_is_a_failure() -> None:
     assert "not recorded as applied" in output
 
 
+def newest_guard_migration_and_after() -> list[tuple[str, str]]:
+    """The guard migration every other one runs before, and each migration
+    that runs after it: on the old database, none of them has run yet."""
+    graph = MigrationLoader(connection).graph
+    keys = {tuple(guard.migration.split(".", 1)) for guard in GUARDS}
+    newest = max(keys, key=lambda key: len(graph.forwards_plan(key)))
+    return [node for node in graph.nodes if newest in graph.forwards_plan(node)]
+
+
 def test_a_migration_not_yet_run_is_not_a_failure() -> None:
     """Step 3b checks the old database with the new code: that is expected.
 
-    The newest guard migration is the one not yet run; nothing comes after it.
+    Found, not named, so a unit that adds a guard migration doesn't change
+    this test (U0.9 G3, Owner).
     """
-    app, name = expected.U08.split(".", 1)
-    run("DELETE FROM django_migrations WHERE app = %s AND name = %s", [app, name])
+    for app, name in newest_guard_migration_and_after():
+        run("DELETE FROM django_migrations WHERE app = %s AND name = %s", [app, name])
 
     assert "protections on." in check()
 

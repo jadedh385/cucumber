@@ -37,7 +37,7 @@ SPEC: list[tuple[Permission, set[Role | None], Built]] = [
     (Permission.PLANT_LIFECYCLE, {A}, Built.SERVICES),
     (Permission.RECLASSIFY_GENUS, {A}, Built.SERVICES),
     (Permission.ZOHO_LINK, {A}, Built.LATER),
-    (Permission.EDIT_REFERENCE_LISTS, {A}, Built.LATER),
+    (Permission.EDIT_REFERENCE_LISTS, {A}, Built.SERVICES),
     (Permission.SEE_ZOHO_REFS, {A}, Built.LATER),
     (Permission.VIEW_DASHBOARDS, {A, S, T, R}, Built.LATER),
     (Permission.MANAGE_USERS, {A}, Built.BOTH),

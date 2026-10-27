@@ -93,6 +93,7 @@ RENAMES = {
     "media_codes": ("M001", "M999"),
     "locations": ("lab", "lab2"),
     "reasons": (None, "renamed"),
+    "container_types": ("magenta_box", "magenta_box2"),  # U0.9
 }
 
 

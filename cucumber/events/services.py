@@ -43,6 +43,8 @@ from cucumber.events.writing import (
     start_operation,
 )
 from cucumber.ids.issuing import lock_plants, plant_seqs
+from cucumber.references.lists import ListName
+from cucumber.references.reading import check_active
 
 # The rule a resent form meets: its `operation_id` is already saved (§3.3).
 ALREADY_SAVED = "operations_pkey"
@@ -124,16 +126,20 @@ def save_operation(
     operation_id: uuid.UUID,
     recorded_by: User,
     entries: Sequence[NewEvent] | EntriesFor,
+    *,
+    picked: bool = True,
 ) -> Saved:
     """Save one user action: all its events, or none (design §3.3).
 
     `entries` may be a function that builds them after the operation row is
     written, when they depend on a batch read under its lock (see `split`).
+    `picked=False` when every list code in them is carried, not picked (a
+    split; U0.9 design §3.4), so a switched-off one isn't refused.
     """
     return save_once(
         operation_id,
         recorded_by,
-        lambda: write_operation(operation_id, recorded_by, entries),
+        lambda: write_operation(operation_id, recorded_by, entries, picked=picked),
     )
 
 
@@ -160,6 +166,8 @@ def write_operation(
     operation_id: uuid.UUID,
     recorded_by: User,
     entries: Sequence[NewEvent] | EntriesFor,
+    *,
+    picked: bool = True,
 ) -> Saved:
     """The writes of `save_operation`, inside its transaction."""
     # Every action's row has the same roles, so this first check also keeps
@@ -167,6 +175,9 @@ def write_operation(
     standing = require(recorded_by, Permission.LOG_WORK)
     start_operation(operation_id, recorded_by)
     entries = entries() if callable(entries) else entries
+    # After start_operation, so a resend still gets "Already saved" (U0.9 H1).
+    if picked:
+        check_picked(entries)
     check_actions(standing, [entry.action for entry in entries])
     check_work_for(standing, [entry.staff_id for entry in entries])
     plant_ids = {entry.new_batch.plant_id for entry in entries if entry.new_batch}
@@ -247,6 +258,40 @@ def check_entry(entry: NewEvent, locked: dict[int, Batch]) -> None:
     if entry.action == Action.SPLIT and not entry.note.strip():
         raise refuse("split_needs_note")
     check_reason(entry.action, entry.reason_code)
+
+
+def check_picked(entries: Sequence[NewEvent]) -> None:
+    """Every medium, stage and new-batch location a person picked is on its list
+    and active (U0.9 design §3.4, AC13). Not called for a split's carried values."""
+    picks: dict[ListName, set[str | None]] = {
+        ListName.MEDIA_CODES: {entry.media_code for entry in entries},
+        ListName.STAGES: {entry.stage_to for entry in entries},
+        ListName.LOCATIONS: {
+            entry.new_batch.location_code for entry in entries if entry.new_batch
+        },
+    }
+    for name, codes in picks.items():
+        check_codes(name, codes)
+
+
+def check_changed(current: Effective, changes: Restated) -> None:
+    """A Correction's medium or stage that differs from the event's current
+    effective value is on its list and active; restated values aren't checked
+    (U0.9 design §3.4, AC13)."""
+    picks = {
+        ListName.MEDIA_CODES: (changes.media_code, current.media_code),
+        ListName.STAGES: (changes.stage_to, current.stage_to),
+    }
+    for name, (new, now) in picks.items():
+        if new != now:
+            check_codes(name, {new})
+
+
+def check_codes(name: ListName, codes: set[str | None]) -> None:
+    """`check_active` on the codes given; `None` (not set) isn't one."""
+    given = [code for code in codes if code is not None]
+    if given:
+        check_active(name, *given)
 
 
 def check_staff(entries: Sequence[NewEvent]) -> None:
@@ -332,7 +377,8 @@ def split(
     def entries() -> list[NewEvent]:
         return split_entries(lock_parent(batch_id), qty, note, occurred_at)
 
-    return save_operation(operation_id, recorded_by, entries)
+    # The child's location and stage are the parent's: carried, not picked.
+    return save_operation(operation_id, recorded_by, entries, picked=False)
 
 
 def lock_parent(batch_id: int) -> Batch:
@@ -619,8 +665,10 @@ def check_keeps_shape(current: Effective, values: dict[str, Any]) -> None:
 
 
 def checked_values(original: Event, changes: Restated) -> dict[str, Any]:
-    """The Correction row's values, refused if they change what the event is."""
+    """The Correction row's values, refused if they change what the event is
+    or pick a switched-off medium or stage."""
     current = current_values(original)
+    check_changed(current, changes)
     values = restated_values(current, changes)
     check_keeps_shape(current, values)
     return values

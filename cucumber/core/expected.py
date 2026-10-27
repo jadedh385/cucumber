@@ -7,6 +7,7 @@ on purpose: a function's body is pinned by its md5, so even a one-letter
 change to a trigger function is reported until this file agrees.
 """
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 
 from cucumber.core import db_rules
@@ -20,6 +21,7 @@ CORE_0003 = "core.0003_app_grants"
 CORE_0005 = "core.0005_flag_grants"
 U07 = "core.0006_audit_trail"
 U08 = "core.0007_id_sequences"
+U09 = "references.0007_container_type_rules"
 EVENTS_0002 = "events.0002_rules"
 PLANTS_0002 = "plants.0002_rules"
 BATCHES_0002 = "batches.0002_rules"
@@ -72,7 +74,62 @@ NO_DELETE_BY = {
     "batches": BATCHES_0002,
     **dict.fromkeys([*db_rules.REFERENCE_LISTS, "vendors"], REFERENCES_0003),
     "auth_user": U07,
+    **dict.fromkeys(db_rules.U09_REFERENCE_LISTS, U09),
 }
+CODE_RENAME_BY = {
+    **dict.fromkeys(db_rules.REFERENCE_LISTS, REFERENCES_0003),
+    **dict.fromkeys(db_rules.U09_REFERENCE_LISTS, U09),
+}
+
+
+def audit_triggers(
+    specs: Iterable[db_rules.Audited], migration: str
+) -> dict[str, tuple[Trigger, str]]:
+    """U0.7 §4.1: the trail, one trigger per audited table."""
+    return {
+        f"{spec.table}_audit": (
+            Trigger(
+                spec.table,
+                "cucumber_audit",
+                trigger_type("AFTER", spec.events),
+                spec.arguments,
+            ),
+            migration,
+        )
+        for spec in specs
+    }
+
+
+def reason_triggers(
+    specs: Iterable[db_rules.SwitchOff], migration: str
+) -> dict[str, tuple[Trigger, str]]:
+    """U0.7 §4.2: no switching off without a reason."""
+    return {
+        f"{spec.table}_reason_required": (
+            Trigger(
+                spec.table,
+                "cucumber_reason_required",
+                BEFORE_INSERT_OR_UPDATE,
+                spec.arguments,
+            ),
+            migration,
+        )
+        for spec in specs
+    }
+
+
+def truncate_triggers(
+    tables: Iterable[str], migration: str
+) -> dict[str, tuple[Trigger, str]]:
+    """U0.7 §4.4: an emptied table leaves a `truncate` row."""
+    return {
+        f"{table}_truncate_noticed": (
+            Trigger(table, "cucumber_truncate_noticed", TRUNCATE_TYPE),
+            migration,
+        )
+        for table in tables
+    }
+
 
 TRIGGERS: dict[str, tuple[Trigger, str]] = {
     **{
@@ -92,9 +149,9 @@ TRIGGERS: dict[str, tuple[Trigger, str]] = {
     **{
         f"{table}_code_rename": (
             Trigger(table, "cucumber_code_rename", BEFORE_UPDATE),
-            REFERENCES_0003,
+            migration,
         )
-        for table in db_rules.REFERENCE_LISTS
+        for table, migration in CODE_RENAME_BY.items()
     },
     "plant_sku_static": (
         Trigger("plants", "plant_sku_static", BEFORE_UPDATE),
@@ -105,37 +162,9 @@ TRIGGERS: dict[str, tuple[Trigger, str]] = {
         EVENTS_0002,
     ),
     # U0.7: the trail (§4.1), the reason rule (§4.2), TRUNCATE (§4.4), §3.2.
-    **{
-        f"{spec.table}_audit": (
-            Trigger(
-                spec.table,
-                "cucumber_audit",
-                trigger_type("AFTER", spec.events),
-                spec.arguments,
-            ),
-            U07,
-        )
-        for spec in db_rules.AUDITED_TABLES
-    },
-    **{
-        f"{spec.table}_reason_required": (
-            Trigger(
-                spec.table,
-                "cucumber_reason_required",
-                BEFORE_INSERT_OR_UPDATE,
-                spec.arguments,
-            ),
-            U07,
-        )
-        for spec in db_rules.SWITCH_OFFS
-    },
-    **{
-        f"{table}_truncate_noticed": (
-            Trigger(table, "cucumber_truncate_noticed", TRUNCATE_TYPE),
-            U07,
-        )
-        for table in db_rules.TRUNCATE_NOTICED_TABLES
-    },
+    **audit_triggers(db_rules.AUDITED_TABLES, U07),
+    **reason_triggers(db_rules.SWITCH_OFFS, U07),
+    **truncate_triggers(db_rules.TRUNCATE_NOTICED_TABLES, U07),
     "audit_log_stamp": (Trigger("audit_log", "audit_log_stamp", BEFORE_INSERT), U07),
     "auth_user_system_username_fixed": (
         Trigger("auth_user", "cucumber_system_username_fixed", BEFORE_UPDATE),
@@ -157,6 +186,23 @@ TRIGGERS: dict[str, tuple[Trigger, str]] = {
     **{
         f"{table}_id_fixed": (Trigger(table, "cucumber_id_fixed", BEFORE_UPDATE), U08)
         for table in db_rules.ID_FIXED_TABLES
+    },
+    # U0.9 §2.3: container_types like the other lists (its no-delete and
+    # code-rename triggers are above), and the two owner-only rules.
+    **audit_triggers(db_rules.U09_AUDITED, U09),
+    **reason_triggers(db_rules.U09_SWITCH_OFFS, U09),
+    **truncate_triggers(db_rules.U09_TRUNCATE_NOTICED, U09),
+    **{
+        spec.rule: (
+            Trigger(
+                spec.table,
+                "cucumber_owner_only",
+                BEFORE_INSERT_OR_UPDATE,
+                spec.arguments,
+            ),
+            U09,
+        )
+        for spec in db_rules.OWNER_ONLY
     },
 }
 
@@ -200,6 +246,10 @@ FUNCTIONS: dict[str, tuple[Function, str]] = {
     "cucumber_id_fixed": (
         Function("269f3b59cc606dcd1e136feb7b821d88", FIXED_SEARCH_PATH),
         U08,
+    ),
+    "cucumber_owner_only": (
+        Function("11bdda9bec339790dfef4993f3ce1a3d", FIXED_SEARCH_PATH),
+        U09,
     ),
 }
 
@@ -256,6 +306,8 @@ PRIVILEGES: dict[str, tuple[frozenset[str], str]] = {
     **dict.fromkeys(
         ["waffle_flag_users", "waffle_switch", "waffle_sample"], (READ, CORE_0005)
     ),
+    # U0.9 §2.3: an explicit grant, not the default privileges (U0.8 L2).
+    **dict.fromkeys(db_rules.U09_REFERENCE_LISTS, (ADD_CHANGE, U09)),
 }
 
 # ------------------------------------------------------------------ app role

@@ -11,6 +11,7 @@ import pytest
 from django.apps import apps
 
 from cucumber.core.tests.rows import make_plant
+from cucumber.core.tests.trail import empty_trail
 
 guard = importlib.import_module(
     "cucumber.core.migrations.0004_refuse_reverse_with_data"
@@ -20,6 +21,8 @@ pytestmark = pytest.mark.django_db
 
 
 def test_undo_is_allowed_on_an_empty_database() -> None:
+    empty_trail()  # references 0008 writes its changes to the trail
+
     guard.refuse_if_data(apps, None)
 
 

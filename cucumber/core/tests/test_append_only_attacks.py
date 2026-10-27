@@ -291,6 +291,10 @@ def app_writes(table: str, staff: int) -> list[str]:
         "stages": ["UPDATE stages SET label = 'P2 late' WHERE code = 'P2'"],
         "media_codes": ["UPDATE media_codes SET label = 'half' WHERE code = 'M001'"],
         "locations": ["UPDATE locations SET label = 'The Lab' WHERE code = 'lab'"],
+        "container_types": [
+            "UPDATE container_types SET label = 'Magenta box II'"
+            " WHERE code = 'magenta_box'"
+        ],
         "reasons": [
             "UPDATE reasons SET label = 'Wrong batch!' WHERE code = 'void_wrong_batch'"
         ],

@@ -11,6 +11,8 @@ from contextlib import contextmanager
 import psycopg
 from django.db import DatabaseError, IntegrityError
 
+from cucumber.references.lists import EDITABLE_TABLES, LIST_RULES, Change, ListName
+
 logger = logging.getLogger(__name__)
 
 # Shown for every rule marked "Internal" in design §7.1, and any unknown name.
@@ -121,6 +123,41 @@ MESSAGES: dict[str, str] = {
     ),
     # Not a refusal: `look_up` returns None and the page shows this (§3.3).
     "id_not_found": "No plant, batch or event has that ID.",
+    # Reference lists (U0.9 design §7)
+    "list_fixed": (
+        "Event actions and count units can't be changed. That needs a release."
+    ),
+    "stages_order_fixed": (
+        "Stages can't be added or moved in the order here. That needs a release."
+    ),
+    "locations_fixed": "Lab and Nursery are fixed. You can change their labels only.",
+    "stages_active_needs_sort_order": (
+        "A reserved stage can't be switched on here. That needs a release."
+    ),
+    "media_codes_code_format": (
+        "A media code is a capital letter and 2 to 9 more capitals or digits,"
+        " e.g. M001."
+    ),
+    "genera_code_format": "A genus code is 3 capital letters, e.g. PHL.",
+    "container_types_code_format": (
+        "A container type code is small letters, digits and _, starting with a"
+        " letter, e.g. magenta_box."
+    ),
+    "genera_name_unique": "Another genus already has that name.",
+    "list_item_unknown": "That choice isn't on the list. Choose another.",
+    "list_item_inactive": "That choice is switched off. Choose another.",
+    # Built from the lists, so a new list can't miss its message (§7).
+    **{
+        f"{rules.name.value}_pkey": "That code is already on the list."
+        for rules in LIST_RULES.values()
+        if Change.ADD in rules.allowed
+    },
+    **{
+        f"{table}_label_valid": "Enter a label of up to 100 characters."
+        for table in EDITABLE_TABLES
+        if table != ListName.GENERA.value
+    },
+    "genera_name_valid": "Enter a genus name of up to 100 characters.",
 }
 
 # A programming error, not a person's: logged in full as well (design §6).

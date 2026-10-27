@@ -151,7 +151,12 @@ MATRIX: tuple[Row, ...] = (
         "Complete the Zoho link (vendor, zoho_ref)",
         ADMIN_ONLY,
     ),
-    Row(Permission.EDIT_REFERENCE_LISTS, "Edit reference lists", ADMIN_ONLY),
+    Row(
+        Permission.EDIT_REFERENCE_LISTS,
+        "Edit reference lists",
+        ADMIN_ONLY,
+        built=Built.SERVICES,
+    ),
     Row(Permission.SEE_ZOHO_REFS, "See Zoho references", ADMIN_ONLY),
     Row(Permission.VIEW_DASHBOARDS, "View dashboards", EVERY_ROLE),
     Row(
