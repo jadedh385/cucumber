@@ -16,8 +16,45 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  # A push that changes only docs skips the two slow jobs below; they show as
+  # "skipped", which counts as green. Only when the previous commit's code
+  # passed them (scripts/docs_only.py has the rules). If this job breaks, the
+  # slow jobs run anyway.
+  changes:
+    name: Docs only?
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      contents: read
+      checks: read
+    outputs:
+      skip: ${{ steps.answer.outputs.skip }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+
+      # A push or a new commit on a pull request compares with the commit
+      # before it; a pull request just opened compares with main.
+      - name: Compare with the previous commit
+        id: answer
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          BEFORE: ${{ github.event.before || github.event.pull_request.base.sha }}
+          AFTER: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          gh api "repos/$REPO/compare/$BEFORE...$AFTER" > compare.json
+          gh api "repos/$REPO/commits/$BEFORE/check-runs?per_page=100" > checks.json
+          uv run --no-project python -m scripts.docs_only compare.json checks.json | tee -a "$GITHUB_OUTPUT"
+
   check:
     name: Lint, types, tests
+    needs: changes
+    if: "!cancelled() && needs.changes.outputs.skip != 'true'"
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -73,6 +110,8 @@ jobs:
 
   image:
     name: Container image
+    needs: changes
+    if: "!cancelled() && needs.changes.outputs.skip != 'true'"
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
