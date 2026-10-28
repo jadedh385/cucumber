@@ -9,6 +9,7 @@ from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 
 import psycopg
+from django.core.exceptions import PermissionDenied
 from django.db import DatabaseError, IntegrityError
 
 from cucumber.references.lists import EDITABLE_TABLES, LIST_RULES, Change, ListName
@@ -177,6 +178,14 @@ class Refused(Exception):
         self.rule = rule
         self.message = message
         self.event_ids = tuple(event_ids)
+
+
+class PageRefused(PermissionDenied):
+    """A 403 Cucumber has already logged in its one line (U0.10a §9.2, AC17).
+
+    `RoleRequired` raises it after its `page refused` or `page has no
+    permission` line, so the 403 handler doesn't log the refusal again.
+    """
 
 
 def message_for(rule: str) -> str:

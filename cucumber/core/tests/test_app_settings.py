@@ -11,6 +11,8 @@ from waffle.utils import get_setting
 WHITENOISE = "whitenoise.middleware.WhiteNoiseMiddleware"
 SECURITY = "django.middleware.security.SecurityMiddleware"
 DUMMY_CACHE = "django.core.cache.backends.dummy.DummyCache"
+CSP = "cucumber.core.csp.ContentSecurityPolicy"
+BUSY = "cucumber.core.busy.BusyAnswer"
 
 
 # ------------------------------------------------- AC1: CSS from the app itself
@@ -23,6 +25,19 @@ def test_whitenoise_serves_them_straight_after_the_security_middleware() -> None
     middleware = list(settings.MIDDLEWARE)
 
     assert middleware.index(WHITENOISE) == middleware.index(SECURITY) + 1
+
+
+def test_the_security_policy_is_set_straight_after_whitenoise() -> None:
+    """U0.10a AC4 (§5.2): every page Django makes carries it, error pages too."""
+    middleware = list(settings.MIDDLEWARE)
+
+    assert CSP in middleware
+    assert middleware.index(CSP) == middleware.index(WHITENOISE) + 1
+
+
+def test_a_view_stopped_by_a_limit_answers_busy() -> None:
+    """U0.10a AC15 (§8.2): the middleware that turns a limit into 503 "Busy"."""
+    assert BUSY in settings.MIDDLEWARE
 
 
 def test_cucumbers_own_stylesheet_is_found() -> None:
@@ -44,6 +59,21 @@ def test_a_save_waiting_on_a_lock_gives_up_after_five_seconds() -> None:
     options = database.get("OPTIONS", {})
 
     assert "-c lock_timeout=5s" in options.get("options", "")
+
+
+def test_a_stuck_query_and_an_idle_transaction_end_after_ten_seconds() -> None:
+    """U0.10a AC15 (§8.1): the three limits, each from a named constant."""
+    database: dict[str, Any] = settings.DATABASES["default"]
+    options = database.get("OPTIONS", {}).get("options", "")
+
+    assert options.split() == [
+        "-c",
+        "lock_timeout=5s",
+        "-c",
+        "statement_timeout=10s",
+        "-c",
+        "idle_in_transaction_session_timeout=10s",
+    ]
 
 
 def test_connections_are_reused_for_a_minute_and_checked_first() -> None:

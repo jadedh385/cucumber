@@ -16,6 +16,7 @@ pytest_plugins = [  # each before the ones that import it
     "cucumber.core.tests.rows",
     "cucumber.core.tests.trail",
     "cucumber.core.tests.stock",
+    "cucumber.core.tests.logs",  # what the container log holds (U0.10a)
 ]
 
 

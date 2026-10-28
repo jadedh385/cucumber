@@ -3,10 +3,14 @@
 Django's PasswordChangeForm fields: old_password, new_password1, new_password2.
 """
 
+from unittest import mock
+
 import pytest
 from django.contrib.auth.models import User
-from django.test import Client
+from django.test import Client, override_settings
 
+from cucumber.accounts import services
+from cucumber.accounts.forms import ChangePasswordForm
 from cucumber.accounts.tests.helpers import (
     HOME,
     LOGOUT,
@@ -25,6 +29,8 @@ from cucumber.accounts.tests.helpers import (
     signed_in_as,
     text,
 )
+from cucumber.accounts.tests.test_audit_writers import UPGRADING_HASHERS
+from cucumber.core.tests.trail import audit_mark, audit_rows_since
 
 pytestmark = pytest.mark.django_db
 
@@ -161,3 +167,87 @@ def test_weak_new_passwords_are_refused(
     assert response.status_code == 200
     assert message in text(response)
     assert User.objects.get(pk=gene.pk).check_password(PASSWORD)
+
+
+# ------------------------------------- U0.10a AC24: the U0.5 G4 fixes (§10.3)
+@pytest.mark.parametrize("method", ["put", "patch", "delete"])
+def test_the_password_page_answers_only_get_and_post(
+    gene_client: Client, gene: User, method: str
+) -> None:
+    response = getattr(gene_client, method)(PASSWORD_PAGE)
+
+    assert response.status_code == 405
+    assert User.objects.get(pk=gene.pk).check_password(PASSWORD)
+
+
+def test_an_empty_post_shows_the_forms_errors(gene_client: Client) -> None:
+    """The form is bound whenever the method is POST, even with no fields."""
+    response = gene_client.post(PASSWORD_PAGE, {})
+
+    assert response.status_code == 200
+    assert text(response).count("This field is required.") == 3
+
+
+def test_if_recording_the_choice_fails_the_old_password_still_works(
+    due_client: Client, gene: User
+) -> None:
+    """One transaction: the new password and `password_chosen` together."""
+    with (
+        mock.patch.object(
+            services, "password_chosen", side_effect=RuntimeError("failed")
+        ),
+        pytest.raises(RuntimeError, match="failed"),
+    ):
+        change(due_client, PASSWORD, NEW_PASSWORD)
+
+    assert User.objects.get(pk=gene.pk).check_password(PASSWORD)
+    assert change_due(gene)
+
+
+def test_an_old_hash_changed_through_the_page_is_re_hashed_as_the_person(
+    gene_client: Client, gene: User
+) -> None:
+    """Checking the old password can re-hash it (U0.7 M4): inside the same
+    `audited(user)` block, so the re-hash is written as Gene, not System."""
+    mark = audit_mark()
+
+    with override_settings(PASSWORD_HASHERS=UPGRADING_HASHERS):
+        response = change(gene_client, PASSWORD, NEW_PASSWORD)
+
+    assert response.status_code == 302
+    rows = audit_rows_since(mark, "auth_user")
+    assert rows, "the change wrote no audit row"
+    assert {(row.actor_id, row.via) for row in rows} == {(gene.pk, "app")}
+
+
+def test_choose_own_password_saves_from_the_bound_form(gene: User) -> None:
+    form = ChangePasswordForm(
+        gene,
+        {
+            "old_password": PASSWORD,
+            "new_password1": NEW_PASSWORD,
+            "new_password2": NEW_PASSWORD,
+        },
+    )
+
+    assert services.choose_own_password(gene, form) is True
+    assert User.objects.get(pk=gene.pk).check_password(NEW_PASSWORD)
+
+
+def test_choose_own_password_with_a_wrong_old_password_saves_nothing(
+    gene: User,
+) -> None:
+    mark_change_due(gene)
+    form = ChangePasswordForm(
+        gene,
+        {
+            "old_password": "not-the-password",
+            "new_password1": NEW_PASSWORD,
+            "new_password2": NEW_PASSWORD,
+        },
+    )
+
+    assert services.choose_own_password(gene, form) is False
+    assert form.errors
+    assert User.objects.get(pk=gene.pk).check_password(PASSWORD)
+    assert change_due(gene)

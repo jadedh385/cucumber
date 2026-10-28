@@ -35,6 +35,16 @@ def server_error(request: HttpRequest) -> HttpResponse:
     return render(request, "500.html", status=500)
 
 
+def csrf_failure(request: HttpRequest, reason: str = "") -> HttpResponse:
+    """`CSRF_FAILURE_VIEW`: "This page was open too long." and Reload (AC16).
+
+    403. Reload goes to the same-site Referer, else Home; an HTMX request also
+    gets `Cucumber-Trouble: stale-page`. Django's `reason` is never shown or
+    logged here. G2 stub: built at G3.
+    """
+    raise NotImplementedError("U0.10a G3")
+
+
 @requires_csrf_token
 def permission_denied(request: HttpRequest, exception: Exception) -> HttpResponse:
     """The 403 page: "You don't have access to this page." (U0.6 AC10)."""

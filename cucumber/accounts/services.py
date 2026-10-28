@@ -18,6 +18,7 @@ from datetime import datetime, timedelta
 
 from django.conf import settings
 from django.contrib.auth import SESSION_KEY
+from django.contrib.auth.forms import PasswordChangeForm
 from django.contrib.auth.hashers import make_password
 from django.contrib.auth.models import AnonymousUser, Group, User
 from django.contrib.auth.password_validation import validate_password
@@ -456,6 +457,16 @@ def password_chosen(user: User) -> None:
     logger.info("password chosen account=%s", user.pk)
 
 
+def choose_own_password(user: User, form: PasswordChangeForm) -> bool:
+    """Save the person's own new password from the bound form; True if saved.
+
+    One `audited(user)` transaction around `form.is_valid()` (checking the
+    old password can re-hash it, U0.7 M4), `form.save()` and
+    `password_chosen` (U0.10a §10.3, AC24). G2 stub: built at G3.
+    """
+    raise NotImplementedError("U0.10a G3")
+
+
 def change_is_due(user: User) -> bool:
     """True while the person must choose their own password (AC25)."""
     return PasswordChangeDue.objects.filter(user_id=user.pk).exists()
@@ -530,6 +541,16 @@ def emails_that_may_be_locked() -> frozenset[str]:
         .filter(tries__gte=LOCK_AFTER_FAILURES)
         .values_list("email_key", flat=True)
     )
+
+
+def lock_ends(emails: Collection[str]) -> dict[str, datetime]:
+    """When each locked email's lock lifts, in one query (U0.10a §10.3, AC25).
+
+    Emails that aren't locked are left out. The same rule as `locked_until`,
+    with the database's `now()` read in the same query (G4 M7).
+    G2 stub: built at G3.
+    """
+    raise NotImplementedError("U0.10a G3")
 
 
 def locked_until(email: str) -> datetime | None:
