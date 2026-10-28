@@ -214,7 +214,16 @@ exits · *Gate focus* = unit-specific checks on top of [the standard gates](gate
 - **Gate focus:** G5 Owner edits a media list on a phone.
 
 ### U0.10 · App shell & UI kit
-- **Size:** M · **Deps:** U0.5 · **Decisions:** D-16, D-17
+- **Split 2026-10-28** (Owner, [spec](units/u0.10-spec.md) Q1) into two units that share one spec:
+  - **U0.10a · Shell & kit** (M, Deps: U0.5): daisyUI base page (one light
+    theme), bottom-bar menu, components (dropdown, date with ISO week, form,
+    list, detail, empty, error), double-tap guard, HTMX timeout, failure
+    wording, database timeouts, CSRF page, CSP, log clean-up, existing pages
+    moved over, Python-side translation. AC1–AC26.
+  - **U0.10b · List pages** (S, Deps: U0.10a, U0.9): the Admin's reference
+    list pages and the stricter label rules. AC27–AC34.
+  - The global search box moved to U1.1 (Q2).
+- **Size:** M (as an M and an S unit) · **Deps:** U0.5, U0.9 · **Decisions:** D-16, D-17, D-26
 - **Scope:** navigation, global search box, form components (dropdowns for all
   coded fields, auto date / week), list + detail layouts, error and empty states,
   mobile-first. English UI, translation-ready (D-16). Built on **Tailwind +

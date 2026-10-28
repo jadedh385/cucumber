@@ -22,6 +22,9 @@ subculture) — depth features follow in Phase 2.
   the `PLT-` numbers already in use. U1.1 can ship, with adding plants
   switched off on production by a flag until then. If the Owner decides
   there will be no import, the rule falls away.
+- **From U0.10 Q2 (Owner, 2026-10-28):** the app's global search box, moved
+  here from the app shell: it finds plants by genus + name, SKU, `PLT-`
+  number and former SKUs. U0.10 leaves its place in the top bar.
 - **Gate focus:** G2 fuzzy duplicate tests · G5 Owner registers 5 real plants.
 
 ### U1.2 · Plant status & SKU promotion
