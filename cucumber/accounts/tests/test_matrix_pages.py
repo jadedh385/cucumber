@@ -114,6 +114,8 @@ PAGE_ROWS = {
     "home": Permission.OWN_ACCOUNT,
     "logout": Permission.OWN_ACCOUNT,
     "password": Permission.OWN_ACCOUNT,
+    "account": Permission.OWN_ACCOUNT,  # U0.10a Q3 a)
+    "practice": Permission.OWN_ACCOUNT,  # U0.10a Q4 a), design §13
     "staff": Permission.MANAGE_USERS,
     "staff_new": Permission.MANAGE_USERS,
     "staff_detail": Permission.MANAGE_USERS,

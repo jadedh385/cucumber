@@ -99,3 +99,18 @@ def test_a_missing_flag_is_off_and_never_created() -> None:
 def test_flags_can_not_be_switched_from_the_address_bar() -> None:
     """Waffle's override lets `?dwft_<name>=1` switch a flag; it must stay off."""
     assert get_setting("OVERRIDE") is False
+
+
+def test_forms_render_through_the_kit() -> None:
+    """`{{ form }}` gives every field the kit's markup (U0.10a §7.1, AC11)."""
+    assert settings.FORM_RENDERER == "cucumber.core.kit.KitRenderer"
+
+
+def test_djangos_widget_templates_are_found_after_cucumbers() -> None:
+    """`TemplatesSetting` finds widgets only through installed apps (review H2);
+    after the Cucumber apps, so their templates win."""
+    apps: list[str] = settings.INSTALLED_APPS
+    cucumber_apps = [app for app in apps if app.startswith("cucumber.")]
+
+    assert "django.forms" in apps
+    assert apps.index("django.forms") > max(map(apps.index, cucumber_apps))

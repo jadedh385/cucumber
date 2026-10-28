@@ -18,6 +18,7 @@ from cucumber.references.models import (
     Genus,
     Location,
     MediaCode,
+    ReasonList,
     Stage,
 )
 
@@ -75,6 +76,23 @@ def active_items(name: ListName) -> tuple[Item, ...]:
         return fixed_items(name)
     found = rows(name).filter(active=True).order_by(order_column(name), "code")
     return tuple(Item(*row) for row in found)
+
+
+def all_items(name: ListName) -> dict[str, Item]:
+    """Every item by code, switched off or not, in the list's order (U0.10a AC9).
+
+    For pages that show many rows. One query; none for a fixed list.
+    G2 stub: built at G3.
+    """
+    raise NotImplementedError("U0.10a G3")
+
+
+def active_reasons(applies_to: ReasonList) -> tuple[Item, ...]:
+    """The active reasons of one list, by label, "Other" last (U0.10a §7.3).
+
+    One query. G2 stub: built at G3.
+    """
+    raise NotImplementedError("U0.10a G3")
 
 
 def item(name: ListName, code: str) -> Item | None:
