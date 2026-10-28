@@ -105,7 +105,13 @@ def test_reload_goes_back_to_the_page_the_form_was_on(gene_checked: Client) -> N
 
 @pytest.mark.parametrize(
     "referer",
-    ["https://elsewhere.example/accounts/password/", "//elsewhere.example/", None],
+    [
+        "https://elsewhere.example/accounts/password/",
+        "//elsewhere.example/",
+        # This site, but its path would read as another host in an href.
+        "http://testserver//elsewhere.example/",
+        None,
+    ],
 )
 def test_reload_goes_home_when_the_referer_is_not_this_site(
     gene_checked: Client, referer: str | None

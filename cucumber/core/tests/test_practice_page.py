@@ -9,6 +9,7 @@ A refused answer comes back 422 with the form's fragment: every answer
 kept, the message under its field (§11.2).
 """
 
+import html as entities
 import re
 from collections.abc import Iterator
 from datetime import datetime
@@ -78,7 +79,7 @@ def error_under(html: str, field: str) -> str:
         rf'<(\w+)\b[^>]*\bid="id_{field}_error"[^>]*>(.*?)</\1>', html, re.DOTALL
     )
     assert found, f"no error under {field}"
-    return found.group(2)
+    return entities.unescape(found.group(2))
 
 
 # ------------------------------------------------------------------ the page

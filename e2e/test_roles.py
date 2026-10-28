@@ -11,7 +11,8 @@ from playwright.sync_api import Page, expect
 
 from cucumber.core.tests.stock import make_staff
 from e2e.conftest import E2E_PASSWORD
-from e2e.test_login import NEW_PASSWORD, TEMPORARY, fits_the_phone, log_in
+from e2e.pages import fits_the_phone, log_in, log_out, open_from_menu
+from e2e.test_login import NEW_PASSWORD, TEMPORARY
 
 pytestmark = pytest.mark.django_db(transaction=True)
 
@@ -20,7 +21,7 @@ def test_the_admin_adds_a_tech_who_then_sees_no_staff_link(
     site_url: str, page: Page, account: tuple[str, str], local_only: None
 ) -> None:
     log_in(page, site_url, *account)
-    page.get_by_role("link", name="Staff").click()
+    open_from_menu(page, "Staff")
     page.get_by_role("link", name="Add").click()
     page.get_by_label("Name").fill("Mali")
     page.get_by_label("Email").fill("mali@example.com")
@@ -28,7 +29,7 @@ def test_the_admin_adds_a_tech_who_then_sees_no_staff_link(
     fits_the_phone(page)
     page.get_by_role("button", name="Add account").click()
     temporary = page.get_by_text(TEMPORARY).inner_text()
-    page.get_by_role("button", name="Log out").click()
+    log_out(page)
 
     log_in(page, site_url, "mali@example.com", temporary)
     page.get_by_label("Current password").fill(temporary)

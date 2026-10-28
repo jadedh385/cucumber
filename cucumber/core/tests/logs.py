@@ -25,6 +25,12 @@ class Line:
     has_traceback: bool
 
 
+def has_traceback(record: logging.LogRecord) -> bool:
+    """A formatter prints `exc_info`, or the text an earlier handler cached
+    from it in `exc_text`."""
+    return record.exc_info is not None or bool(record.exc_text)
+
+
 class Logged(logging.Handler):
     """Keeps every record the console handler would write, after its filter."""
 
@@ -38,7 +44,7 @@ class Logged(logging.Handler):
 
     def lines(self) -> list[Line]:
         return [
-            Line(record.name, record.getMessage(), record.exc_info is not None)
+            Line(record.name, record.getMessage(), has_traceback(record))
             for record in self.kept
         ]
 

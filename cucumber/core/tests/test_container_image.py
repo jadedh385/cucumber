@@ -150,7 +150,7 @@ def test_the_run_stage_copies_only_the_app_from_the_build_stage(
 
 
 def test_the_check_script_builds_the_css_before_the_tests() -> None:
-    check = (ROOT / "scripts" / "check.sh").read_text()
+    check = commands((ROOT / "scripts" / "check.sh").read_text())
 
     assert "==> CSS (tailwind)" in check
     assert "scripts.css build" in check
@@ -174,10 +174,18 @@ def test_ci_caches_the_tailwind_cli_by_the_hash_of_css_py() -> None:
 
 
 # ------------------------------------- U0.10a AC18: no control socket line
-def test_the_deploy_rehearsal_finds_no_control_socket_error() -> None:
-    rehearsal = (ROOT / "scripts" / "rehearse_deploy.sh").read_text()
+def commands(script: str) -> str:
+    """The script with its comment lines left out, so a comment can't pass."""
+    return "\n".join(
+        line for line in script.splitlines() if not line.lstrip().startswith("#")
+    )
 
-    assert "Control server error" in rehearsal
+
+def test_the_deploy_rehearsal_finds_no_control_socket_error() -> None:
+    """A line in the script's own shape: the grep, and `fail` when it finds it."""
+    rehearsal = commands((ROOT / "scripts" / "rehearse_deploy.sh").read_text())
+
+    assert re.search(r"grep\b.*Control server error.*\bfail\b", rehearsal)
 
 
 def test_the_app_runs_as_a_non_root_user(instructions: list[str]) -> None:

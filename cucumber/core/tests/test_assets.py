@@ -8,6 +8,8 @@ checked by hand at each phase release gate (§19).
 """
 
 import hashlib
+import html as entities
+import json
 import re
 import subprocess
 from base64 import b64encode
@@ -136,6 +138,56 @@ def test_pages_use_the_cucumber_theme() -> None:
     html = Client().get("/accounts/login/").content.decode()
 
     assert re.search(r'<html\b[^>]*\bdata-theme="cucumber"', html)
+
+
+# Every page is one of these two (AC1): the 500 and Busy pages are bare,
+# so they render with no database (§7.8).
+PAGE_SHELLS = {"core/templates/base.html", "core/templates/kit/bare.html"}
+
+
+def test_only_the_two_shells_open_a_page() -> None:
+    opening = {
+        str(path.relative_to(ROOT / "cucumber"))
+        for path in sorted((ROOT / "cucumber").glob("*/templates/**/*.html"))
+        if "<html" in path.read_text()
+    }
+
+    assert opening == PAGE_SHELLS
+
+
+@pytest.mark.parametrize("shell", sorted(PAGE_SHELLS))
+def test_each_shell_uses_the_cucumber_theme(shell: str) -> None:
+    source = (ROOT / "cucumber" / shell).read_text()
+
+    assert re.search(r'<html\b[^>]*\bdata-theme="cucumber"', source)
+
+
+# htmx's settings (§4.1): data in a meta tag, read by htmx itself.
+HTMX_CONFIG = {
+    "timeout": 20000,
+    "allowEval": False,
+    "allowScriptTags": False,
+    "includeIndicatorStyles": False,
+    "selfRequestsOnly": True,
+    "historyCacheSize": 0,
+    "responseHandling": [
+        {"code": "204", "swap": False},
+        {"code": "[23]..", "swap": True},
+        {"code": "422", "swap": True},
+        {"code": "...", "swap": False, "error": True},
+    ],
+}
+
+
+@pytest.mark.django_db
+def test_htmx_gets_every_setting_from_the_meta_tag() -> None:
+    page = Client().get("/accounts/login/").content.decode()
+    meta = re.search(
+        r"""<meta\b[^>]*\bname="htmx-config"[^>]*\bcontent=(["'])(.*?)\1""", page
+    )
+
+    assert meta, "no htmx-config meta"
+    assert json.loads(entities.unescape(meta.group(2))) == HTMX_CONFIG
 
 
 # ------------------------------------- AC2: nothing from another site (scan)

@@ -205,12 +205,14 @@ def test_a_save_waiting_on_a_lock_answers_busy(
         safety.cancel()
 
     assert_busy(response, logged, "lock_timeout", gene)
+    assert client.get("/").status_code == 200, "the next page works"
 
 
 def test_a_stuck_query_answers_busy(client: Client, gene: User, logged: Logged) -> None:
     response = client.get(urls_busy.STATEMENT)
 
     assert_busy(response, logged, "statement_timeout", gene)
+    assert client.get("/").status_code == 200, "the next page works"
 
 
 def test_a_transaction_left_idle_answers_busy(

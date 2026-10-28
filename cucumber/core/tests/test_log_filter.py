@@ -25,7 +25,7 @@ from cucumber.core import busy
 from cucumber.core.logs import OneLinePerRefusal
 from cucumber.core.refusals import PageRefused
 from cucumber.core.tests import urls_busy
-from cucumber.core.tests.logs import Line, Logged
+from cucumber.core.tests.logs import Line, Logged, has_traceback
 from cucumber.core.tests.stock import make_staff
 
 FAST_HASHER = "django.contrib.auth.hashers.MD5PasswordHasher"
@@ -71,10 +71,13 @@ def test_djangos_403_line_is_dropped() -> None:
 
 @pytest.mark.parametrize("status", [400, 404, 405, 410])
 def test_another_4xx_is_kept_without_its_traceback(status: int) -> None:
-    kept = after_filter(record("django.request", status, with_traceback=True))
+    made = record("django.request", status, with_traceback=True)
+    made.exc_text = "Traceback (cached by an earlier handler)"
+
+    kept = after_filter(made)
 
     assert kept is not None
-    assert kept.exc_info is None
+    assert not has_traceback(kept)
     assert kept.getMessage() == "Gone: /x/"
 
 
@@ -83,7 +86,7 @@ def test_the_csrf_line_is_kept_as_one_line() -> None:
     kept = after_filter(record("django.security.csrf", 403, with_traceback=True))
 
     assert kept is not None
-    assert kept.exc_info is None
+    assert not has_traceback(kept)
 
 
 @pytest.mark.parametrize("status", [503, 500])
@@ -232,6 +235,7 @@ def test_a_missing_page_is_one_line_without_a_traceback(
     assert logged.lines() == [
         Line("django.request", "Not Found: /no-such-page/", False)
     ]
+    assert "Traceback" not in logged.text()
 
 
 def test_a_wrong_method_is_one_line_without_a_traceback(
@@ -244,6 +248,7 @@ def test_a_wrong_method_is_one_line_without_a_traceback(
     assert len(lines) == 1
     assert lines[0].message.startswith("Method Not Allowed (POST): /")
     assert not lines[0].has_traceback
+    assert "Traceback" not in logged.text()
 
 
 def test_a_500_keeps_its_traceback(gene_client: Client, logged: Logged) -> None:

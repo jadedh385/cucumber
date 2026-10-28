@@ -17,7 +17,7 @@ from cucumber.core.tests.trail import (
     restore_audit_rows,
 )
 from e2e.conftest import E2E_PASSWORD
-from e2e.test_login import fits_the_phone, log_in
+from e2e.pages import fits_the_phone, log_in
 
 pytestmark = pytest.mark.django_db(transaction=True)
 

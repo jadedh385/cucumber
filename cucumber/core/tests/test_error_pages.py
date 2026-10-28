@@ -6,6 +6,7 @@ as", and no database at all, so the page still shows when the database is
 what broke. Each offers Home.
 """
 
+import re
 from collections.abc import Iterator
 from typing import TYPE_CHECKING
 
@@ -67,13 +68,20 @@ def words(response: "TestResponse") -> str:
     return " ".join(response.content.decode().split())
 
 
+def main_part(response: "TestResponse") -> str:
+    """The page's own content: the menu's Home link doesn't count."""
+    found = re.search(r"<main\b.*?</main>", words(response), re.DOTALL)
+    assert found, "no <main>"
+    return found.group(0)
+
+
 # --------------------------------------------------------------------- 403
 def test_the_no_access_page_says_so_and_offers_home(gene_client: Client) -> None:
     response = gene_client.get("/staff/")
 
     assert response.status_code == 403
     assert NO_ACCESS in words(response)
-    assert HOME_LINK in words(response)
+    assert HOME_LINK in main_part(response)
     assert "base.html" in names(response)
     assert "kit/menu.html" in names(response)
 
@@ -85,7 +93,7 @@ def test_a_missing_page_says_so_and_offers_home(gene_client: Client) -> None:
     assert response.status_code == 404
     for sentence in NOT_FOUND:
         assert sentence in words(response)
-    assert HOME_LINK in words(response)
+    assert HOME_LINK in main_part(response)
     assert "base.html" in names(response)
 
 

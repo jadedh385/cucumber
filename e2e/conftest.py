@@ -13,7 +13,14 @@ from typing import Any
 
 import pytest
 from django.contrib.auth.models import Group
-from playwright.sync_api import BrowserContext, ConsoleMessage, Error, Page, Route
+from playwright.sync_api import (
+    BrowserContext,
+    ConsoleMessage,
+    Error,
+    Page,
+    Route,
+    expect,
+)
 
 from cucumber.accounts.permissions import Role
 from cucumber.core.tests.stock import make_staff
@@ -24,6 +31,8 @@ PHONE_VIEWPORT = {"width": 375, "height": 812}
 E2E_PASSWORD = "plum-orchid-42"  # noqa: S105 (a local test account)
 ACTION_TIMEOUT_MS = 10_000
 PAGE_LOAD_TIMEOUT_MS = 30_000
+# `expect` has its own default (5 s); the slowed-network tests wait on it.
+expect.set_options(timeout=ACTION_TIMEOUT_MS)
 
 # Chromium writes every CSP refusal to the console in these words (§5.3).
 POLICY_BREAK = "Content Security Policy"

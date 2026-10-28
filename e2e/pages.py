@@ -7,12 +7,11 @@ form, and the 375 px checks (AC6, AC7).
 import re
 
 import pytest
-from playwright.sync_api import Locator, Page, ViewportSize
+from playwright.sync_api import Locator, Page, ViewportSize, expect
 
 from cucumber.accounts.permissions import Role
 from cucumber.core.tests.stock import make_staff, restore_reference_rows
 from e2e.conftest import E2E_PASSWORD
-from e2e.test_login import log_in
 
 PHONE_WIDTH = 375
 DESKTOP = ViewportSize(width=1280, height=800)
@@ -30,6 +29,31 @@ ADMIN_S_PAGES = EVERYONE_S_PAGES | {"/staff/", "/staff/new/", "/staff/<id>/"}
 PRACTICE = "/practice/"
 PRACTICE_FIELDS = ("stage", "medium", "container")
 CHECKED = "Checked. Nothing was saved (practice page)."
+
+
+def log_in(page: Page, site_url: str, email: str, password: str) -> None:
+    page.goto(f"{site_url}/accounts/login/")
+    page.get_by_label("Email").fill(email)
+    page.get_by_label("Password").fill(password)
+    page.get_by_role("button", name="Log in").click()
+
+
+def fits_the_phone(page: Page) -> None:
+    width = page.evaluate("document.documentElement.scrollWidth")
+    assert width <= PHONE_WIDTH, f"{page.url} scrolls sideways on a phone"
+
+
+def open_from_menu(page: Page, name: str) -> None:
+    """Tap a menu item. Home also has a tile for it, so the tap is on the
+    menu's own link (§21.2)."""
+    the_menu(page).get_by_role("link", name=name).click()
+
+
+def log_out(page: Page) -> None:
+    """Log out lives on the Account page (Q3 a), §21.2), not on Home."""
+    open_from_menu(page, "Account")
+    page.get_by_role("button", name="Log out").click()
+    expect(page).to_have_url(re.compile(r"/accounts/login/"))
 
 
 def pages_for(role: Role | None) -> set[str]:
