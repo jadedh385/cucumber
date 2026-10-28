@@ -220,6 +220,7 @@ exits · *Gate focus* = unit-specific checks on top of [the standard gates](gate
     list, detail, empty, error), double-tap guard, HTMX timeout, failure
     wording, database timeouts, CSRF page, CSP, log clean-up, existing pages
     moved over, Python-side translation. AC1–AC26.
+    **Design:** [u0.10a-design.md](units/u0.10a-design.md) (G1 passed 2026-10-28).
   - **U0.10b · List pages** (S, Deps: U0.10a, U0.9): the Admin's reference
     list pages and the stricter label rules. AC27–AC34.
   - The global search box moved to U1.1 (Q2).
