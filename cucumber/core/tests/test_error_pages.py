@@ -8,6 +8,7 @@ what broke. Each offers Home.
 
 import re
 from collections.abc import Iterator
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pytest
@@ -183,3 +184,31 @@ def test_the_error_page_shows_with_no_error_being_handled() -> None:
 
     assert response.status_code == 500
     assert WENT_WRONG[0] in response.content.decode()
+
+
+# ------------------------------------------------- on the kit's own classes
+CORE_TEMPLATES = Path(__file__).resolve().parents[1] / "templates"
+BUILT_CSS = Path(__file__).resolve().parents[1] / "static/core/cucumber.css"
+ERROR_TEMPLATES = ["403.html", "404.html", "500.html", "503.html", "csrf.html"]
+CSS_SPECIAL = re.compile(r"([/:.\[\]])")
+
+
+@pytest.mark.parametrize("template", [*ERROR_TEMPLATES, "kit/bare.html"])
+def test_every_class_on_an_error_page_is_in_the_stylesheet(template: str) -> None:
+    """The old stylesheet's `button`, `top-bar` and `app-name` are gone: a
+    class the built CSS doesn't have leaves Home a bare link under 44 px."""
+    html = (CORE_TEMPLATES / template).read_text()
+    stylesheet = BUILT_CSS.read_text()
+    used = {
+        name
+        for found in re.findall(r'class="([^"{]*)"', html)
+        for name in found.split()
+    }
+
+    missing = sorted(
+        name
+        for name in used
+        if f".{CSS_SPECIAL.sub(r'\\\\\\1', name)}" not in stylesheet
+    )
+
+    assert missing == []

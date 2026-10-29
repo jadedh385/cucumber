@@ -200,6 +200,8 @@ class PickedDateField(forms.TypedChoiceField):
             return
         try:
             day = date.fromisoformat(value)
+            if day.isoformat() != value:  # 20261028 or 2026-W44-3: not a pick
+                raise ValueError(value)
         except ValueError:
             raise ValidationError(
                 self.error_messages["invalid_choice"],

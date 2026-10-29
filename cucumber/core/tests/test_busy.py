@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING
 
 import psycopg
 import pytest
+from django.contrib import auth
 from django.contrib.auth.models import Group, User
 from django.db import DatabaseError, InternalError, OperationalError, connection
 from django.test import Client, modify_settings, override_settings
@@ -269,6 +270,30 @@ def test_a_limit_hit_in_a_middleware_also_answers_busy(
     response = client.get(urls_busy.IN_MIDDLEWARE)
 
     assert_busy(response, logged, "statement_timeout", gene)
+
+
+def test_a_limit_hit_reading_the_signed_in_person_answers_busy_without_reading_again(
+    client: Client, logged: Logged, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The first middleware to ask for `request.user` meets the limit. Django
+    doesn't keep a failed read, so the Busy page must not ask again: a second
+    read would raise inside the 500 handler (review, U0.10a §22 session 5)."""
+    reads: list[str] = []
+
+    def stopped_read(request: object) -> User:
+        reads.append("user")
+        stopped = OperationalError("stopped")
+        stopped.__cause__ = psycopg.errors.QueryCanceled("stopped")
+        raise stopped
+
+    monkeypatch.setattr(auth, "get_user", stopped_read)
+
+    response = client.get("/")
+
+    assert response.status_code == 503
+    assert BUSY_WORDS in response.content.decode()
+    assert busy_lines(logged) == ["busy limit=statement_timeout account=None path=/"]
+    assert reads == ["user"]
 
 
 def test_any_other_error_is_still_a_500(client: Client, logged: Logged) -> None:

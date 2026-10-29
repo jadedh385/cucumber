@@ -5,7 +5,7 @@
 {% endcomment %}
 {% block title %}{% translate "Reload the page" %}{% endblock %}
 {% block content %}
-<h1>{% translate "Reload the page" %}</h1>
-<p>{% translate "This page was open too long. Reload it and try again." %}</p>
-<p><a class="button" href="{{ reload_to }}">{% translate "Reload" %}</a></p>
+<h1 class="text-2xl font-semibold">{% translate "Reload the page" %}</h1>
+<p class="mb-6">{% translate "This page was open too long. Reload it and try again." %}</p>
+<p><a class="btn btn-primary btn-block" href="{{ reload_to }}">{% translate "Reload" %}</a></p>
 {% endblock %}

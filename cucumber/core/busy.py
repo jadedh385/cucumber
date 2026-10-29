@@ -63,7 +63,9 @@ def busy_page(request: HttpRequest, limit: str) -> HttpResponse:
     """
     if limit == LIMITS["25P03"]:
         connection.close()
-    user = getattr(request, "user", None)
+    # Only an account already read: `request.user` reads it again when the
+    # limit was hit reading it, and that read would raise here too.
+    user = getattr(request, "_cached_user", None)
     logger.warning(
         "busy limit=%s account=%s path=%s",
         limit,

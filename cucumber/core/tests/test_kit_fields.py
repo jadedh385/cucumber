@@ -195,6 +195,15 @@ def test_no_pick_is_djangos_required_message() -> None:
     assert errors(form, "pick") == [REQUIRED]
 
 
+def test_an_optional_dropdown_left_empty_is_kept_empty() -> None:
+    form = form_with(pick=ListChoiceField(ListName.STAGES, required=False))(
+        {"pick": ""}
+    )
+
+    assert form.is_valid()
+    assert form.cleaned_data["pick"] == ""
+
+
 def test_a_refused_form_shown_again_reads_no_list_again(
     django_assert_num_queries: DjangoAssertNumQueries,
 ) -> None:
@@ -347,6 +356,28 @@ def test_a_day_before_the_eight_is_refused_with_the_7_day_words(posted: str) -> 
 def test_no_day_or_not_a_day_is_refused(posted: str) -> None:
     with time_machine.travel(MORNING, tick=False):
         assert not date_form({"day": posted}).is_valid()
+
+
+@pytest.mark.parametrize("posted", ["20261028", "2026-W44-3"])
+def test_a_day_not_written_as_offered_is_refused(posted: str) -> None:
+    """Python reads these as 28 Oct too; only the offered spelling is a pick."""
+    with time_machine.travel(MORNING, tick=False):
+        assert error_codes(date_form({"day": posted}), "day") == ["invalid_choice"]
+
+
+def test_an_optional_date_left_empty_is_kept_empty() -> None:
+    with time_machine.travel(MORNING, tick=False):
+        form = form_with(day=PickedDateField(required=False))({"day": ""})
+        assert form.is_valid()
+
+    assert form.cleaned_data["day"] == ""
+
+
+def test_a_posted_day_that_is_not_a_date_shows_no_week() -> None:
+    with time_machine.travel(MORNING, tick=False):
+        form = date_form({"day": "soon"})
+
+    assert form["day"].week == ""  # type: ignore[attr-defined]
 
 
 def test_each_day_carries_its_week_for_the_page() -> None:

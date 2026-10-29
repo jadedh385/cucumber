@@ -270,6 +270,19 @@ def test_a_refused_download_fails_the_command_before_building(
     assert "macos-arm64" in capsys.readouterr().err
 
 
+@pytest.mark.parametrize(
+    "address", ["http://github.com/tailwindlabs/tailwindcss", "file:///etc/passwd"]
+)
+def test_the_real_download_refuses_an_address_that_is_not_https(
+    tmp_path: Path, address: str
+) -> None:
+    to = tmp_path / "tailwindcss"
+
+    with pytest.raises(CssError, match="only https://"):
+        css.download_file(address, to)
+    assert not to.exists()
+
+
 def test_an_unknown_command_is_a_usage_error(tmp_path: Path) -> None:
     with pytest.raises(SystemExit) as stop:
         css.main(["publish"], fake_tools(tmp_path))
