@@ -26,6 +26,7 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from cucumber.accounts.permissions import may, standing
 from cucumber.accounts.services import SESSION_MAX_AGE, change_is_due
 from cucumber.core.refusals import PageRefused
+from cucumber.core.requests import is_htmx
 
 logger = logging.getLogger(__name__)
 
@@ -41,10 +42,6 @@ OPEN_DURING_CHANGE = frozenset({"password", "logout", "login", "health"})
 def view_name(view_func: Callable[..., Any]) -> str:
     """The view's dotted name, for the log line."""
     return f"{view_func.__module__}.{getattr(view_func, '__qualname__', view_func)}"
-
-
-def is_htmx(request: HttpRequest) -> bool:
-    return request.headers.get("HX-Request") == "true"
 
 
 def htmx_page(request: HttpRequest) -> str | None:

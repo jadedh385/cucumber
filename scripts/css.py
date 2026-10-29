@@ -87,12 +87,21 @@ def real_tools() -> CssTools:
 
 
 def download_file(address: str, to: Path) -> None:
-    """Write what `address` answers into `to` (GitHub redirects are followed)."""
+    """Write what `address` answers into `to` (GitHub redirects are followed).
+
+    Written beside `to` first and moved in whole, so a download cut off part
+    way leaves nothing, and a CLI another run is using is never half a file.
+    """
     if not address.startswith("https://"):
         raise CssError(f"only https:// downloads are allowed, not {address}")
-    with urllib.request.urlopen(address, timeout=DOWNLOAD_TIMEOUT_S) as answer:  # noqa: S310 (scheme checked above)
-        with to.open("wb") as file:
-            shutil.copyfileobj(answer, file)
+    part = to.with_name(f"{to.name}.part")
+    try:
+        with urllib.request.urlopen(address, timeout=DOWNLOAD_TIMEOUT_S) as answer:  # noqa: S310 (scheme checked above)
+            with part.open("wb") as file:
+                shutil.copyfileobj(answer, file)
+        os.replace(part, to)
+    finally:
+        part.unlink(missing_ok=True)
 
 
 def run_command(command: Sequence[str]) -> int:

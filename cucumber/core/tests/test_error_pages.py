@@ -38,8 +38,8 @@ NOT_FOUND = [
 ]
 WENT_WRONG = [
     "Something went wrong",
-    "Nothing was saved. Please try again in a moment. If it keeps happening,"
-    " tell the Owner what you were doing.",
+    "It may not have been saved: check before you try again. If it keeps"
+    " happening, tell the Owner what you were doing.",
 ]
 
 
@@ -117,7 +117,7 @@ def test_a_missing_page_marks_no_menu_item_as_current(gene_client: Client) -> No
 
 
 # --------------------------------------------------------------------- 500
-def test_the_error_page_says_nothing_was_saved_and_offers_home(
+def test_the_error_page_says_it_may_not_have_been_saved_and_offers_home(
     gene_client: Client,
 ) -> None:
     response = gene_client.get(urls_busy.BROKEN)

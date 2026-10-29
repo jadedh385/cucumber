@@ -4,7 +4,6 @@ import logging
 import sys
 from urllib.parse import urlsplit
 
-from django.conf import settings
 from django.contrib.auth.decorators import login_not_required
 from django.db import connection
 from django.http import Http404, HttpRequest, HttpResponse
@@ -19,13 +18,13 @@ from cucumber.accounts.permissions import Permission, allowed_for
 from cucumber.core.busy import bare_page, busy_limit, busy_page
 from cucumber.core.forms import PracticeForm
 from cucumber.core.refusals import PageRefused
+from cucumber.core.requests import is_htmx, is_production, loggable
 from cucumber.core.services import database_is_reachable
 
 logger = logging.getLogger(__name__)
 
 # Tells `requests.js` an HTMX form met the CSRF page (U0.10a §4.3).
 TROUBLE_HEADER = "Cucumber-Trouble"
-PRODUCTION = "production"
 
 
 @login_not_required
@@ -66,7 +65,7 @@ def csrf_failure(request: HttpRequest, reason: str = "") -> HttpResponse:
     response = render(
         request, "csrf.html", {"reload_to": same_site_path(request)}, status=403
     )
-    if request.headers.get("HX-Request") == "true":
+    if is_htmx(request):
         response[TROUBLE_HEADER] = "stale-page"
     return response
 
@@ -98,7 +97,7 @@ def permission_denied(request: HttpRequest, exception: Exception) -> HttpRespons
             "page refused account=%s rule=%s path=%s",
             getattr(request.user, "pk", None),
             getattr(exception, "rule", "none"),
-            request.path,
+            loggable(request.path),
         )
     return render(request, "403.html", status=403)
 
@@ -112,7 +111,7 @@ def practice(request: HttpRequest) -> HttpResponse:
     form alone, 200 when every answer passes, 422 with the messages under
     their fields when one doesn't (§11.2).
     """
-    if settings.ENVIRONMENT == PRODUCTION:
+    if is_production():
         raise Http404
     form = PracticeForm(request.POST) if request.method == "POST" else PracticeForm()
     is_checked = request.method == "POST" and form.is_valid()
@@ -124,6 +123,6 @@ def practice(request: HttpRequest) -> HttpResponse:
         else "",
     }
     status = 422 if is_refused else 200
-    if request.headers.get("HX-Request") == "true":
+    if is_htmx(request):
         return render(request, "core/practice_form.html", context, status=status)
     return render(request, "core/practice.html", context, status=status)

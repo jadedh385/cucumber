@@ -8,6 +8,7 @@ import hashlib
 import re
 import stat
 import subprocess
+import urllib.request
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -288,3 +289,36 @@ def test_an_unknown_command_is_a_usage_error(tmp_path: Path) -> None:
         css.main(["publish"], fake_tools(tmp_path))
 
     assert stop.value.code == 2
+
+
+class CutOff:
+    """A download answer that breaks after its first bytes (G4 review)."""
+
+    def __init__(self) -> None:
+        self.sent = False
+
+    def read(self, size: int = -1) -> bytes:
+        if self.sent:
+            raise OSError("the connection dropped")
+        self.sent = True
+        return CLI_BYTES[:8]
+
+    def __enter__(self) -> "CutOff":
+        return self
+
+    def __exit__(self, *args: object) -> None:
+        return None
+
+
+def test_a_download_cut_off_part_way_leaves_nothing_at_the_cli_s_path(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Written beside it first, then moved in whole: a dev watcher running
+    the CLI never meets half a file."""
+    monkeypatch.setattr(urllib.request, "urlopen", lambda *args, **kw: CutOff())
+    to = tmp_path / "tailwindcss"
+
+    with pytest.raises(OSError, match="dropped"):
+        css.download_file("https://github.com/tailwindlabs/tailwindcss", to)
+
+    assert list(tmp_path.iterdir()) == []

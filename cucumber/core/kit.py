@@ -90,7 +90,9 @@ class KitBoundField(forms.BoundField):
     ) -> dict[str, Any]:
         built = super().build_widget_attrs(attrs, widget)
         kit_class = WIDGET_CLASSES.get(self.widget_type, "")
-        given = built.get("class", "")
+        # Django lays these over the widget's own attrs, so keep its class too.
+        own = (widget or self.field.widget).attrs.get("class", "")
+        given = f"{own} {built.get('class', '')}".strip()
         return (
             {**built, "class": f"{given} {kit_class}".strip()} if kit_class else built
         )

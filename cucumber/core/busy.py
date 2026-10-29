@@ -12,6 +12,9 @@ from django.conf import settings
 from django.db import connection
 from django.http import HttpRequest, HttpResponse
 from django.template.loader import render_to_string
+from django.utils.cache import add_never_cache_headers
+
+from cucumber.core.requests import loggable
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +30,9 @@ LIMITS = {
 # The request attribute that marks a request answered "Busy", so the log
 # filter drops Django's own line for it (§9.2).
 BUSY_MARK = "cucumber_busy"
+
+# Busy's `Retry-After`: the statement limit, after which a stuck query is gone.
+BUSY_RETRY_AFTER_SECONDS = 10
 
 
 def busy_limit(error: BaseException) -> str | None:
@@ -70,10 +76,13 @@ def busy_page(request: HttpRequest, limit: str) -> HttpResponse:
         "busy limit=%s account=%s path=%s",
         limit,
         getattr(user, "pk", None),
-        request.path,
+        loggable(request.path),
     )
     mark_busy(request, limit)
-    return bare_page("503.html", status=503)
+    response = bare_page("503.html", status=503)
+    response["Retry-After"] = str(BUSY_RETRY_AFTER_SECONDS)
+    add_never_cache_headers(response)
+    return response
 
 
 def bare_page(template: str, status: int) -> HttpResponse:

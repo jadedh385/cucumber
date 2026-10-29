@@ -5,6 +5,6 @@
 {% block title %}{% translate "Something went wrong" %}{% endblock %}
 {% block content %}
 <h1 class="text-2xl font-semibold">{% translate "Something went wrong" %}</h1>
-<p class="mb-6">{% translate "Nothing was saved. Please try again in a moment. If it keeps happening, tell the Owner what you were doing." %}</p>
+<p class="mb-6">{% translate "It may not have been saved: check before you try again. If it keeps happening, tell the Owner what you were doing." %}</p>
 <p><a class="btn btn-primary btn-block" href="{% url 'home' %}">{% translate "Home" %}</a></p>
 {% endblock %}

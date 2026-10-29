@@ -1,12 +1,10 @@
 """What the person may do, and the menu, for the templates (U0.6 §3.3, U0.10a §6.2)."""
 
-from django.conf import settings
 from django.http import HttpRequest
 
 from cucumber.accounts.menu import MENU, MenuItem
 from cucumber.accounts.permissions import MATRIX, Permission, Standing, may, standing
-
-PRODUCTION = "production"
+from cucumber.core.requests import is_production
 
 
 def standing_of(request: HttpRequest) -> Standing:
@@ -42,7 +40,7 @@ def menu(request: HttpRequest) -> dict[str, tuple[MenuItem, ...]]:
     current = standing_of(request)
     if not current.is_active:
         return {"menu": ()}
-    on_production = settings.ENVIRONMENT == PRODUCTION
+    on_production = is_production()
     return {
         "menu": tuple(
             item
