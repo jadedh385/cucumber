@@ -85,8 +85,33 @@
     padding-bottom: env(safe-area-inset-bottom);
   }
   .kit-page-with-bar { padding-bottom: calc(5rem + env(safe-area-inset-bottom)); }
+  /* What is scrolled into view (a focused field, a button) stops above the
+     bar, not under it. */
+  html:has(.kit-bottom-bar) {
+    scroll-padding-bottom: calc(5rem + env(safe-area-inset-bottom));
+  }
   @media (min-width: 64rem) {
     .kit-page-with-bar { padding-bottom: 1rem; }
+    html:has(.kit-bottom-bar) { scroll-padding-bottom: 0; }
+  }
+
+  /* A record's buttons, after its facts (§7.7): one under the other, full
+     width, with room between. */
+  .kit-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-top: 1.5rem;
+  }
+
+  /* A radio or check box row: the label is the target, 44 px tall (§6.3,
+     §20 L13). */
+  .kit-field label:has(input[type=radio]),
+  .kit-field label:has(input[type=checkbox]) {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-height: 2.75rem;
   }
 
   /* Long emails and names wrap instead of widening the page (§6.3). */

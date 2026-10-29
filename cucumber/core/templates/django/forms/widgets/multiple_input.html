@@ -1,0 +1,9 @@
+{% comment %}
+  Django's radio and check box group (U0.10a §7.1), with the kit's class
+  left on each input: on the group's own <div> daisyUI's `radio` would draw
+  the whole group as one small circle. Otherwise Django's own markup.
+{% endcomment %}{% with id=widget.attrs.id %}<div{% if id %} id="{{ id }}"{% endif %} class="kit-choices">{% for group, options, index in widget.optgroups %}{% if group %}
+  <div><label>{{ group }}</label>{% endif %}{% for option in options %}<div>
+    {% include option.template_name with widget=option %}</div>{% endfor %}{% if group %}
+  </div>{% endif %}{% endfor %}
+</div>{% endwith %}

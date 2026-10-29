@@ -2,15 +2,15 @@
 {% comment %}
   Logging in with an email and password (U0.5 AC1-AC6). The same message for a
   wrong password, an unknown email and a deactivated account (design §2.2).
+  On the kit (U0.10a §10.1): the fields through its renderer, Log in last.
 {% endcomment %}
 {% block title %}{% translate "Log in" %}{% endblock %}
 {% block content %}
-<h1>Cucumber</h1>
-<form method="post">
+<h1 class="mb-4 text-2xl font-semibold">Cucumber</h1>
+<form method="post" novalidate>
   {% csrf_token %}
-  {% for error in form.non_field_errors %}<p class="form-error" role="alert">{{ error }}</p>{% endfor %}
-  {% for field in form %}{% include "accounts/_field.html" %}{% endfor %}
+  {{ form }}
   <input type="hidden" name="next" value="{{ next }}">
-  <button type="submit" class="btn btn-primary btn-block">{% translate "Log in" %}</button>
+  {% include "kit/_submit.html" with save=_("Log in") %}
 </form>
 {% endblock %}

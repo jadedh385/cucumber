@@ -23,7 +23,7 @@
   </header>
   <div class="kit-frame lg:flex">
     {% if menu %}{% include "kit/menu.html" %}{% endif %}
-    <div class="kit-page mx-auto w-full max-w-3xl px-4 py-4{% if menu %} kit-page-with-bar{% endif %}">
+    <div class="kit-page mx-auto w-full max-w-3xl px-4 pt-4 {% if menu %}kit-page-with-bar{% else %}pb-4{% endif %}">
       <div id="request-trouble" class="kit-trouble" role="alert"></div>
       {% if messages %}
       <ul class="kit-messages mb-4 flex flex-col gap-2">

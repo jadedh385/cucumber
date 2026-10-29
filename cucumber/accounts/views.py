@@ -7,9 +7,6 @@ the POST directly and are never cached (§6.2): a redirect would have to
 carry the password through the session or Django's messages.
 """
 
-from dataclasses import dataclass
-from datetime import datetime
-
 from django.contrib import messages
 from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.models import User
@@ -28,7 +25,7 @@ from django.views.decorators.http import (
     require_safe,
 )
 
-from cucumber.accounts import services
+from cucumber.accounts import pages, services
 from cucumber.accounts.forms import (
     ROLE_LABELS,
     AddAccountForm,
@@ -36,40 +33,11 @@ from cucumber.accounts.forms import (
     DeactivateForm,
     RoleForm,
 )
+from cucumber.accounts.pages import name_of, staff_row
 from cucumber.accounts.permissions import Permission, Role, allowed_for, role_named
 from cucumber.core.audit import SYSTEM_USERNAME
 from cucumber.core.kit import Empty
 from cucumber.core.refusals import Refused
-
-
-@dataclass(frozen=True)
-class StaffRow:
-    """One account as the Staff pages show it."""
-
-    account: User
-    is_you: bool
-    locked_until: datetime | None
-    role: Role | None
-    is_anonymised: bool = False
-
-    @property
-    def role_label(self) -> str:
-        return str(ROLE_LABELS[self.role]) if self.role else _("No role")
-
-
-def staff_row(
-    request: HttpRequest,
-    account: User,
-    role: Role | None,
-    locked_until: datetime | None,
-) -> StaffRow:
-    return StaffRow(
-        role=role,
-        account=account,
-        is_you=account.pk == request.user.pk,
-        locked_until=locked_until,
-        is_anonymised=services.is_anonymised(account),
-    )
 
 
 def signed_in_user(request: HttpRequest) -> User:
@@ -152,7 +120,8 @@ def staff_list(request: HttpRequest) -> HttpResponse:
         )
         for account in accounts
     ]
-    return render(request, "accounts/staff_list.html", {"rows": rows})
+    context = {"table": pages.staff_table(rows)}
+    return render(request, "accounts/staff_list.html", context)
 
 
 @allowed_for(Permission.MANAGE_USERS)
@@ -170,15 +139,13 @@ def staff_new(request: HttpRequest) -> HttpResponse:
                 role_named(form.cleaned_data["role"]),
             )
         except Refused as refusal:
-            form.add_error(refusal_field(refusal), refusal.message)
+            # Under its field, every answer kept (§7.1); others on top.
+            form.add_error(
+                AddAccountForm.REFUSAL_FIELDS.get(refusal.rule), refusal.message
+            )
         else:
             return temporary_password_page(request, added.account, added.password)
     return render(request, "accounts/staff_new.html", {"form": form})
-
-
-def refusal_field(refusal: Refused) -> str:
-    """The Add form's field a refusal belongs to."""
-    return "role" if refusal.rule == "account_role_required" else "email"
 
 
 @allowed_for(Permission.MANAGE_USERS)
@@ -199,9 +166,9 @@ def staff_detail_page(
     )
     context = {
         "row": row,
+        "detail": pages.staff_detail(row),
         "role_form": RoleForm(initial={"role": row.role or "none"}),
         "deactivate_form": deactivate_form,
-        "deactivate_reasons": services.deactivate_reasons(),
     }
     return render(request, "accounts/staff_detail.html", context)
 
@@ -224,10 +191,6 @@ def staff_account(account_id: int) -> User:
     return get_object_or_404(
         User.objects.exclude(username=SYSTEM_USERNAME), pk=account_id
     )
-
-
-def name_of(account: User) -> str:
-    return account.first_name or account.email
 
 
 def refusal_text(refusal: Refused) -> SafeString:
@@ -254,20 +217,14 @@ def staff_deactivate(request: HttpRequest, account_id: int) -> HttpResponse:
     try:
         services.deactivate(by, account, form.reason())
     except Refused as refusal:
-        if refusal.rule in REASON_FIELDS:
-            form.add_error(REASON_FIELDS[refusal.rule], refusal_text(refusal))
+        if refusal.rule in DeactivateForm.REFUSAL_FIELDS:
+            field = DeactivateForm.REFUSAL_FIELDS[refusal.rule]
+            form.add_error(field, refusal_text(refusal))
             return staff_detail_page(request, account, form)
         messages.error(request, refusal_text(refusal))
     else:
         messages.success(request, about(account, _("{name}'s account is deactivated.")))
     return redirect("staff_detail", account_id=account.pk)
-
-
-# The Deactivate form's box each reason refusal is shown under (design §10).
-REASON_FIELDS = {
-    "reason_required": "reason_code",
-    "reason_wrong_list": "reason_code",
-}
 
 
 @allowed_for(Permission.MANAGE_USERS)

@@ -12,6 +12,7 @@ Nothing here changes an account or saves data, so it also runs on staging.
 
 import re
 from collections.abc import Callable
+from typing import Any
 
 import pytest
 from playwright.sync_api import Page, expect
@@ -36,10 +37,28 @@ LOGIN = "/accounts/login/"
 TAPS = 4
 TAP_GAP_MS = 150  # four taps inside a second
 HOLD_MS = 2000
+REPORT_WAIT_MS = 100
+CAME_BACK_KEY = "F9"
 SIGNED_IN = "Signed in as"
 CAME_BACK = (
     "window.dispatchEvent(new PageTransitionEvent('pageshow', {persisted: true}))"
 )
+# Each change to the button and its form, sent to the test as it happens
+# (Q-S2 a)). Once a plain form is sending, a locator or `page.evaluate`
+# waits for the held navigation, so the test can't ask the page; the page
+# tells the test.
+REPORT_CHANGES = """
+button => {
+  const report = new MutationObserver(() => window.buttonChanged({
+    ariaDisabled: button.getAttribute("aria-disabled"),
+    classes: [...button.classList],
+    disabled: button.disabled,
+    formSending: button.form.hasAttribute("data-sending"),
+  }));
+  report.observe(button, {attributes: true});
+  report.observe(button.form, {attributes: true});
+}
+"""
 
 
 def tap_four_times(page: Page, button_name: str) -> None:
@@ -59,6 +78,44 @@ def open_login(page: Page, site_url: str, account: tuple[str, str]) -> None:
     fill_login(page, account)
 
 
+def watch_button(page: Page, button_name: str) -> list[dict[str, Any]]:
+    """The button's states, newest last, as the page changes it."""
+    seen: list[dict[str, Any]] = []
+
+    def changed(state: dict[str, Any]) -> None:
+        seen.append(state)
+
+    page.expose_function("buttonChanged", changed)
+    page.get_by_role("button", name=button_name).evaluate(REPORT_CHANGES)
+    return seen
+
+
+def newest(page: Page, seen: list[dict[str, Any]]) -> dict[str, Any]:
+    page.wait_for_timeout(REPORT_WAIT_MS)  # Playwright hands reports over while waiting
+    assert seen, "the button didn't change"
+    return seen[-1]
+
+
+def assert_shows_it_is_sending(page: Page, seen: list[dict[str, Any]]) -> None:
+    """Busy, not disabled: it still sends its name (AC12)."""
+    state = newest(page, seen)
+    assert state["ariaDisabled"] == "true"
+    assert "is-sending" in state["classes"]
+    assert state["disabled"] is False
+
+
+def ready_to_come_back(page: Page) -> None:
+    """Pressing CAME_BACK_KEY fires the `pageshow` a page from the cache gets.
+
+    Set before the tap: once the form is sending, the test can't run script
+    in the page (not even through CDP), but a key press still gets through.
+    """
+    page.evaluate(
+        "() => document.addEventListener('keydown', key => {"
+        f" if (key.key === '{CAME_BACK_KEY}') {CAME_BACK}; }})"
+    )
+
+
 # ------------------------------------------------------- a plain form
 def test_four_taps_on_log_in_send_one_post(
     site_url: str,
@@ -69,13 +126,11 @@ def test_four_taps_on_log_in_send_one_post(
     page = slow_network
     open_login(page, site_url, account)
     held = held_post(LOGIN)
+    seen = watch_button(page, "Log in")
 
     tap_four_times(page, "Log in")
 
-    button = page.get_by_role("button", name="Log in")
-    expect(button).to_have_attribute("aria-disabled", "true")
-    expect(button).to_have_class(re.compile(r"\bis-sending\b"))
-    expect(button).to_be_enabled()  # busy, not disabled: it still sends its name
+    assert_shows_it_is_sending(page, seen)
     held.release_after(page, HOLD_MS)
     expect(page.get_by_text(SIGNED_IN).first).to_be_visible()
     assert held.sent == 1
@@ -113,15 +168,17 @@ def test_a_page_back_from_the_cache_sends_again(
 ) -> None:
     open_login(page, site_url, account)
     held = held_post(LOGIN)
-    button = page.get_by_role("button", name="Log in")
-    finger = middle_of(button)
+    seen = watch_button(page, "Log in")
+    ready_to_come_back(page)
+    finger = middle_of(page.get_by_role("button", name="Log in"))
     tap_at(page, finger)
-    expect(button).to_have_attribute("aria-disabled", "true")
+    assert_shows_it_is_sending(page, seen)
 
-    page.evaluate(CAME_BACK)
+    page.keyboard.press(CAME_BACK_KEY)
 
-    expect(button).not_to_have_attribute("aria-disabled", "true")
-    expect(page.locator("form[data-sending]")).to_have_count(0)
+    state = newest(page, seen)
+    assert state["ariaDisabled"] != "true"
+    assert not state["formSending"]
     tap_at(page, finger)
     held.wait_until_sent(page, 2)  # left unanswered: the browser dropped the first
 
