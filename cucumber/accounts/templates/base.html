@@ -1,14 +1,13 @@
 {% comment %}
   The page every Cucumber screen uses (U0.5 AC21, design §6.1): the name, who
   is signed in, Log out, messages, and the "Practice data" banner on staging.
-  Menus and the full UI kit come in U0.10.
-{% endcomment %}{% load static i18n %}{% get_current_language as language %}<!doctype html>
-<html lang="{{ language }}">
+  Menus and the full UI kit come in U0.10a G3 session 3; until then it
+  shares the kit's head (theme, htmx settings, scripts).
+{% endcomment %}{% load i18n %}{% get_current_language as language %}<!doctype html>
+<html lang="{{ language }}" data-theme="cucumber">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+{% include "kit/_head.html" %}
   <title>{% if environment == "staging" %}{% translate "[Practice]" %} {% endif %}{% block title %}{% endblock %} · Cucumber</title>
-  <link rel="stylesheet" href="{% static 'core/cucumber.css' %}">
 </head>
 <body class="plain-page">
   {% include "core/_practice_banner.html" %}

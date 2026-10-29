@@ -17,3 +17,6 @@ staticfiles/
 secrets.env
 # VS Code workspace file (personal editor setup)
 cucumber.code-workspace
+# The Tailwind CLI (downloaded) and the stylesheet it builds (U0.10a §3.3, §3.4)
+.cache/
+cucumber/core/static/core/cucumber.css

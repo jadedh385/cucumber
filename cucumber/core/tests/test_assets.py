@@ -28,13 +28,17 @@ BUILT_CSS_PATH = "cucumber/core/static/core/cucumber.css"
 # against the SHA-384 htmx publishes for that version. G3 pins.
 HTMX_VERSION = "2.0.11"
 HTMX_FILE = CORE / "static/core/vendor/htmx.min.js"
-HTMX_SHA384 = "sha384-" + "A" * 64  # placeholder until G3 pins
+HTMX_SHA384 = "sha384-2OatzQy1H+Zd/IIrjr1TcuDGqLXeHhbooAyJY1KdQMKnr4LZ22k31GBLdYKHmVjg"
 
 # daisyUI (§3.1): the two plugin files from the release, committed.
-DAISYUI_VERSION = "5.7.47"
+DAISYUI_VERSION = "5.7.50"
 DAISYUI_FILES = {
-    CORE / "css/vendor/daisyui.mjs": "0" * 64,  # placeholder until G3 pins
-    CORE / "css/vendor/daisyui-theme.mjs": "0" * 64,  # placeholder until G3 pins
+    CORE / "css/vendor/daisyui.mjs": (
+        "d69de07c7463bb1f41548e2688f88ee105cdadf9779fce5b3c47b3bfaa6be472"
+    ),
+    CORE / "css/vendor/daisyui-theme.mjs": (
+        "e48a35d8326d650181ca600560e8520cf6b44cf9242bbd9d45825607e641f251"
+    ),
 }
 
 # Every colour variable daisyUI 5's `light` theme sets (§3.2): a theme with a

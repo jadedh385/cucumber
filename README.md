@@ -19,6 +19,10 @@ The plan, gates and decisions live in [docs/roadmap](docs/roadmap/README.md).
 4. `uv sync` installs Python and the packages.
 5. `uv run playwright install chromium` installs the test browser.
 6. `scripts/check.sh` runs every check.
+7. `uv run python -m scripts.dev` runs the site at http://127.0.0.1:8000/
+   and rebuilds the stylesheet on each change; Ctrl-C stops both. The first
+   run downloads the pinned Tailwind CLI into `.cache/tools/`. Edit
+   `cucumber/core/css/source.css`, never the built `cucumber.css`.
 
 Every database connection ends a transaction left idle for 10 seconds, and
 a query running 10 seconds (U0.10a §8.1). That holds in `pytest`, in

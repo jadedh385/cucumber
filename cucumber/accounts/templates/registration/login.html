@@ -11,6 +11,6 @@
   {% for error in form.non_field_errors %}<p class="form-error" role="alert">{{ error }}</p>{% endfor %}
   {% for field in form %}{% include "accounts/_field.html" %}{% endfor %}
   <input type="hidden" name="next" value="{{ next }}">
-  <button type="submit">{% translate "Log in" %}</button>
+  <button type="submit" class="btn btn-primary btn-block">{% translate "Log in" %}</button>
 </form>
 {% endblock %}
