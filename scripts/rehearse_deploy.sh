@@ -86,6 +86,9 @@ check() {
     "import os, sys; sys.exit('DB_OWNER_PASSWORD' in os.environ)" \
     || fail "the app's environment holds the owner password"
   pass "the app's environment has no owner password"
+  # gunicorn 25.1+ opens a control socket unless told not to (U0.10a AC18).
+  compose logs app 2>&1 | grep -q "Control server error" && fail "gunicorn logged a control socket error"
+  pass "gunicorn opened no control socket"
 
   check_flags
 }

@@ -20,6 +20,11 @@ The plan, gates and decisions live in [docs/roadmap](docs/roadmap/README.md).
 5. `uv run playwright install chromium` installs the test browser.
 6. `scripts/check.sh` runs every check.
 
+Every database connection ends a transaction left idle for 10 seconds, and
+a query running 10 seconds (U0.10a §8.1). That holds in `pytest`, in
+`manage.py shell` and while stopped at a breakpoint too: pausing longer
+inside a transaction ends the connection.
+
 ## Every check: `scripts/check.sh`
 
 Runs, in order, and stops at the first failure:

@@ -11,7 +11,7 @@ import ipaddress
 import logging
 import secrets
 import unicodedata
-from collections.abc import Collection, Iterator
+from collections.abc import Collection, Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -462,9 +462,15 @@ def choose_own_password(user: User, form: PasswordChangeForm) -> bool:
 
     One `audited(user)` transaction around `form.is_valid()` (checking the
     old password can re-hash it, U0.7 M4), `form.save()` and
-    `password_chosen` (U0.10a §10.3, AC24). G2 stub: built at G3.
+    `password_chosen` (U0.10a §10.3, AC24). Not saved: the errors are on
+    the form and nothing has changed.
     """
-    raise NotImplementedError("U0.10a G3")
+    with audited(user):
+        if not form.is_valid():
+            return False
+        form.save()
+        password_chosen(user)
+    return True
 
 
 def change_is_due(user: User) -> bool:
@@ -527,30 +533,50 @@ def login_lock(email: str, address: str | None) -> bool:
     return from_address >= ADDRESS_LIMIT
 
 
-def emails_that_may_be_locked() -> frozenset[str]:
-    """The email keys with enough recent failures to be locked, in one query.
-
-    A lock needs 5 failures within 15 minutes and the newest within the last
-    15, so all 5 fall within twice the window. `locked_until` then decides
-    for these few only (the Staff list, G4 L5).
-    """
-    return frozenset(
-        LoginFailure.objects.filter(at__gt=Now() - 2 * LOCK_WINDOW)
-        .values("email_key")
-        .annotate(tries=Count("pk"))
-        .filter(tries__gte=LOCK_AFTER_FAILURES)
-        .values_list("email_key", flat=True)
-    )
-
-
 def lock_ends(emails: Collection[str]) -> dict[str, datetime]:
     """When each locked email's lock lifts, in one query (U0.10a §10.3, AC25).
 
     Emails that aren't locked are left out. The same rule as `locked_until`,
-    with the database's `now()` read in the same query (G4 M7).
-    G2 stub: built at G3.
+    with the database's `now()` read in the same query (G4 M7). A lock needs
+    its 5 failures within 15 minutes and the newest within the last 15, so
+    only the last 30 minutes are read.
     """
-    raise NotImplementedError("U0.10a G3")
+    keys = {email: failure_key(email) for email in emails}
+    if not keys:
+        return {}
+    rows = (
+        LoginFailure.objects.filter(
+            email_key__in=set(keys.values()), at__gt=Now() - 2 * LOCK_WINDOW
+        )
+        .annotate(is_recent=recent_failure())
+        .order_by("email_key", "-at")
+        .values_list("email_key", "at", "is_recent")
+    )
+    newest_first: dict[str, list[tuple[datetime, bool]]] = {}
+    for key, at, is_recent in rows:
+        newest_first.setdefault(key, []).append((at, is_recent))
+    ends = {email: lock_end(newest_first.get(key, [])) for email, key in keys.items()}
+    return {email: end for email, end in ends.items() if end is not None}
+
+
+def recent_failure() -> "ExpressionWrapper[Q]":
+    """True for a failure within the lock window, by the database's clock."""
+    return ExpressionWrapper(Q(at__gt=Now() - LOCK_WINDOW), output_field=BooleanField())
+
+
+def lock_end(newest_first: Sequence[tuple[datetime, bool]]) -> datetime | None:
+    """The lock rule (AC7) on one email's failures, newest first, or None.
+
+    Locked when its last 5 failures all fall within 15 minutes and the
+    newest is recent; the lock lifts 15 minutes after the newest.
+    """
+    rows = newest_first[:LOCK_AFTER_FAILURES]
+    if len(rows) < LOCK_AFTER_FAILURES:
+        return None
+    (fifth, fifth_is_recent), (first, _) = rows[0], rows[-1]
+    if fifth - first > LOCK_WINDOW or not fifth_is_recent:
+        return None
+    return fifth + LOCK_WINDOW
 
 
 def locked_until(email: str) -> datetime | None:
@@ -561,22 +587,13 @@ def locked_until(email: str) -> datetime | None:
     aren't counted, so the 5th is always the newest failure. "Now" is the
     database's clock, the same one that stamped the failures (G4 M7).
     """
-    is_recent = ExpressionWrapper(
-        Q(at__gt=Now() - LOCK_WINDOW), output_field=BooleanField()
-    )
     newest_first = (
         LoginFailure.objects.filter(email_key=failure_key(email))
-        .annotate(is_recent=is_recent)
+        .annotate(is_recent=recent_failure())
         .order_by("-at")
         .values_list("at", "is_recent")
     )
-    rows = list(newest_first[:LOCK_AFTER_FAILURES])
-    if len(rows) < LOCK_AFTER_FAILURES:
-        return None
-    (fifth, fifth_is_recent), (first, _) = rows[0], rows[-1]
-    if fifth - first > LOCK_WINDOW or not fifth_is_recent:
-        return None
-    return fifth + LOCK_WINDOW
+    return lock_end(list(newest_first[:LOCK_AFTER_FAILURES]))
 
 
 def account_label(email: str) -> str:

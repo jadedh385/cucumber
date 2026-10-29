@@ -115,6 +115,16 @@ def test_records_that_are_not_djangos_are_left_as_they_are(name: str) -> None:
     assert after_filter(made) is made
 
 
+@pytest.mark.parametrize("status", [200, 302])
+def test_a_line_for_an_answer_that_is_no_refusal_is_left_as_it_is(
+    status: int,
+) -> None:
+    """`runserver` logs every answer through `django.server` (G3)."""
+    made = record("django.server", status, with_traceback=True)
+
+    assert after_filter(made) is made
+
+
 def test_a_record_with_no_status_is_left_as_it_is() -> None:
     made = record("django.db.backends", None, with_traceback=True)
 

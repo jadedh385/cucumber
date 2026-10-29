@@ -40,5 +40,6 @@ USER cucumber
 EXPOSE 8000
 
 # gthread copes with slow phones on mobile data; --max-requests restarts a
-# worker now and then, so slow memory growth never builds up.
-CMD ["gunicorn", "cucumber.wsgi", "--bind", "0.0.0.0:8000", "--worker-class", "gthread", "--workers", "2", "--threads", "4", "--timeout", "60", "--max-requests", "1000", "--max-requests-jitter", "100"]
+# worker now and then, so slow memory growth never builds up. No control
+# socket: it would go under a home folder the read-only container lacks.
+CMD ["gunicorn", "cucumber.wsgi", "--bind", "0.0.0.0:8000", "--worker-class", "gthread", "--workers", "2", "--threads", "4", "--timeout", "60", "--max-requests", "1000", "--max-requests-jitter", "100", "--no-control-socket"]

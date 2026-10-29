@@ -22,7 +22,11 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.safestring import SafeString, mark_safe
 from django.utils.translation import gettext as _
 from django.views.decorators.cache import never_cache
-from django.views.decorators.http import require_POST, require_safe
+from django.views.decorators.http import (
+    require_http_methods,
+    require_POST,
+    require_safe,
+)
 
 from cucumber.accounts import services
 from cucumber.accounts.forms import (
@@ -33,7 +37,7 @@ from cucumber.accounts.forms import (
     RoleForm,
 )
 from cucumber.accounts.permissions import Permission, Role, allowed_for, role_named
-from cucumber.core.audit import SYSTEM_USERNAME, audited
+from cucumber.core.audit import SYSTEM_USERNAME
 from cucumber.core.refusals import Refused
 
 
@@ -53,14 +57,16 @@ class StaffRow:
 
 
 def staff_row(
-    request: HttpRequest, account: User, role: Role | None, may_be_locked: bool = True
+    request: HttpRequest,
+    account: User,
+    role: Role | None,
+    locked_until: datetime | None,
 ) -> StaffRow:
-    """`may_be_locked=False` skips the lock look-up for an account that can't be."""
     return StaffRow(
         role=role,
         account=account,
         is_you=account.pk == request.user.pk,
-        locked_until=services.locked_until(account.username) if may_be_locked else None,
+        locked_until=locked_until,
         is_anonymised=services.is_anonymised(account),
     )
 
@@ -94,29 +100,23 @@ def home(request: HttpRequest) -> HttpResponse:
 
 
 @allowed_for(Permission.OWN_ACCOUNT)
+@require_http_methods(["GET", "POST"])
 def password(request: HttpRequest) -> HttpResponse:
     """Change your own password; also the forced change (AC25, AC26)."""
     user = signed_in_user(request)
     is_forced = services.change_is_due(user)
-    form = ChangePasswordForm(user, request.POST or None)
-    if request.method == "POST":
-        # The whole POST: checking the old password can re-hash it (U0.7 M4).
-        with audited(user):
-            if form.is_valid():
-                save_own_password(request, user, form)
-                return HttpResponseRedirect(safe_next(request) or reverse("home"))
+    if request.method != "POST":
+        form = ChangePasswordForm(user)
+    else:
+        # Bound even when empty, so an empty POST shows its errors (U0.10a AC24).
+        form = ChangePasswordForm(user, request.POST)
+        if services.choose_own_password(user, form):
+            # This session stays signed in; the person's others end (AC26).
+            update_session_auth_hash(request, user)
+            messages.success(request, _("Your new password is saved."))
+            return HttpResponseRedirect(safe_next(request) or reverse("home"))
     context = {"form": form, "is_forced": is_forced, "next": safe_next(request)}
     return render(request, "accounts/password.html", context)
-
-
-def save_own_password(
-    request: HttpRequest, user: User, form: ChangePasswordForm
-) -> None:
-    form.save()
-    # This session stays signed in; the person's others end (AC26).
-    update_session_auth_hash(request, user)
-    services.password_chosen(user)
-    messages.success(request, _("Your new password is saved."))
 
 
 # ------------------------------------------------- Manage users
@@ -126,18 +126,20 @@ def save_own_password(
 @require_safe
 def staff_list(request: HttpRequest) -> HttpResponse:
     # System is no one's account to manage (U0.7 design §10).
-    accounts = User.objects.exclude(username=SYSTEM_USERNAME).order_by(
-        "first_name", "username"
+    accounts = list(
+        User.objects.exclude(username=SYSTEM_USERNAME).order_by(
+            "first_name", "username"
+        )
     )
     roles = dict(User.groups.through.objects.values_list("user_id", "group__name"))
-    # One query for the few that could be locked, not one per account (G4 L5).
-    may_be_locked = services.emails_that_may_be_locked()
+    # Every lock in one query, however many people (U0.10a AC25).
+    locks = services.lock_ends([account.username for account in accounts])
     rows = [
         staff_row(
             request,
             account,
             role_named(roles.get(account.pk)),
-            services.failure_key(account.username) in may_be_locked,
+            locks.get(account.username),
         )
         for account in accounts
     ]
@@ -180,7 +182,12 @@ def staff_detail(request: HttpRequest, account_id: int) -> HttpResponse:
 def staff_detail_page(
     request: HttpRequest, account: User, deactivate_form: DeactivateForm
 ) -> HttpResponse:
-    row = staff_row(request, account, services.role_of(account))
+    row = staff_row(
+        request,
+        account,
+        services.role_of(account),
+        services.locked_until(account.username),
+    )
     context = {
         "row": row,
         "role_form": RoleForm(initial={"role": row.role or "none"}),

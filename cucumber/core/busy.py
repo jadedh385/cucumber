@@ -2,12 +2,17 @@
 
 Each limit cancels the statement or ends the session, so the view's
 transaction rolls back. The person sees 503 "Busy, please try again." and
-the log gets one line. G2 stub: the behaviour is built at G3.
+the log gets one line.
 """
 
+import logging
 from collections.abc import Callable
 
+from django.db import connection
 from django.http import HttpRequest, HttpResponse
+from django.shortcuts import render
+
+logger = logging.getLogger(__name__)
 
 # PostgreSQL error code → the limit's setting name (design §8.2). Django
 # wraps psycopg's error (an OperationalError for the first two, an
@@ -29,17 +34,25 @@ def busy_limit(error: BaseException) -> str | None:
     Walks `__cause__` (Django wraps psycopg's error; the code is psycopg's
     `sqlstate`).
     """
-    raise NotImplementedError("U0.10a G3")
+    seen: set[int] = set()
+    current: BaseException | None = error
+    while current is not None and id(current) not in seen:
+        seen.add(id(current))
+        limit = LIMITS.get(getattr(current, "sqlstate", None) or "")
+        if limit:
+            return limit
+        current = current.__cause__
+    return None
 
 
 def mark_busy(request: HttpRequest, limit: str) -> None:
     """Mark `request` as answered "Busy" because of `limit`."""
-    raise NotImplementedError("U0.10a G3")
+    setattr(request, BUSY_MARK, limit)
 
 
 def is_marked_busy(request: object) -> bool:
     """True when `request` was answered "Busy" (any object: log records carry one)."""
-    raise NotImplementedError("U0.10a G3")
+    return bool(getattr(request, BUSY_MARK, None))
 
 
 def busy_page(request: HttpRequest, limit: str) -> HttpResponse:
@@ -47,7 +60,17 @@ def busy_page(request: HttpRequest, limit: str) -> HttpResponse:
 
     Closes Django's connection when the server ended the session (25P03).
     """
-    raise NotImplementedError("U0.10a G3")
+    if limit == LIMITS["25P03"]:
+        connection.close()
+    user = getattr(request, "user", None)
+    logger.warning(
+        "busy limit=%s account=%s path=%s",
+        limit,
+        getattr(user, "pk", None),
+        request.path,
+    )
+    mark_busy(request, limit)
+    return render(request, "503.html", status=503)
 
 
 class BusyAnswer:
@@ -62,4 +85,7 @@ class BusyAnswer:
     def process_exception(
         self, request: HttpRequest, exception: Exception
     ) -> HttpResponse | None:
-        raise NotImplementedError("U0.10a G3")
+        limit = busy_limit(exception)
+        if limit is None:
+            return None
+        return busy_page(request, limit)

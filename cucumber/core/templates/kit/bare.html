@@ -1,0 +1,20 @@
+{% comment %}
+  The page for the 500 and Busy pages (U0.10a §6.1, §7.8): the head, the
+  banner and the name only. No menu, no "Signed in as", no messages: each
+  would read the database, which may be what broke.
+{% endcomment %}{% load i18n %}{% get_current_language as language %}<!doctype html>
+<html lang="{{ language }}" data-theme="cucumber">
+<head>
+{% include "kit/_head.html" %}
+  <title>{% if environment == "staging" %}{% translate "[Practice]" %} {% endif %}{% block title %}{% endblock %} · Cucumber</title>
+</head>
+<body>
+  {% include "core/_practice_banner.html" %}
+  <header class="top-bar">
+    <a class="app-name" href="{% url 'home' %}">Cucumber</a>
+  </header>
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

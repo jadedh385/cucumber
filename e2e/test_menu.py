@@ -17,6 +17,7 @@ from e2e.pages import (
     ROLES,
     pages_for,
     pages_within_two_taps,
+    scroll_down,
     sign_in_as,
     the_menu,
 )
@@ -37,8 +38,7 @@ def test_the_bottom_bar_stays_put_while_the_page_scrolls(
     expect(bar).to_have_count(1)
     before = bar.bounding_box()
 
-    page.mouse.wheel(0, SCROLL_PX)
-    page.wait_for_function("window.scrollY > 0")
+    scroll_down(page, SCROLL_PX)
 
     after = bar.bounding_box()
     assert before is not None and after is not None

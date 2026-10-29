@@ -119,6 +119,24 @@ def the_menu(page: Page) -> Locator:
     return page.locator("nav").filter(visible=True)
 
 
+SCROLL_WAIT_MS = 2000
+SCROLL_POLL_MS = 50
+
+
+def scroll_down(page: Page, pixels: int) -> None:
+    """Scroll as a thumb would, then wait until the page has moved.
+
+    Polled from here: `wait_for_function` runs its text as script in the
+    page, which the CSP refuses (no `unsafe-eval`, U0.10a §5).
+    """
+    page.mouse.wheel(0, pixels)
+    for _ in range(SCROLL_WAIT_MS // SCROLL_POLL_MS):
+        if page.evaluate("window.scrollY") > 0:
+            return
+        page.wait_for_timeout(SCROLL_POLL_MS)
+    raise AssertionError("the page did not scroll")
+
+
 # --------------------------------------------------------- AC7 the phone
 def sideways_scroll(page: Page) -> int:
     width: int = page.evaluate("document.documentElement.scrollWidth")

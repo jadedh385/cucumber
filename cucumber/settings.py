@@ -113,6 +113,8 @@ MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     # Serves CSS and images from the app itself (U0.4a design §2).
     "whitenoise.middleware.WhiteNoiseMiddleware",
+    # One Content Security Policy on every page Django makes (U0.10a §5).
+    "cucumber.core.csp.ContentSecurityPolicy",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -126,6 +128,8 @@ MIDDLEWARE = [
     # U0.6 design §3: each page's matrix row must allow the person's role.
     "cucumber.accounts.middleware.RoleRequired",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    # A view stopped by one of the database limits answers "Busy" (U0.10a §8).
+    "cucumber.core.busy.BusyAnswer",
 ]
 
 ROOT_URLCONF = "cucumber.urls"
@@ -152,6 +156,11 @@ WSGI_APPLICATION = "cucumber.wsgi.application"
 # Django connects as DB_USER. Migrations and tests use `cucumber_owner`; the
 # running app uses `cucumber_app` (U0.2 design §4). With debug off it has no
 # default, so a server can't fall back to the owner.
+DATABASE_LIMITS = {
+    "lock_timeout": "5s",
+    "statement_timeout": "10s",
+    "idle_in_transaction_session_timeout": "10s",
+}
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
@@ -161,8 +170,13 @@ DATABASES = {
         "HOST": env("DB_HOST", "127.0.0.1"),
         "PORT": env("DB_PORT", "5434"),
         # A save waiting on another save's lock gives up after 5 seconds
-        # instead of hanging (U0.4a AC8).
-        "OPTIONS": {"options": "-c lock_timeout=5s"},
+        # instead of hanging (U0.4a AC8); a stuck query or a transaction left
+        # idle ends after 10 (U0.10a §8.1). Every connection, migrations too.
+        "OPTIONS": {
+            "options": " ".join(
+                f"-c {name}={value}" for name, value in DATABASE_LIMITS.items()
+            )
+        },
         # Reuse a connection for a minute, checking it first, so a database
         # restart leaves no broken connections behind.
         "CONN_MAX_AGE": 60,
@@ -222,8 +236,14 @@ LOGGING = {
     "formatters": {
         "plain": {"format": "{asctime} {levelname} {name}: {message}", "style": "{"}
     },
+    # One line per refusal; a 4xx without its traceback (U0.10a §9.2).
+    "filters": {"one_line": {"()": "cucumber.core.logs.OneLinePerRefusal"}},
     "handlers": {
-        "console": {"class": "logging.StreamHandler", "formatter": "plain"},
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "plain",
+            "filters": ["one_line"],
+        },
     },
     "root": {"handlers": ["console"], "level": "WARNING"},
     "loggers": {
@@ -233,6 +253,29 @@ LOGGING = {
         "cucumber": {"level": "INFO"},
     },
 }
+
+# A form sent from a page open too long: "Reload it and try again" (U0.10a §9.1).
+CSRF_FAILURE_VIEW = "cucumber.core.views.csrf_failure"
+
+# U0.10a §5.1, in Django 6's shape, so Django 6.2 LTS can take it as it is.
+# `data:` images: the marks daisyUI draws in its CSS.
+SECURE_CSP = {
+    "default-src": ["'self'"],
+    "script-src": ["'self'"],
+    "style-src": ["'self'"],
+    "img-src": ["'self'", "data:"],
+    "font-src": ["'self'"],
+    "connect-src": ["'self'"],
+    "form-action": ["'self'"],
+    "frame-ancestors": ["'none'"],
+    "frame-src": ["'none'"],
+    "object-src": ["'none'"],
+    "base-uri": ["'none'"],
+}
+
+# htmx gives up after 20 s, above each database limit, so a stuck save is
+# answered "Busy" before the phone says "Not confirmed" (U0.10a §8.3).
+HTMX_TIMEOUT_MS = 20_000
 
 # D-16: Bangkok time, English now with Thai to follow.
 LANGUAGE_CODE = "en"
