@@ -107,6 +107,9 @@ INSTALLED_APPS = [
     "cucumber.plants",
     "cucumber.batches",
     "cucumber.events",
+    # Django's widget templates, for the kit's renderer; after Cucumber's
+    # apps, so theirs win (U0.10a §7.1).
+    "django.forms",
 ]
 
 MIDDLEWARE = [
@@ -146,10 +149,14 @@ TEMPLATES = [
                 "django.contrib.messages.context_processors.messages",
                 "cucumber.core.context_processors.environment",
                 "cucumber.accounts.context_processors.permissions",
+                "cucumber.accounts.context_processors.menu",
             ],
         },
     },
 ]
+
+# Every form renders through the kit's templates (U0.10a §7.1).
+FORM_RENDERER = "cucumber.core.kit.KitRenderer"
 
 WSGI_APPLICATION = "cucumber.wsgi.application"
 

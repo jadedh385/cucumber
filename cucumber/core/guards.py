@@ -16,7 +16,6 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any
-from zoneinfo import ZoneInfo
 
 from django.db import connection
 from django.db.migrations.loader import MigrationLoader
@@ -24,9 +23,9 @@ from django.db.migrations.recorder import MigrationRecorder
 
 from cucumber.core import expected
 from cucumber.core.audit import SYSTEM, audited, ssh_via, system_account
+from cucumber.core.dates import BANGKOK
 from cucumber.core.models import AuditLog
 
-BANGKOK = ZoneInfo("Asia/Bangkok")
 ACCEPT_VIA = "cucumber_check_guards"
 
 

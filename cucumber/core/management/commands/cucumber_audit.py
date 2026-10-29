@@ -10,7 +10,6 @@ People are shown by id, never by name or email (AC8). Read-only.
 import json
 from datetime import datetime, time, timedelta
 from typing import Any
-from zoneinfo import ZoneInfo
 
 from django.contrib.auth.models import Group, User
 from django.core.management.base import BaseCommand, CommandError, CommandParser
@@ -19,10 +18,10 @@ from waffle.models import Flag
 
 from cucumber.accounts.services import email_key
 from cucumber.core.audit import system_account
+from cucumber.core.dates import BANGKOK
 from cucumber.core.models import AuditLog
 
 DEFAULT_LIMIT = 50
-BANGKOK = ZoneInfo("Asia/Bangkok")
 FLAG_TABLES = {"waffle_flag", "waffle_flag_groups"}
 
 

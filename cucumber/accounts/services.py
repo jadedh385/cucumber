@@ -44,8 +44,8 @@ from cucumber.core.audit import (
 )
 from cucumber.core.models import AuditLog
 from cucumber.core.refusals import Refused, database_refusals, refuse
-from cucumber.references.models import Reason as ListedReason
 from cucumber.references.models import ReasonList
+from cucumber.references.reading import active_reasons
 
 logger = logging.getLogger(__name__)
 
@@ -228,10 +228,9 @@ def deactivate(by: User, account: User, reason: Reason | None) -> None:
 
 def deactivate_reasons() -> list[tuple[str, str]]:
     """(code, label) of the reasons a page may pick, by label, Other last."""
-    reasons = ListedReason.objects.filter(
-        applies_to=ReasonList.DEACTIVATE, active=True
-    ).values_list("code", "label")
-    return sorted(reasons, key=lambda reason: (reason[1] == "Other", reason[1]))
+    return [
+        (reason.code, reason.label) for reason in active_reasons(ReasonList.DEACTIVATE)
+    ]
 
 
 def anonymise(account: User) -> None:

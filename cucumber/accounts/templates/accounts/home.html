@@ -1,10 +1,15 @@
 {% extends "base.html" %}{% load i18n %}
 {% comment %}
-  The home page: empty until U0.10 brings the app shell (U0.5 AC18).
+  Home (U0.10a §10.1, AC23): a greeting, a tile per menu item the person may
+  open but Home, and the empty state until lab work comes in Phase 1.
 {% endcomment %}
 {% block title %}{% translate "Home" %}{% endblock %}
 {% block content %}
-{% if "manage_users" in allowed %}<p><a class="button" href="{% url 'staff' %}">{% translate "Staff" %}</a></p>{% endif %}
-<p><a href="{% url 'password' %}">{% translate "Change your password" %}</a></p>
-<p class="quiet">{% translate "More pages are coming soon." %}</p>
+<h1 class="mb-4 text-2xl font-semibold">{% blocktranslate with name=user.first_name|default:user.email %}Hello, {{ name }}{% endblocktranslate %}</h1>
+<ul class="kit-tiles mb-6 grid grid-cols-2 gap-3">
+  {% for item in menu %}{% if item.url_name != "home" %}
+  <li><a class="btn btn-outline h-auto min-h-16 w-full flex-col py-3" href="{% url item.url_name %}">{% include "kit/icon.html" with name=item.icon %}{{ item.label }}</a></li>
+  {% endif %}{% endfor %}
+</ul>
+{% include "kit/empty.html" with empty=no_work %}
 {% endblock %}

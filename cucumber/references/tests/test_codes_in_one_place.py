@@ -198,7 +198,7 @@ def test_ac22_the_scan_reads_the_app_code_and_leaves_out_references_and_tests() 
 def test_ac22_the_scan_reads_every_template() -> None:
     scanned = {str(path.relative_to(CODE)) for path in scanned_templates()}
 
-    assert "accounts/templates/base.html" in scanned
+    assert "core/templates/base.html" in scanned
 
 
 # ------------------------------------------------- the codes it looks for

@@ -1,0 +1,11 @@
+{% comment %}
+  A form (U0.10a §7.1): the CSRF token, {{ form }} and the Save button. An
+  HTMX form sends one request at a time, disables Save while sending, and
+  swaps itself for the answer. `notice` is a line on top after a save.
+  {% include "kit/form.html" with form=form action=request.path save=_("Save") htmx=True %}
+{% endcomment %}<form method="post" action="{{ action }}" novalidate{% if htmx %} hx-post="{{ action }}" hx-sync="this:drop" hx-disabled-elt="find button[type=submit]" hx-target="this" hx-swap="outerHTML"{% endif %}>
+  {% csrf_token %}
+  {% if notice %}<div class="alert alert-success mb-4" role="status">{{ notice }}</div>{% endif %}
+  {{ form }}
+  {% include "kit/_submit.html" %}
+</form>

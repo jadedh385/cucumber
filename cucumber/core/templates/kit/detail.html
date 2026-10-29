@@ -1,0 +1,9 @@
+{# One record (U0.10a §7.7): the title, a line under it, then the facts. #}
+<h1 class="text-2xl font-semibold break-all">{{ detail.title }}</h1>
+{% if detail.line %}<p class="text-base-content/70 break-all">{{ detail.line }}</p>{% endif %}
+<dl class="kit-facts mt-4 grid grid-cols-[auto_1fr] gap-x-4 gap-y-2">
+  {% for fact in detail.facts %}
+    <dt class="font-medium">{{ fact.label }}</dt>
+    <dd class="break-all">{{ fact.value }}</dd>
+  {% endfor %}
+</dl>

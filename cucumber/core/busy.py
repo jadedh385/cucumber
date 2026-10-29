@@ -8,9 +8,10 @@ the log gets one line.
 import logging
 from collections.abc import Callable
 
+from django.conf import settings
 from django.db import connection
 from django.http import HttpRequest, HttpResponse
-from django.shortcuts import render
+from django.template.loader import render_to_string
 
 logger = logging.getLogger(__name__)
 
@@ -70,7 +71,18 @@ def busy_page(request: HttpRequest, limit: str) -> HttpResponse:
         request.path,
     )
     mark_busy(request, limit)
-    return render(request, "503.html", status=503)
+    return bare_page("503.html", status=503)
+
+
+def bare_page(template: str, status: int) -> HttpResponse:
+    """A `kit/bare.html` page with a plain context (§7.8).
+
+    No request, so no context processor runs: nothing reads the session, the
+    person or the database, which may be what broke. Only the environment,
+    for the "Practice data" banner.
+    """
+    html = render_to_string(template, {"environment": settings.ENVIRONMENT})
+    return HttpResponse(html, status=status)
 
 
 class BusyAnswer:

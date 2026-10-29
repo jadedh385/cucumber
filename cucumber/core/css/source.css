@@ -46,9 +46,6 @@
 }
 
 @layer components {
-  /* 16 px text in every input, so iOS doesn't zoom in (AC7). */
-  .input, .select, .textarea { font-size: 1rem; }
-
   /* "Practice data" banner on staging (U0.4a AC9): amber, dark text, stays
      at the top while scrolling. Phones get the short wording. */
   .practice-banner {
@@ -70,7 +67,58 @@
 
   /* A plain form that is sending (forms.js, §4.2): busy, not disabled. */
   .is-sending { cursor: progress; opacity: 0.7; }
+
+  /* The Save button's spinner and "Saving…", shown only while sending
+     (kit/_submit.html): `is-sending` on a plain form's button, htmx's
+     `htmx-request` on an HTMX form. */
+  .kit-sending { display: none; }
+  .is-sending .kit-sending,
+  .htmx-request .kit-sending { display: inline-flex; align-items: center; }
+
+  /* The top bar's links are 44 px tall (§6.3). */
+  .kit-top-bar { min-height: 3.5rem; }
+
+  /* The bottom bar is 64 px plus the phone's safe area; the page keeps that
+     much room below it, so nothing hides behind the bar (§6.1). */
+  .kit-bottom-bar {
+    height: calc(4rem + env(safe-area-inset-bottom));
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .kit-page-with-bar { padding-bottom: calc(5rem + env(safe-area-inset-bottom)); }
+  @media (min-width: 64rem) {
+    .kit-page-with-bar { padding-bottom: 1rem; }
+  }
+
+  /* Long emails and names wrap instead of widening the page (§6.3). */
+  .kit-facts dd, .kit-table td { overflow-wrap: anywhere; }
+
+  /* One table (§7.6): from lg up a table; below it each row is a card, the
+     main cell first and bold, the others "label value", the whole card a
+     link (the main cell's link is stretched over it). */
+  @media (max-width: 63.999rem) {
+    .kit-table thead { display: none; }
+    .kit-table, .kit-table tbody, .kit-table tr, .kit-table td { display: block; }
+    .kit-table tr {
+      position: relative;
+      min-height: 3.5rem;
+      margin-bottom: 0.5rem;
+      padding: 0.75rem 1rem;
+      border-radius: var(--radius-box);
+      background: var(--color-base-100);
+    }
+    .kit-table td { padding: 0; border: 0; font-size: 0.875rem; }
+    .kit-table td:not(.kit-main)::before {
+      content: attr(data-label) " ";
+      color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
+    }
+    .kit-table td.kit-main { font-size: 1rem; font-weight: 600; }
+    .kit-table td.kit-main a::after { content: ""; position: absolute; inset: 0; }
+  }
 }
+
+/* 16 px text in every input, so iOS doesn't zoom in (AC7). Outside the
+   layers, so it wins over daisyUI's smaller size for its fields. */
+.input, .select, .textarea { font-size: 1rem; }
 
 /* htmx's indicator classes: htmx would add these itself as a <style>
    element, which the CSP refuses (includeIndicatorStyles: false, §4.1). */

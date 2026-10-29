@@ -1,0 +1,40 @@
+{% comment %}
+  The page every Cucumber screen uses (U0.10a §6.1; U0.5 AC21 as changed at
+  G1): the "Practice data" banner, a top bar with the name, the page title
+  and who is signed in, the request-trouble banner and messages, the page,
+  and the menu (a bottom bar on a phone, a side menu from lg up). Signed
+  out (login), no menu and no "Signed in as". The 500 and Busy pages use
+  kit/bare.html instead: this page reads the database.
+{% endcomment %}{% load i18n %}{% get_current_language as language %}<!doctype html>
+<html lang="{{ language }}" data-theme="cucumber">
+<head>
+{% include "kit/_head.html" %}
+  <title>{% if environment == "staging" %}{% translate "[Practice]" %} {% endif %}{% block title %}{% endblock %} · Cucumber</title>
+</head>
+<body class="min-h-screen bg-base-200">
+  {% include "core/_practice_banner.html" %}
+  <header class="kit-top-bar flex items-center gap-3 bg-base-100 px-4 shadow-sm">
+    <a class="kit-app-name flex min-h-11 items-center font-semibold text-primary" href="{% url 'home' %}">Cucumber</a>
+    <span class="truncate text-base-content/70">{% block heading %}{% endblock %}</span>
+    <div class="kit-search ms-auto"></div>{# U1.1's search box goes here #}
+    {% if user.is_authenticated %}
+    <p class="kit-signed-in text-sm">{% blocktranslate with name=user.first_name|default:user.email %}Signed in as <strong>{{ name }}</strong>{% endblocktranslate %}</p>
+    {% endif %}
+  </header>
+  <div class="kit-frame lg:flex">
+    {% if menu %}{% include "kit/menu.html" %}{% endif %}
+    <div class="kit-page mx-auto w-full max-w-3xl px-4 py-4{% if menu %} kit-page-with-bar{% endif %}">
+      <div id="request-trouble" class="kit-trouble" role="alert"></div>
+      {% if messages %}
+      <ul class="kit-messages mb-4 flex flex-col gap-2">
+        {% for message in messages %}<li class="alert{% if message.level_tag == 'error' %} alert-error{% elif message.level_tag == 'warning' %} alert-warning{% else %} alert-success{% endif %}" role="status">{{ message }}</li>{% endfor %}
+      </ul>
+      {% endif %}
+      <main>
+        {% block content %}{% endblock %}
+      </main>
+    </div>
+  </div>
+  {% include "kit/_trouble.html" %}
+</body>
+</html>

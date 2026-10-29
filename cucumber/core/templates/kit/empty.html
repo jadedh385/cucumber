@@ -1,0 +1,7 @@
+{# The empty state (U0.10a §7.7): the message, and the action button if given. #}
+<div class="kit-empty flex flex-col items-center gap-4 py-10 text-center">
+  <p class="text-base-content/70">{{ empty.message }}</p>
+  {% if empty.action_url %}
+    <a href="{{ empty.action_url }}" class="btn btn-primary">{{ empty.action_label }}</a>
+  {% endif %}
+</div>

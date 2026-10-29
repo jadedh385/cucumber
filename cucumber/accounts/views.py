@@ -38,6 +38,7 @@ from cucumber.accounts.forms import (
 )
 from cucumber.accounts.permissions import Permission, Role, allowed_for, role_named
 from cucumber.core.audit import SYSTEM_USERNAME
+from cucumber.core.kit import Empty
 from cucumber.core.refusals import Refused
 
 
@@ -95,8 +96,16 @@ def safe_next(request: HttpRequest) -> str | None:
 @allowed_for(Permission.OWN_ACCOUNT)
 @require_safe
 def home(request: HttpRequest) -> HttpResponse:
-    """`/`: who is signed in; links from what the person may do (AC11, AC18)."""
-    return render(request, "accounts/home.html")
+    """`/`: a greeting and a tile per menu item but Home (U0.10a §10.1, AC23)."""
+    no_work = Empty(_("No work to show yet. Lab work will appear here."))
+    return render(request, "accounts/home.html", {"no_work": no_work})
+
+
+@allowed_for(Permission.OWN_ACCOUNT)
+@require_safe
+def account(request: HttpRequest) -> HttpResponse:
+    """`/account/`: your name and email, Change password and Log out (Q3 a)."""
+    return render(request, "accounts/account.html")
 
 
 @allowed_for(Permission.OWN_ACCOUNT)

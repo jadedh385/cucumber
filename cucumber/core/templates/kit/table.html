@@ -1,0 +1,19 @@
+{# One table (U0.10a §7.6): a table from lg up, cards below it, one copy of the markup. #}
+<table class="kit-table table">
+  <thead>
+    <tr>
+      {% for column in table.columns %}<th scope="col">{{ column.label }}</th>{% endfor %}
+    </tr>
+  </thead>
+  <tbody>
+    {% for href, cells in rows %}
+      <tr>
+        {% for column, cell in cells %}
+          <td data-label="{{ column.label }}"{% if column.is_main %} class="kit-main"{% endif %}>
+            {% if column.is_main %}<a href="{{ href }}">{{ cell }}</a>{% else %}{{ cell }}{% endif %}
+          </td>
+        {% endfor %}
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>

@@ -4,16 +4,20 @@ import logging
 import sys
 from urllib.parse import urlsplit
 
+from django.conf import settings
 from django.contrib.auth.decorators import login_not_required
 from django.db import connection
-from django.http import HttpRequest, HttpResponse
+from django.http import Http404, HttpRequest, HttpResponse
 from django.shortcuts import render
 from django.utils.http import url_has_allowed_host_and_scheme
+from django.utils.translation import gettext as _
 from django.views.decorators.cache import never_cache
 from django.views.decorators.csrf import requires_csrf_token
-from django.views.decorators.http import require_safe
+from django.views.decorators.http import require_http_methods, require_safe
 
-from cucumber.core.busy import busy_limit, busy_page
+from cucumber.accounts.permissions import Permission, allowed_for
+from cucumber.core.busy import bare_page, busy_limit, busy_page
+from cucumber.core.forms import PracticeForm
 from cucumber.core.refusals import PageRefused
 from cucumber.core.services import database_is_reachable
 
@@ -21,6 +25,7 @@ logger = logging.getLogger(__name__)
 
 # Tells `requests.js` an HTMX form met the CSRF page (U0.10a §4.3).
 TROUBLE_HEADER = "Cucumber-Trouble"
+PRODUCTION = "production"
 
 
 @login_not_required
@@ -37,21 +42,18 @@ def health(request: HttpRequest) -> HttpResponse:
     return HttpResponse("database unavailable", status=503, content_type="text/plain")
 
 
-@requires_csrf_token
 def server_error(request: HttpRequest) -> HttpResponse:
-    """The error page, rendered with the request so the banner shows (AC9).
+    """The error page, with the "Practice data" banner on staging (AC9).
 
-    Django's own 500 view renders without the request, so context
-    processors, and with them the "Practice data" banner, never run. A
-    database limit hit outside the view (a middleware's query, the session
-    save) answers "Busy" instead (U0.10a §8.2). The page is bare: it never
-    reads the database.
+    Bare, with a plain context: it never reads the session, the person or
+    the database (U0.10a §7.8). A database limit hit outside the view (a
+    middleware's query, the session save) answers "Busy" instead (§8.2).
     """
     error = sys.exc_info()[1]
     limit = busy_limit(error) if error else None
     if limit:
         return busy_page(request, limit)
-    return render(request, "500.html", status=500)
+    return bare_page("500.html", status=500)
 
 
 def csrf_failure(request: HttpRequest, reason: str = "") -> HttpResponse:
@@ -99,3 +101,29 @@ def permission_denied(request: HttpRequest, exception: Exception) -> HttpRespons
             request.path,
         )
     return render(request, "403.html", status=403)
+
+
+@allowed_for(Permission.OWN_ACCOUNT)
+@require_http_methods(["GET", "POST"])
+def practice(request: HttpRequest) -> HttpResponse:
+    """`/practice/`: try the kit's fields; Save checks and saves nothing (Q4 a)).
+
+    Local and staging only: production answers 404. An HTMX save answers the
+    form alone, 200 when every answer passes, 422 with the messages under
+    their fields when one doesn't (§11.2).
+    """
+    if settings.ENVIRONMENT == PRODUCTION:
+        raise Http404
+    form = PracticeForm(request.POST) if request.method == "POST" else PracticeForm()
+    is_checked = request.method == "POST" and form.is_valid()
+    is_refused = request.method == "POST" and not is_checked
+    context = {
+        "form": form,
+        "notice": _("Checked. Nothing was saved (practice page).")
+        if is_checked
+        else "",
+    }
+    status = 422 if is_refused else 200
+    if request.headers.get("HX-Request") == "true":
+        return render(request, "core/practice_form.html", context, status=status)
+    return render(request, "core/practice.html", context, status=status)
