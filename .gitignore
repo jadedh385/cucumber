@@ -20,3 +20,5 @@ cucumber.code-workspace
 # The Tailwind CLI (downloaded) and the stylesheet it builds (U0.10a §3.3, §3.4)
 .cache/
 cucumber/core/static/core/cucumber.css
+# G5 pictures of staging show real staff addresses; the repo is public (U0.10a G5, Q-G5-g)
+docs/roadmap/units/*-g5-screenshots/
