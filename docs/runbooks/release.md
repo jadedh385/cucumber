@@ -100,6 +100,27 @@ its Staff page after the release. (The user-name check is the
 [accounts check](#accounts-check-first-release-with-u05), already passed
 with U0.5.)
 
+## Cloudflare settings the CSP needs (U0.10a)
+
+From U0.10a every page carries a Content Security Policy that allows scripts
+and styles from the site itself only. A Cloudflare feature that adds a script
+or rewrites the page breaks it, and the E2E suite's console watcher shows the
+refusal ([U0.10a G5](../roadmap/units/u0.10a-g5-verify.md#e2e-on-staging)).
+
+| Setting | State | Why |
+|---|---|---|
+| Web Analytics: Real User Measurements (RUM) | **Disabled** (Owner, 2026-10-30) | Automatic setup injected `static.cloudflareinsights.com/beacon.min.js`, which the policy refuses; 25 E2E tests errored on it |
+| Email Address Obfuscation (Scrape Shield) | not seen to break anything in the staging run | would rewrite emails on the Staff pages into a script link |
+| Rocket Loader (Speed → Optimization) | not seen to break anything in the staging run | would rewrite every `<script>` |
+
+The RUM setting must be off for **both** `cucumber-staging.southeastcanopy.com`
+and `cucumber.southeastcanopy.com` before the production deploy. Check each from
+a signed-in browser: View Page Source on the Log in page and search for
+`cloudflareinsights`: no match. (With the Access token, for staging:
+`curl -s -H "CF-Access-Client-Id: …" -H "CF-Access-Client-Secret: …"
+https://cucumber-staging.southeastcanopy.com/accounts/login/ | grep -c cloudflareinsights`
+prints `0`.)
+
 ## 1. Draft (Claude)
 
 ```bash

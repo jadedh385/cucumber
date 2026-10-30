@@ -33,6 +33,22 @@ def test_log_in_see_home_and_log_out(
     log_out(page)
 
 
+def test_the_menu_is_read_once_the_page_has_its_stylesheet(
+    site_url: str, slow_stylesheet: Page, account: tuple[str, str]
+) -> None:
+    """G5 found this on staging: over a slow link the page text shows before
+    the stylesheet, so for a moment the side menu and the bottom bar both show
+    and "Account" matches two links. A step that reads the page as laid out
+    waits for it to load first."""
+    page = slow_stylesheet
+    log_in(page, site_url, *account)
+
+    expect(page.get_by_text("Signed in as").first).to_be_visible()
+    open_from_menu(page, "Account")
+
+    expect(page).to_have_url(re.compile(r"/account/$"))
+
+
 def test_a_new_password_must_be_changed_at_the_next_login(
     site_url: str, page: Page, account: tuple[str, str], local_only: None
 ) -> None:

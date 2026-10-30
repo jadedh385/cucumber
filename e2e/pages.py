@@ -38,8 +38,17 @@ def log_in(page: Page, site_url: str, email: str, password: str) -> None:
     page.get_by_role("button", name="Log in").click()
 
 
+def loaded(page: Page) -> Page:
+    """The page, once it and its stylesheet have arrived. The text can show
+    before the stylesheet does (G5, staging): until it arrives nothing hides
+    the side menu and nothing sets the width, so a read of the layout would
+    see a page no one sees."""
+    page.wait_for_load_state("load")
+    return page
+
+
 def fits_the_phone(page: Page) -> None:
-    width = page.evaluate("document.documentElement.scrollWidth")
+    width = loaded(page).evaluate("document.documentElement.scrollWidth")
     assert width <= PHONE_WIDTH, f"{page.url} scrolls sideways on a phone"
 
 
@@ -116,7 +125,7 @@ def pages_within_two_taps(page: Page, site_url: str) -> dict[str, str]:
 def the_menu(page: Page) -> Locator:
     """The menu as shown: the bottom bar on a phone, the side menu on a
     desktop (§21.2: the menu's links are the `<a>` inside `<nav>`)."""
-    return page.locator("nav").filter(visible=True)
+    return loaded(page).locator("nav").filter(visible=True)
 
 
 SCROLL_WAIT_MS = 2000

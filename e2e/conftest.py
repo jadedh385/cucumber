@@ -41,6 +41,10 @@ POLICY_BREAK = "Content Security Policy"
 SLOW_LATENCY_MS = 400
 SLOW_BYTES_PER_SECOND = 50_000
 
+# The compiled stylesheet, whatever its hashed name (whitenoise's manifest).
+STYLESHEET = "**/static/core/cucumber*.css"
+STYLESHEET_DELAY_MS = 2000
+
 # How long a test waits for a POST to reach a held route: 5 s at most.
 SENT_CHECK_MS = 50
 SENT_CHECKS = 100
@@ -185,6 +189,21 @@ def slow_network(page: Page) -> Page:
         },
     )
     return page
+
+
+@pytest.fixture
+def slow_stylesheet(page: Page) -> Iterator[Page]:
+    """The page with its stylesheet 2 s late, as over a slow link: the text
+    arrives first and, for a moment, nothing hides the side menu (G5)."""
+    headers = access_headers(os.environ)
+
+    def late(route: Route) -> None:
+        page.wait_for_timeout(STYLESHEET_DELAY_MS)
+        route.continue_(headers={**route.request.headers, **headers})
+
+    page.route(STYLESHEET, late)
+    yield page
+    page.unroute_all(behavior="ignoreErrors")
 
 
 @dataclass
