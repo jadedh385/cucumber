@@ -24,8 +24,13 @@ GUNICORN_OPTIONS = [
     "--timeout 60",
     "--max-requests 1000",
     "--max-requests-jitter 100",
+    # gunicorn 25.1+ opens a control socket under $HOME, which isn't
+    # writable in the container (U0.10a §9.3, AC18).
+    "--no-control-socket",
 ]
-KEPT_OUT = [".git", ".venv", ".env", "secrets.env", "spike", "docs", "uat"]
+# `.cache`: the Mac's Tailwind CLI must never be copied in (U0.10a §3.3).
+KEPT_OUT = [".git", ".venv", ".env", "secrets.env", "spike", "docs", "uat", ".cache"]
+CSS = "/app/.venv/bin/python -m scripts.css"
 
 
 @pytest.fixture(scope="module")
@@ -83,6 +88,104 @@ def test_static_files_are_collected_as_production_on_one_line(
     assert collect[0].startswith("RUN ")
     assert "DJANGO_ENVIRONMENT=production" in collect[0]
     assert "--noinput" in collect[0]
+
+
+def build_stage(instructions: list[str]) -> list[str]:
+    starts = [i for i, line in enumerate(instructions) if line.startswith("FROM ")]
+    return instructions[starts[0] : starts[-1]]
+
+
+def position(lines: list[str], text: str) -> int:
+    found = [i for i, line in enumerate(lines) if text in line]
+    assert len(found) == 1, f"expected one line with {text!r}, found {len(found)}"
+    return found[0]
+
+
+# ------------------------------------------- U0.10a AC1: the CSS build (§3.3)
+def test_the_css_is_built_in_the_build_stage_before_collectstatic(
+    instructions: list[str],
+) -> None:
+    build = build_stage(instructions)
+    fetch = position(build, f"{CSS} fetch")
+    copy_all = position(build, "COPY . .")
+    compile_css = position(build, f"{CSS} build")
+    collect = position(build, "collectstatic")
+
+    assert fetch < copy_all < compile_css < collect
+    assert all(line.startswith("RUN ") for line in (build[fetch], build[compile_css]))
+
+
+def test_the_cli_download_is_cached_until_css_py_changes(
+    instructions: list[str],
+) -> None:
+    """Only css.py is copied before `fetch`, so a code change doesn't fetch again."""
+    build = build_stage(instructions)
+    copy_script = position(build, "COPY scripts/__init__.py scripts/css.py scripts/")
+
+    assert copy_script < position(build, f"{CSS} fetch")
+
+
+def test_the_cli_is_kept_outside_the_app_folder(instructions: list[str]) -> None:
+    """The run stage copies /app only, so the CLI never reaches it."""
+    build = build_stage(instructions)
+
+    assert "ENV CUCUMBER_TOOLS=/opt/tools" in build
+    assert position(build, "CUCUMBER_TOOLS") < position(build, f"{CSS} fetch")
+
+
+def test_the_run_stage_has_no_css_tools(instructions: list[str]) -> None:
+    final = " ".join(final_stage(instructions))
+
+    assert "scripts.css" not in final
+    assert "CUCUMBER_TOOLS" not in final
+    assert "/opt/tools" not in final
+
+
+def test_the_run_stage_copies_only_the_app_from_the_build_stage(
+    instructions: list[str],
+) -> None:
+    copies = [line for line in final_stage(instructions) if line.startswith("COPY ")]
+
+    assert copies == ["COPY --from=build /app /app"]
+
+
+def test_the_check_script_builds_the_css_before_the_tests() -> None:
+    check = commands((ROOT / "scripts" / "check.sh").read_text())
+
+    assert "==> CSS (tailwind)" in check
+    assert "scripts.css build" in check
+    assert check.index("scripts.css build") < check.index("uv run pytest")
+
+
+def test_ci_caches_the_tailwind_cli_by_the_hash_of_css_py() -> None:
+    ci = yaml.safe_load((ROOT / ".github" / "workflows" / "ci.yml").read_text())
+    steps = [
+        step
+        for job in ci["jobs"].values()
+        for step in job.get("steps", [])
+        if str(step.get("uses", "")).startswith("actions/cache@")
+    ]
+
+    assert steps, "no actions/cache step in ci.yml"
+    cached = [step for step in steps if ".cache/tools" in str(step["with"]["path"])]
+    assert cached, "the Tailwind CLI folder is not cached"
+    assert all(re.search(r"@[0-9a-f]{40}", step["uses"]) for step in cached)
+    assert all("scripts/css.py" in step["with"]["key"] for step in cached)
+
+
+# ------------------------------------- U0.10a AC18: no control socket line
+def commands(script: str) -> str:
+    """The script with its comment lines left out, so a comment can't pass."""
+    return "\n".join(
+        line for line in script.splitlines() if not line.lstrip().startswith("#")
+    )
+
+
+def test_the_deploy_rehearsal_finds_no_control_socket_error() -> None:
+    """A line in the script's own shape: the grep, and `fail` when it finds it."""
+    rehearsal = commands((ROOT / "scripts" / "rehearse_deploy.sh").read_text())
+
+    assert re.search(r"grep\b.*Control server error.*\bfail\b", rehearsal)
 
 
 def test_the_app_runs_as_a_non_root_user(instructions: list[str]) -> None:

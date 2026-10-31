@@ -1,0 +1,155 @@
+/* Cucumber's one stylesheet (U0.10a §3.2). Built by `python -m scripts.css
+   build` into core/static/core/cucumber.css, which git never tracks; edit
+   only this file. */
+
+@import "tailwindcss" source(none);
+@source "../../**/templates/**/*.html";   /* every app's templates */
+@source "../kit.py";                      /* classes the kit's Python hands to templates */
+@source "../static/core/*.js";            /* classes our scripts switch */
+
+@plugin "./vendor/daisyui.mjs" { themes: false; }
+@plugin "./vendor/daisyui-theme.mjs" {
+  name: "cucumber";
+  default: true;
+  color-scheme: light;
+  /* Every variable of daisyUI 5.7.50's `light`, copied in full: a theme with
+     a new name gets only the variables it gives. Changed from `light`: the
+     primary pair and --size-field. */
+  --color-base-100: oklch(100% 0 0);
+  --color-base-200: oklch(98% 0 0);
+  --color-base-300: oklch(95% 0 0);
+  --color-base-content: oklch(21% 0.006 285.885);
+  --color-primary: oklch(48.66% 0.1018 148.976);  /* Cucumber green, #2f6f3e (Q6) */
+  --color-primary-content: oklch(100% 0 0);       /* white on it: 6.06:1 */
+  --color-secondary: oklch(65% 0.241 354.308);
+  --color-secondary-content: oklch(94% 0.028 342.258);
+  --color-accent: oklch(77% 0.152 181.912);
+  --color-accent-content: oklch(38% 0.063 188.416);
+  --color-neutral: oklch(14% 0.005 285.823);
+  --color-neutral-content: oklch(92% 0.004 286.32);
+  --color-info: oklch(74% 0.16 232.661);
+  --color-info-content: oklch(29% 0.066 243.157);
+  --color-success: oklch(76% 0.177 163.223);
+  --color-success-content: oklch(37% 0.077 168.94);
+  --color-warning: oklch(82% 0.189 84.429);
+  --color-warning-content: oklch(41% 0.112 45.904);
+  --color-error: oklch(71% 0.194 13.428);
+  --color-error-content: oklch(27% 0.105 12.094);
+  --radius-selector: 0.5rem;
+  --radius-field: 0.25rem;
+  --radius-box: 0.5rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.275rem;  /* buttons and inputs 44 px tall (AC7) */
+  --border: 1px;
+  --depth: 1;
+  --noise: 0;
+}
+
+@layer components {
+  /* "Practice data" banner on staging (U0.4a AC9): amber, dark text, stays
+     at the top while scrolling. Phones get the short wording. */
+  .practice-banner {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    padding: 0.5rem 1rem;
+    background: #f5b301;
+    color: #1a1a1a;
+    font-size: 0.95rem;
+    text-align: center;
+    overflow-wrap: anywhere;
+  }
+  .practice-banner-short { display: none; }
+  @media (max-width: 40rem) {
+    .practice-banner-long { display: none; }
+    .practice-banner-short { display: inline; }
+  }
+
+  /* A plain form that is sending (forms.js, §4.2): busy, not disabled. */
+  .is-sending { cursor: progress; opacity: 0.7; }
+
+  /* The Save button's spinner and "Saving…", shown only while sending
+     (kit/_submit.html): `is-sending` on a plain form's button, htmx's
+     `htmx-request` on an HTMX form. */
+  .kit-sending { display: none; }
+  .is-sending .kit-sending,
+  .htmx-request .kit-sending { display: inline-flex; align-items: center; }
+
+  /* The top bar's links are 44 px tall (§6.3). */
+  .kit-top-bar { min-height: 3.5rem; }
+
+  /* The bottom bar is 64 px plus the phone's safe area; the page keeps that
+     much room below it, so nothing hides behind the bar (§6.1). */
+  .kit-bottom-bar {
+    height: calc(4rem + env(safe-area-inset-bottom));
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .kit-page-with-bar { padding-bottom: calc(5rem + env(safe-area-inset-bottom)); }
+  /* What is scrolled into view (a focused field, a button) stops above the
+     bar, not under it. */
+  html:has(.kit-bottom-bar) {
+    scroll-padding-bottom: calc(5rem + env(safe-area-inset-bottom));
+  }
+  @media (min-width: 64rem) {
+    .kit-page-with-bar { padding-bottom: 1rem; }
+    html:has(.kit-bottom-bar) { scroll-padding-bottom: 0; }
+  }
+
+  /* A record's buttons, after its facts (§7.7): one under the other, full
+     width, with room between. */
+  .kit-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-top: 1.5rem;
+  }
+
+  /* A radio or check box row: the label is the target, 44 px tall (§6.3,
+     §20 L13). */
+  .kit-field label:has(input[type=radio]),
+  .kit-field label:has(input[type=checkbox]) {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-height: 2.75rem;
+  }
+
+  /* Long emails and names wrap instead of widening the page (§6.3). */
+  .kit-facts dd, .kit-table td { overflow-wrap: anywhere; }
+
+  /* One table (§7.6): from lg up a table; below it each row is a card, the
+     main cell first and bold, the others "label value", the whole card a
+     link (the main cell's link is stretched over it). */
+  @media (max-width: 63.999rem) {
+    .kit-table thead { display: none; }
+    .kit-table, .kit-table tbody, .kit-table tr, .kit-table td { display: block; }
+    .kit-table tr {
+      position: relative;
+      min-height: 3.5rem;
+      margin-bottom: 0.5rem;
+      padding: 0.75rem 1rem;
+      border-radius: var(--radius-box);
+      background: var(--color-base-100);
+    }
+    .kit-table td { padding: 0; border: 0; font-size: 0.875rem; }
+    .kit-table td:not(.kit-main)::before {
+      content: attr(data-label) " ";
+      color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
+    }
+    .kit-table td.kit-main { font-size: 1rem; font-weight: 600; }
+    .kit-table td.kit-main a::after { content: ""; position: absolute; inset: 0; }
+  }
+}
+
+/* 16 px text in every input, so iOS doesn't zoom in (AC7). Outside the
+   layers, so it wins over daisyUI's smaller size for its fields. */
+.input, .select, .textarea { font-size: 1rem; }
+
+/* htmx's indicator classes: htmx would add these itself as a <style>
+   element, which the CSP refuses (includeIndicatorStyles: false, §4.1). */
+.htmx-indicator { opacity: 0; }
+.htmx-request .htmx-indicator,
+.htmx-request.htmx-indicator {
+  opacity: 1;
+  transition: opacity 200ms ease-in;
+}

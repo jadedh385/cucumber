@@ -1,0 +1,9 @@
+{% comment %}
+  The Save button (U0.10a §7.1): last in its form, full width, primary. While
+  sending it shows a spinner and "Saving…" for screen readers (`is-sending`
+  from forms.js, `htmx-request` from htmx); its name stays the same.
+  `danger=True` colours it as a warning (Deactivate).
+{% endcomment %}{% load i18n %}<button type="submit" class="btn {% if danger %}btn-error{% else %}btn-primary{% endif %} btn-block">
+  {{ save|default:_("Save") }}
+  <span class="kit-sending"><span class="loading loading-spinner loading-sm" aria-hidden="true"></span><span class="sr-only">{% translate "Saving…" %}</span></span>
+</button>

@@ -47,6 +47,8 @@ class ListRules:
     code_pattern: str | None  # None: no codes added
     code_rules: tuple[str, ...]  # checked in order; genera has two
     order: str  # "sort_order", "code", "label" or "fixed"
+    # A dropdown reads `code · label` where staff use the code (U0.10a Q2).
+    shows_code: bool = False
 
 
 ALL_CHANGES = frozenset(Change)
@@ -58,7 +60,13 @@ LIST_RULES: dict[ListName, ListRules] = {
     rules.name: rules
     for rules in (
         ListRules(
-            ListName.STAGES, SWITCHING, "stages_order_fixed", None, (), "sort_order"
+            ListName.STAGES,
+            SWITCHING,
+            "stages_order_fixed",
+            None,
+            (),
+            "sort_order",
+            shows_code=True,
         ),
         ListRules(ListName.LOCATIONS, LABEL_ONLY, "locations_fixed", None, (), "code"),
         ListRules(
@@ -68,6 +76,7 @@ LIST_RULES: dict[ListName, ListRules] = {
             MEDIA_CODE_PATTERN,
             ("media_codes_code_format",),
             "code",
+            shows_code=True,
         ),
         ListRules(
             ListName.GENERA,
@@ -76,6 +85,7 @@ LIST_RULES: dict[ListName, ListRules] = {
             GENUS_CODE_PATTERN,
             ("genera_code_format", "genera_code_not_id_prefix"),
             "code",
+            shows_code=True,
         ),
         ListRules(
             ListName.CONTAINER_TYPES,

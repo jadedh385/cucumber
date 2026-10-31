@@ -1,60 +1,52 @@
 {% extends "base.html" %}{% load i18n %}
 {% comment %}
-  One account and its buttons (U0.5 AC11, AC23-AC25). Your own account has no
-  Deactivate or new-password button; the services refuse both anyway (AC24).
+  One account and its buttons (U0.5 AC11, AC23-AC25), on the kit's detail
+  (U0.10a §7.7): Email, Role and State, then the role, then the other buttons
+  in kit-actions. Your own account has no Deactivate or new-password button;
+  the services refuse both anyway (AC24).
 {% endcomment %}
 {% block title %}{% translate "Staff" %}{% endblock %}
 {% block content %}
 {% with account=row.account %}
-<p><a href="{% url 'staff' %}">← {% translate "Staff" %}</a></p>
-<h1>{{ account.first_name|default:account.email }}</h1>
-<p class="email">{{ account.email }}</p>
-<p class="state">{% if account.is_active %}{% translate "Active" %}{% else %}{% translate "Deactivated" %}{% endif %}{% if row.locked_until %} · {% blocktranslate with time=row.locked_until|time:"H:i" %}Locked until {{ time }}{% endblocktranslate %}{% endif %}</p>
-<h2>{% translate "Role" %}</h2>
+<p class="mb-2"><a class="link" href="{% url 'staff' %}">← {% translate "Staff" %}</a></p>
+{% include "kit/detail.html" with detail=detail %}
+<section class="mt-6">
 {% if row.is_you %}
-<p>{{ row.role_label }}. {% translate "You can't change your own role." %}</p>
+  <p>{% translate "You can't change your own role." %}</p>
 {% else %}
-<form method="post" action="{% url 'staff_role' account.pk %}">
-  {% csrf_token %}
-  {% for radio in role_form.role %}<div class="field">{{ radio }}</div>{% endfor %}
-  <button type="submit">{% translate "Save role" %}</button>
-</form>
+  <form method="post" action="{% url 'staff_role' account.pk %}" novalidate>
+    {% csrf_token %}
+    {{ role_form }}
+    {% include "kit/_submit.html" with save=_("Save role") %}
+  </form>
 {% endif %}
-<div class="actions">
+</section>
+<div class="kit-actions">
   {% if row.is_you %}
-  <p><a href="{% url 'password' %}">{% translate "Change your own password" %}</a></p>
+  <a class="btn btn-block" href="{% url 'password' %}">{% translate "Change your own password" %}</a>
   {% else %}
   <form method="post" action="{% url 'staff_new_password' account.pk %}">
     {% csrf_token %}
-    <button type="submit">{% translate "Give a new password" %}</button>
+    {% include "kit/_submit.html" with save=_("Give a new password") %}
   </form>
   {% endif %}
   <form method="post" action="{% url 'staff_unlock' account.pk %}">
     {% csrf_token %}
-    <button type="submit">{% translate "Lift the lock" %}</button>
+    {% include "kit/_submit.html" with save=_("Lift the lock") %}
   </form>
   {% if not row.is_you %}
   {% if account.is_active %}
-  <form method="post" action="{% url 'staff_deactivate' account.pk %}" class="deactivate">
+  <form method="post" action="{% url 'staff_deactivate' account.pk %}" novalidate>
     {% csrf_token %}
-    {% with reason=deactivate_form.reason_code %}
-    <div class="field">
-      <label for="{{ reason.id_for_label }}">{{ reason.label }}</label>
-      <select name="reason_code" id="{{ reason.id_for_label }}">
-        <option value="">{% translate "Choose a reason" %}</option>
-        {% for code, label in deactivate_reasons %}<option value="{{ code }}"{% if code == reason.value %} selected{% endif %}>{% translate label %}</option>{% endfor %}
-      </select>
-      {% for error in reason.errors %}<p class="form-error" role="alert">{{ error }}</p>{% endfor %}
-    </div>
-    {% endwith %}
-    <button type="submit" class="danger">{% translate "Deactivate" %}</button>
+    {{ deactivate_form }}
+    {% include "kit/_submit.html" with save=_("Deactivate") danger=True %}
   </form>
   {% elif row.is_anonymised %}
   <p>{% translate "Their details were removed (PDPA): this account can't be switched back on." %}</p>
   {% else %}
   <form method="post" action="{% url 'staff_reactivate' account.pk %}">
     {% csrf_token %}
-    <button type="submit">{% translate "Reactivate" %}</button>
+    {% include "kit/_submit.html" with save=_("Reactivate") %}
   </form>
   {% endif %}
   {% endif %}

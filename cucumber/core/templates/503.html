@@ -1,0 +1,11 @@
+{% extends "kit/bare.html" %}{% load i18n %}
+{% comment %}
+  A database limit stopped the request (U0.10a AC15, §8.2). It never says
+  nothing was saved: a limit after the view's save leaves the save standing.
+{% endcomment %}
+{% block title %}{% translate "Busy" %}{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-semibold">{% translate "Busy" %}</h1>
+<p class="mb-6">{% translate "Busy, please try again." %}</p>
+<p><a class="btn btn-primary btn-block" href="{% url 'home' %}">{% translate "Home" %}</a></p>
+{% endblock %}

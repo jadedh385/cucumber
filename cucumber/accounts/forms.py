@@ -3,7 +3,7 @@
 They read and check what was typed; the rules are in services.py.
 """
 
-from typing import Any
+from typing import Any, ClassVar
 
 from django import forms
 from django.contrib.auth import authenticate
@@ -24,7 +24,9 @@ from cucumber.accounts.services import (
     one_try_at_a_time,
 )
 from cucumber.core.audit import Reason
+from cucumber.core.kit import ReasonChoiceField
 from cucumber.core.refusals import message_for
+from cucumber.references.models import ReasonList
 
 # Design §2.2. A wrong password, an unknown email and a deactivated account
 # all get WRONG, so nobody can tell which it was (AC2).
@@ -120,6 +122,15 @@ class AddAccountForm(forms.Form):
         label=_("Role"), choices=role_choices, widget=forms.RadioSelect
     )
 
+    # The field each service refusal is shown under (U0.10a §7.1); a rule not
+    # here goes on top of the form.
+    REFUSAL_FIELDS: ClassVar[dict[str, str]] = {
+        "account_role_required": "role",
+        "account_name_too_long": "name",
+        "account_email_invalid": "email",
+        "account_email_taken": "email",
+    }
+
 
 class RoleForm(forms.Form):
     """Change or remove an account's role (U0.6 AC4): the four, or `none`."""
@@ -134,12 +145,20 @@ class RoleForm(forms.Form):
 class DeactivateForm(forms.Form):
     """A reason from the `deactivate` list (U0.7 AC11, D2).
 
-    Plain text here: the service checks the reason's list, so the page shows
-    the same messages a script would get. There is no note: free text would
-    be kept for good and `anonymise` couldn't reach it.
+    A dropdown that passes any code on: the service checks the reason's list,
+    so the page shows the same messages a script would get (U0.10a §7.3).
+    There is no note: free text would be kept for good and `anonymise`
+    couldn't reach it.
     """
 
-    reason_code = forms.CharField(label=_("Reason"), required=False)
+    reason_code = ReasonChoiceField(ReasonList.DEACTIVATE, label=_("Reason"))
+
+    # The box each reason refusal is shown under (U0.7 design §10); the
+    # others are page messages.
+    REFUSAL_FIELDS: ClassVar[dict[str, str]] = {
+        "reason_required": "reason_code",
+        "reason_wrong_list": "reason_code",
+    }
 
     def reason(self) -> Reason | None:
         """The picked reason, or None when none was picked."""

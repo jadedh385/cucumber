@@ -1,20 +1,51 @@
-"""What the person may do, for the templates (U0.6 design §3.3, AC11)."""
+"""What the person may do, and the menu, for the templates (U0.6 §3.3, U0.10a §6.2)."""
 
 from django.http import HttpRequest
 
-from cucumber.accounts.permissions import MATRIX, Permission, may
+from cucumber.accounts.menu import MENU, MenuItem
+from cucumber.accounts.permissions import MATRIX, Permission, Standing, may, standing
+from cucumber.core.requests import is_production
 
 
-def permissions(request: HttpRequest) -> dict[str, frozenset[Permission]]:
-    """`allowed`: the person's permissions, from `request.standing`.
+def standing_of(request: HttpRequest) -> Standing:
+    """`request.standing`, or read now when a page skipped RoleRequired (one query).
 
-    Pages that skip RoleRequired (login, 404, 500) get an empty set.
+    404 and the CSRF page skip it. The reading is kept on the request, so the
+    menu and `allowed` share the one query.
     """
     current = getattr(request, "standing", None)
     if current is None:
+        current = standing(request.user)
+        request.standing = current  # type: ignore[attr-defined]
+    return current
+
+
+def permissions(request: HttpRequest) -> dict[str, frozenset[Permission]]:
+    """`allowed`: the person's permissions; empty for nobody signed in."""
+    current = standing_of(request)
+    if not current.is_active:
         return {"allowed": frozenset()}
     return {
         "allowed": frozenset(
             row.permission for row in MATRIX if may(current.role, row.permission)
+        )
+    }
+
+
+def menu(request: HttpRequest) -> dict[str, tuple[MenuItem, ...]]:
+    """`menu`: the `MENU` items the person may open, in order (U0.10a §6.2, AC5).
+
+    Nobody signed in: no items. Practice only off production.
+    """
+    current = standing_of(request)
+    if not current.is_active:
+        return {"menu": ()}
+    on_production = is_production()
+    return {
+        "menu": tuple(
+            item
+            for item in MENU
+            if may(current.role, item.permission)
+            and (item.on_production or not on_production)
         )
     }

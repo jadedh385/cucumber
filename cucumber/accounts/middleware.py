@@ -16,7 +16,6 @@ from urllib.parse import urlencode, urlsplit, urlunsplit
 
 from django.contrib.auth import logout
 from django.contrib.auth.middleware import LoginRequiredMiddleware
-from django.core.exceptions import PermissionDenied
 from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.http.response import HttpResponseBase
 from django.shortcuts import resolve_url
@@ -26,6 +25,8 @@ from django.utils.http import url_has_allowed_host_and_scheme
 
 from cucumber.accounts.permissions import may, standing
 from cucumber.accounts.services import SESSION_MAX_AGE, change_is_due
+from cucumber.core.refusals import PageRefused
+from cucumber.core.requests import is_htmx
 
 logger = logging.getLogger(__name__)
 
@@ -41,10 +42,6 @@ OPEN_DURING_CHANGE = frozenset({"password", "logout", "login", "health"})
 def view_name(view_func: Callable[..., Any]) -> str:
     """The view's dotted name, for the log line."""
     return f"{view_func.__module__}.{getattr(view_func, '__qualname__', view_func)}"
-
-
-def is_htmx(request: HttpRequest) -> bool:
-    return request.headers.get("HX-Request") == "true"
 
 
 def htmx_page(request: HttpRequest) -> str | None:
@@ -144,7 +141,8 @@ class RoleRequired(MiddlewareMixin):
     """Each page's matrix row must allow the person's role (U0.6 design §3.1).
 
     After PasswordChangeDue. A page with no row is refused too, and logged.
-    Refusals raise PermissionDenied, so `handler403` makes the page (AC10).
+    Refusals raise PageRefused after their one line, so `handler403` makes
+    the page (AC10) without logging it again (U0.10a §9.2).
     """
 
     def process_view(
@@ -161,10 +159,10 @@ class RoleRequired(MiddlewareMixin):
         permission = getattr(view_func, "cucumber_permission", None)
         if permission is None:
             logger.error("page has no permission view=%s", view_name(view_func))
-            raise PermissionDenied
+            raise PageRefused
         if not may(current.role, permission):
             logger.info(
                 "page refused account=%s permission=%s", current.user_id, permission
             )
-            raise PermissionDenied
+            raise PageRefused
         return None

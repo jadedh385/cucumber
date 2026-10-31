@@ -7,6 +7,7 @@ import pytest
 from django.test import override_settings
 from playwright.sync_api import Locator, Page, expect
 
+from e2e.pages import scroll_down
 from e2e.site import REMOTE_ENVIRONMENT, remote_site
 
 pytestmark = pytest.mark.django_db(transaction=True)
@@ -69,8 +70,7 @@ def test_the_banner_stays_at_the_top_while_scrolling(
     open_login(site_url, page)
     page.evaluate("document.body.style.minHeight = '3000px'")
 
-    page.mouse.wheel(0, 2000)
-    page.wait_for_function("window.scrollY > 0")
+    scroll_down(page, 2000)
 
     box = banner(page).bounding_box()
     assert box is not None

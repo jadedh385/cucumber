@@ -1,0 +1,4 @@
+{% comment %}
+  A menu icon by name (U0.10a §6.2), drawn inline so it costs no request.
+  Decoration only: the item's word says what it is.
+{% endcomment %}<svg class="size-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">{% if name == "home" %}<path d="M3 11l9-8 9 8"/><path d="M5 10v10h5v-6h4v6h5V10"/>{% elif name == "users" %}<circle cx="9" cy="8" r="3"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17" cy="9" r="2.5"/><path d="M16 14.2c2.9.5 5 3 5 5.8"/>{% elif name == "beaker" %}<path d="M9 3h6"/><path d="M10 3v6L4.5 19a1.5 1.5 0 0 0 1.3 2h12.4a1.5 1.5 0 0 0 1.3-2L14 9V3"/><path d="M7 15h10"/>{% else %}<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/>{% endif %}</svg>

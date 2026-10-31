@@ -1,0 +1,12 @@
+{% comment %}
+  The words for when an HTMX request goes wrong (U0.10a §4.3, AC13, AC14):
+  one <template> per message, at the end of the body. requests.js copies one
+  into the empty #request-trouble banner above the page. The words stay
+  here, so they are translated; hidden in the banner, its text would hold
+  them all.
+{% endcomment %}{% load i18n %}<template id="trouble-not-confirmed"><div class="alert alert-warning">{% translate "Not confirmed: check your signal and tap Save again. If it was saved, you'll see <em>Already saved</em>." %}</div></template>
+<template id="trouble-offline"><div class="alert alert-warning">{% translate "You're offline or the signal dropped. Nothing was sent." %}</div></template>
+<template id="trouble-busy"><div class="alert alert-warning">{% translate "Busy, please try again." %}</div></template>
+<template id="trouble-stale-page"><div class="alert alert-warning">{% translate "This page was open too long. Reload it and try again." %} <a class="btn btn-sm" href="{{ request.get_full_path }}">{% translate "Reload" %}</a></div></template>
+<template id="trouble-no-access"><div class="alert alert-error">{% translate "You don't have access to this page." %}</div></template>
+<template id="trouble-server-error"><div class="alert alert-error">{% translate "Something went wrong on our side. Tap Save again; if it keeps happening, tell the Owner." %}</div></template>

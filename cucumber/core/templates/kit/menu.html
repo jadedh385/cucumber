@@ -1,0 +1,19 @@
+{% comment %}
+  The menu (U0.10a §6.2, AC5, AC6): `menu` holds the items the person may
+  open. On a phone a bar fixed to the bottom of the screen; from lg up a
+  side menu, with the bar hidden. The item for this page is marked current.
+  These are the only <nav> elements on a page.
+{% endcomment %}{% load i18n %}{% with here=request.resolver_match.url_name %}
+<nav class="kit-side-menu hidden lg:block" aria-label="{% translate 'Menu' %}">
+  <ul class="menu w-56 gap-1">
+    {% for item in menu %}
+      <li><a href="{% url item.url_name %}" class="min-h-11{% if here in item.marks %} menu-active{% endif %}"{% if here in item.marks %} aria-current="page"{% endif %}>{% include "kit/icon.html" with name=item.icon %}{{ item.label }}</a></li>
+    {% endfor %}
+  </ul>
+</nav>
+<nav class="kit-bottom-bar dock lg:hidden" aria-label="{% translate 'Menu' %}">
+  {% for item in menu %}
+    <a href="{% url item.url_name %}"{% if here in item.marks %} class="dock-active" aria-current="page"{% endif %}>{% include "kit/icon.html" with name=item.icon %}<span class="dock-label">{{ item.label }}</span></a>
+  {% endfor %}
+</nav>
+{% endwith %}

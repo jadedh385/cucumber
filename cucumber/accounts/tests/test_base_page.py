@@ -1,10 +1,12 @@
-"""AC6, AC21: the base page every signed-in screen uses, and text marked for Thai.
+"""AC6, AC21: the base page every signed-in screen uses.
 
 The "Practice data" banner on every full page is already checked for every
-template by core's test_practice_banner.py.
+template by core's test_practice_banner.py. The check that every word is
+marked for translation moved to core's test_translation.py and covers every
+app (U0.10a AC26). `base.html` moved to core (U0.10a §6.1); Log out moved to
+the Account page (U0.10a Q3 a), test_account_page.py).
 """
 
-import re
 from pathlib import Path
 
 import pytest
@@ -17,97 +19,42 @@ from cucumber.accounts.tests.helpers import (
     PASSWORD,
     PASSWORD_PAGE,
     STAFF,
-    Response,
     shows_signed_in,
     signed_in,
     text,
 )
 from cucumber.core.tests.trail import as_system
 
-TEMPLATES = Path(settings.BASE_DIR) / "cucumber/accounts/templates"
+CODE = Path(settings.BASE_DIR) / "cucumber"
 DESIGNED_TEMPLATES = [
-    "base.html",
-    "accounts/home.html",
-    "accounts/password.html",
-    "registration/login.html",
+    "core/templates/base.html",
+    "accounts/templates/accounts/home.html",
+    "accounts/templates/accounts/password.html",
+    "accounts/templates/registration/login.html",
 ]
-# Parts of a template that are not text a person reads, or are already
-# marked for translation. Removed before looking for left-over words.
-NOT_TEXT = [
-    r"{%\s*comment\s*%}.*?{%\s*endcomment\s*%}",
-    r"{#.*?#}",
-    r"<style\b.*?</style>",
-    r"<script\b.*?</script>",
-    r"{%\s*blocktranslate\b.*?{%\s*endblocktranslate\s*%}",
-    r"{%.*?%}",
-    r"{{.*?}}",
-    r"<[^>]*>",
-    r"&\w+;",
-]
-# The app's name stays the same in Thai.
-NAMES = {"Cucumber"}
-READABLE_ATTRIBUTES = re.compile(
-    r'\b(?:placeholder|aria-label|title|alt)="([^"]*[A-Za-z][^"]*)"'
-)
-
-
-def template_files() -> list[Path]:
-    return sorted(TEMPLATES.glob("**/*.html"))
-
-
-def words_not_marked(source: str) -> list[str]:
-    readable = [
-        value
-        for value in READABLE_ATTRIBUTES.findall(source)
-        if "{%" not in value and "{{" not in value
-    ]
-    for pattern in NOT_TEXT:
-        source = re.sub(pattern, " ", source, flags=re.DOTALL)
-    words = re.findall(r"[A-Za-z][A-Za-z'’]*", source)
-    return readable + [word for word in words if word not in NAMES]
 
 
 # ------------------------------------------------------------ templates
 @pytest.mark.parametrize("name", DESIGNED_TEMPLATES)
 def test_the_designed_templates_exist(name: str) -> None:
-    assert (TEMPLATES / name).is_file()
+    assert (CODE / name).is_file()
+
+
+def test_the_base_page_is_only_in_core() -> None:
+    """One `base.html`, so no app's copy can win the template search."""
+    assert sorted(
+        path.relative_to(CODE) for path in CODE.glob("*/templates/base.html")
+    ) == [Path("core/templates/base.html")]
 
 
 def test_the_staff_pages_have_their_templates() -> None:
     """List, add and detail at least (design §1)."""
-    assert len(list((TEMPLATES / "accounts").glob("staff_*.html"))) >= 3
-
-
-def test_every_word_on_the_account_pages_is_marked_for_translation() -> None:
-    """D-16: Thai to follow, so all text goes through gettext (AC6)."""
-    unmarked = {
-        str(path.relative_to(TEMPLATES)): words
-        for path in template_files()
-        if (words := words_not_marked(path.read_text()))
-    }
-
-    assert template_files(), "no account templates found"
-    assert unmarked == {}
-
-
-def test_the_translation_check_finds_plain_text() -> None:
-    """Proves the check above would catch an unmarked word."""
-    assert words_not_marked("<p>Log in</p>") == ["Log", "in"]
-    assert words_not_marked('<input placeholder="Email">') == ["Email"]
-    assert words_not_marked("<p>{% translate 'Log in' %}</p>") == []
-    assert (
-        words_not_marked("{% blocktranslate %}Hi {{ n }}{% endblocktranslate %}") == []
-    )
+    staff_pages = (CODE / "accounts/templates/accounts").glob("staff_*.html")
+    assert len(list(staff_pages)) >= 3
 
 
 # ----------------------------------------------------------- AC21 base
-SIGNED_IN_PAGES = [HOME, PASSWORD_PAGE, STAFF, f"{STAFF}new/"]
-
-
-def logout_form(response: Response) -> str:
-    found = re.search(r'<form\b[^>]*action="/accounts/logout/"[^>]*>', text(response))
-    assert found, "no logout form"
-    return found.group(0)
+SIGNED_IN_PAGES = [HOME, PASSWORD_PAGE, STAFF, f"{STAFF}new/", "/account/"]
 
 
 @pytest.mark.django_db
@@ -119,17 +66,6 @@ def test_signed_in_pages_use_the_base_page(owner_client: Client, address: str) -
     assert "base.html" in [template.name for template in response.templates]
     assert "Cucumber" in text(response)
     assert shows_signed_in(text(response), "jade")
-    assert 'method="post"' in logout_form(response).lower()
-
-
-@pytest.mark.django_db
-def test_the_logout_button_carries_a_csrf_token(owner_client: Client) -> None:
-    response = owner_client.get(HOME)
-    html = text(response)
-    start = html.index(logout_form(response))
-    form = html[start : html.index("</form>", start)]
-
-    assert 'name="csrfmiddlewaretoken"' in form
 
 
 @pytest.mark.django_db

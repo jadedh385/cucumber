@@ -11,7 +11,9 @@ from django.contrib.auth.models import User
 from django.db import connection
 from django.test import Client
 from django.test.utils import CaptureQueriesContext
+from pytest_django import DjangoAssertNumQueries
 
+from cucumber.accounts import services
 from cucumber.accounts.tests.helpers import (
     HOME,
     LOGIN,
@@ -372,3 +374,76 @@ def test_deactivating_ends_only_that_persons_sessions(
     assert signed_in_as(owner_client) is not None
     assert not session_ended(owner_client)
     assert not session_ended(pim_client)
+
+
+# ------------------------------------- U0.10a AC25: locks in one query (§10.3)
+LOCKED_EVERY = 7  # every 7th person is locked, so some are and most aren't
+
+
+def people_some_locked(count: int) -> list[User]:
+    """`count` Techs; every 7th has 5 recent wrong tries (locked)."""
+    people = [make_staff(f"person{number}", "tech") for number in range(count)]
+    for number, person in enumerate(people):
+        add_failures(person.username, 5 if number % LOCKED_EVERY == 0 else 2)
+    return people
+
+
+def test_the_list_takes_as_many_queries_for_twenty_people_as_for_one(
+    owner_client: Client,
+) -> None:
+    """Some of them locked: the lock look-up is one query, not one per lock."""
+    add_failures("jade@example.com", 5)
+
+    def queries_for_the_list() -> int:
+        with CaptureQueriesContext(connection) as queries:
+            assert owner_client.get(STAFF).status_code == 200
+        return len(queries.captured_queries)
+
+    for_one = queries_for_the_list()
+    people_some_locked(19)
+
+    assert queries_for_the_list() == for_one
+
+
+def test_the_list_still_shows_who_is_locked(owner_client: Client) -> None:
+    people = people_some_locked(8)
+
+    html = text(owner_client.get(STAFF))
+
+    assert html.count("Locked") == 2, "person0 and person7"
+    assert people[0].first_name in html
+
+
+def test_lock_ends_reads_every_lock_in_one_query(
+    owner: User, django_assert_num_queries: DjangoAssertNumQueries
+) -> None:
+    people = people_some_locked(8)
+    emails = [person.username for person in people]
+
+    with django_assert_num_queries(1):
+        ends = services.lock_ends(emails)
+
+    assert set(ends) == {emails[0], emails[7]}
+
+
+def test_lock_ends_agrees_with_locked_until_for_each_email(owner: User) -> None:
+    people = people_some_locked(8)
+    emails = [person.username for person in people] + ["nobody@example.com"]
+
+    ends = services.lock_ends(emails)
+
+    for email in emails:
+        assert ends.get(email) == services.locked_until(email), email
+
+
+def test_lock_ends_matches_emails_as_the_lock_does(owner: User) -> None:
+    """The lock is kept by the email's key, whatever its letter case."""
+    add_failures("jade@example.com", 5)
+
+    ends = services.lock_ends(["Jade@Example.com"])
+
+    assert ends == {"Jade@Example.com": services.locked_until("jade@example.com")}
+
+
+def test_lock_ends_for_no_one_is_empty(db: None) -> None:
+    assert services.lock_ends([]) == {}

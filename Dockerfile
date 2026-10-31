@@ -15,7 +15,18 @@ WORKDIR /app
 # Packages first, so a code change doesn't reinstall them.
 COPY pyproject.toml uv.lock ./
 RUN uv sync --locked --no-dev --no-install-project
+
+# The pinned Tailwind CLI, checked by its SHA-256 (U0.10a §3.3). Only css.py
+# is copied first, so this layer is downloaded again only when it changes.
+# Kept outside /app, so the run stage never copies it.
+COPY scripts/__init__.py scripts/css.py scripts/
+ENV CUCUMBER_TOOLS=/opt/tools
+RUN /app/.venv/bin/python -m scripts.css fetch
 COPY . .
+
+# Build the one stylesheet from core/css/source.css (nothing is fetched at
+# run time, AC2).
+RUN /app/.venv/bin/python -m scripts.css build
 
 # Gather CSS and images, with whitenoise's manifest. Settings need values to
 # load, so fake ones are given on this line only: they never reach the image.
@@ -40,5 +51,6 @@ USER cucumber
 EXPOSE 8000
 
 # gthread copes with slow phones on mobile data; --max-requests restarts a
-# worker now and then, so slow memory growth never builds up.
-CMD ["gunicorn", "cucumber.wsgi", "--bind", "0.0.0.0:8000", "--worker-class", "gthread", "--workers", "2", "--threads", "4", "--timeout", "60", "--max-requests", "1000", "--max-requests-jitter", "100"]
+# worker now and then, so slow memory growth never builds up. No control
+# socket: it would go under a home folder the read-only container lacks.
+CMD ["gunicorn", "cucumber.wsgi", "--bind", "0.0.0.0:8000", "--worker-class", "gthread", "--workers", "2", "--threads", "4", "--timeout", "60", "--max-requests", "1000", "--max-requests-jitter", "100", "--no-control-socket"]

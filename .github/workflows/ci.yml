@@ -98,6 +98,14 @@ jobs:
       - name: Install the test browser
         run: uv run playwright install --with-deps chromium
 
+      # The pinned Tailwind CLI that check.sh builds the CSS with (U0.10a
+      # §3.3): downloaded again only when css.py (its version, hashes) changes.
+      - name: Cache the Tailwind CLI
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .cache/tools
+          key: tailwind-${{ runner.os }}-${{ hashFiles('scripts/css.py') }}
+
       - name: Create the database roles
         env:
           PGHOST: localhost

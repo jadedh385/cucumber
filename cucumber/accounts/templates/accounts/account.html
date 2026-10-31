@@ -1,0 +1,17 @@
+{% extends "base.html" %}{% load i18n %}
+{% comment %}
+  Your account (U0.10a Q3 a), §6.2): name and email, Change password, and
+  Log out, which used to be in every page's top bar.
+{% endcomment %}
+{% block title %}{% translate "Account" %}{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-semibold break-all">{{ user.first_name|default:user.email }}</h1>
+<p class="mb-6 text-base-content/70 break-all">{{ user.email }}</p>
+<div class="kit-actions flex flex-col gap-3">
+  <a class="btn btn-block" href="{% url 'password' %}">{% translate "Change password" %}</a>
+  <form method="post" action="{% url 'logout' %}">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-outline btn-block">{% translate "Log out" %}</button>
+  </form>
+</div>
+{% endblock %}

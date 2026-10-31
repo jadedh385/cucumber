@@ -67,8 +67,8 @@ def page_text(response: Response) -> str:
 
 
 def list_row_of(page: str, email: str) -> str:
-    """The Staff list's `<li>` for the account with this email."""
-    [row] = [item for item in page.split("<li") if email in item]
+    """The Staff list's `<tr>` for the account with this email."""
+    [row] = [item for item in page.split("<tr") if email in item]
     return row
 
 

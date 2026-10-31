@@ -6,7 +6,7 @@ from django.urls import path
 from cucumber.accounts import views as accounts
 from cucumber.accounts.forms import LoginForm
 from cucumber.accounts.permissions import Permission, allowed_for
-from cucumber.core.views import health
+from cucumber.core.views import health, practice
 
 # Shows the "Practice data" banner on staging, as every page does (U0.4a AC9).
 handler500 = "cucumber.core.views.server_error"
@@ -27,6 +27,8 @@ urlpatterns = [
         name="logout",
     ),
     path("accounts/password/", accounts.password, name="password"),
+    path("account/", accounts.account, name="account"),
+    path("practice/", practice, name="practice"),
     path("staff/", accounts.staff_list, name="staff"),
     path("staff/new/", accounts.staff_new, name="staff_new"),
     path("staff/<int:account_id>/", accounts.staff_detail, name="staff_detail"),

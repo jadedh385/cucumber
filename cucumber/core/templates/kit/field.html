@@ -1,0 +1,15 @@
+{% comment %}
+  One field (U0.10a §7.1): label, widget, help text and the error under it.
+  The error's id is the one Django's aria-describedby names. The help text
+  is marked safe because it comes from code (Django's password rules write
+  HTML lists), never from what a person typed (U0.5 G3).
+{% endcomment %}<div class="kit-field mb-4">
+{% if field.use_fieldset %}<fieldset{% if field.aria_describedby %} aria-describedby="{{ field.aria_describedby }}"{% endif %}>
+  {% if field.label %}<legend class="mb-1 font-medium">{{ field.label }}</legend>{% endif %}
+{% elif field.label %}<label class="mb-1 block font-medium" for="{{ field.id_for_label }}">{{ field.label }}</label>{% endif %}
+  {{ field }}
+  {% if field.week %}<output class="mt-1 block text-sm text-base-content/70" for="{{ field.id_for_label }}">{{ field.week }}</output>{% endif %}
+  {% if field.help_text %}<div class="kit-help mt-1 text-sm text-base-content/70"{% if field.auto_id %} id="{{ field.auto_id }}_helptext"{% endif %}>{{ field.help_text|safe }}</div>{% endif %}
+  {% if field.errors %}<p class="kit-error mt-1 text-error"{% if field.auto_id %} id="{{ field.auto_id }}_error"{% endif %}>{% for error in field.errors %}{{ error }}{% if not forloop.last %} {% endif %}{% endfor %}</p>{% endif %}
+{% if field.use_fieldset %}</fieldset>{% endif %}
+</div>

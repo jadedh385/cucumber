@@ -5,10 +5,12 @@ and the page checks sign-in (U0.6). Not cached: the lists are a few rows each.
 The fixed lists come from `fixed.py` and run no query.
 """
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Any
 
 from django.db import models
+from django.db.models import F
 
 from cucumber.core.refusals import refuse
 from cucumber.references.fixed import Action, CountUnit
@@ -18,6 +20,8 @@ from cucumber.references.models import (
     Genus,
     Location,
     MediaCode,
+    Reason,
+    ReasonList,
     Stage,
 )
 
@@ -34,6 +38,7 @@ FIXED: dict[ListName, type[models.TextChoices]] = {
 }
 # The label column is `name` on genera only.
 LABEL_COLUMN = {ListName.GENERA: "name"}
+OTHER = "Other"  # the reason listed last
 
 
 @dataclass(frozen=True)
@@ -75,6 +80,34 @@ def active_items(name: ListName) -> tuple[Item, ...]:
         return fixed_items(name)
     found = rows(name).filter(active=True).order_by(order_column(name), "code")
     return tuple(Item(*row) for row in found)
+
+
+def all_items(name: ListName) -> dict[str, Item]:
+    """Every item by code, switched off or not, in the list's order (U0.10a AC9).
+
+    For pages that show many rows. One query; none for a fixed list. The
+    reserved stages (no place in the order) come last, by code.
+    """
+    if name in FIXED:
+        found: Iterable[Item] = fixed_items(name)
+    else:
+        order = F(order_column(name)).asc(nulls_last=True)
+        found = (Item(*row) for row in rows(name).order_by(order, "code"))
+    return {each.code: each for each in found}
+
+
+def active_reasons(applies_to: ReasonList) -> tuple[Item, ...]:
+    """The active reasons of one list, by label, "Other" last (U0.10a §7.3).
+
+    One query.
+    """
+    found = Reason.objects.filter(applies_to=applies_to, active=True)
+    reasons = (
+        Item(code, label, True) for code, label in found.values_list("code", "label")
+    )
+    return tuple(
+        sorted(reasons, key=lambda reason: (reason.label == OTHER, reason.label))
+    )
 
 
 def item(name: ListName, code: str) -> Item | None:

@@ -28,13 +28,15 @@ from django.db.models.functions import Cast
 from django.db.models.lookups import GreaterThanOrEqual
 
 from cucumber.batches.models import Batch
+from cucumber.core.dates import BANGKOK
+from cucumber.core.dates import (
+    ENTRY_WINDOW_DAYS as ENTRY_WINDOW_DAYS,
+)  # imported from here
 from cucumber.core.expressions import TransactionNow
 from cucumber.events.projection import Effective, in_order
 from cucumber.references.fixed import Action as Action  # still imported from here
 from cucumber.references.models import MediaCode, Reason, Stage
 
-BANGKOK = "Asia/Bangkok"
-ENTRY_WINDOW_DAYS = 7  # Q5: how far back staff may date an entry
 CLOCK_ALLOWANCE = timedelta(minutes=5)  # Q5: a phone clock a little ahead
 
 
@@ -94,7 +96,7 @@ def only_when(action: str, target: str) -> Q:
 def bangkok_date(field: str) -> Cast:
     """`(field AT TIME ZONE 'Asia/Bangkok')::date`: the date the picker shows."""
     local = Func(
-        Value(BANGKOK), F(field), function="timezone", output_field=DateTimeField()
+        Value(BANGKOK.key), F(field), function="timezone", output_field=DateTimeField()
     )
     return Cast(local, output_field=DateField())
 

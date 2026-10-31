@@ -17,6 +17,7 @@ staticfiles
 .mypy_cache
 .ruff_cache
 .coverage
+.cache
 htmlcov
 test-results
 *.code-workspace

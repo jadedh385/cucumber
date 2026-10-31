@@ -1,16 +1,11 @@
-{% load static %}<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% if environment == "staging" %}[Practice] {% endif %}Page not found · Cucumber</title>
-  <link rel="stylesheet" href="{% static 'core/cucumber.css' %}">
-</head>
-<body class="plain-page">
-  {% include "core/_practice_banner.html" %}
-  <main>
-    <h1>Page not found</h1>
-    <p>There is no page at this address. Check the link, or go back.</p>
-  </main>
-</body>
-</html>
+{% extends "base.html" %}{% load i18n %}
+{% comment %}
+  A missing page (U0.10a AC21, §14). On the base page, so someone signed in
+  keeps the menu.
+{% endcomment %}
+{% block title %}{% translate "Page not found" %}{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-semibold">{% translate "Page not found" %}</h1>
+<p class="mb-6">{% translate "There is no page at this address. Check the link, or go home." %}</p>
+<p><a class="btn btn-primary btn-block" href="{% url 'home' %}">{% translate "Home" %}</a></p>
+{% endblock %}

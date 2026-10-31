@@ -11,7 +11,6 @@ import psycopg
 import pytest
 from django.contrib.auth.backends import ModelBackend
 from django.contrib.auth.models import User
-from django.db import OperationalError
 from django.http import HttpRequest
 from django.test import Client, RequestFactory, override_settings
 
@@ -351,7 +350,8 @@ def test_one_emails_tries_are_checked_one_at_a_time(
     """Tries sent at the same moment can't all pass the check (G4 M3).
 
     Another connection holds GENE's try lock; this login must wait for it,
-    so with a short lock_timeout it gives up instead of checking the password.
+    so with a short lock_timeout it gives up instead of checking the password,
+    and answers "Busy" (U0.10a AC15; it raised before the Busy page).
     """
     app_db.execute(
         "SELECT pg_advisory_lock(%s::integer, hashtext(%s))",
@@ -359,11 +359,11 @@ def test_one_emails_tries_are_checked_one_at_a_time(
     )
     run("SET lock_timeout = '200ms'")
     try:
-        with pytest.raises(OperationalError):
-            log_in(Client(), GENE, "not-the-password")
+        response = log_in(Client(), GENE, "not-the-password")
     finally:
         run("RESET lock_timeout")
 
+    assert response.status_code == 503
     assert failures(GENE) == 0
 
 
